@@ -25,6 +25,7 @@ import { createRunLog } from "../db/queries/run-logs.js";
 import { getSetting } from "../db/queries/settings.js";
 import { computeNextFireAt } from "../scheduler/schedule.js";
 import { emit } from "../ipc/emitter.js";
+import { generateRunSummary } from "../planner/summarize.js";
 import type { RunStatus, ClaudeCodeRunResult } from "@openorchestra/shared";
 
 const DEFAULT_MAX_CONCURRENCY = 1;
@@ -185,8 +186,8 @@ export class Executor {
     // Remove from active runs
     this.activeRuns.delete(runId);
 
-    // Handle completion
-    this.onRunCompleted(runId, job, result);
+    // Handle completion (includes async summary generation)
+    await this.onRunCompleted(runId, job, result);
 
     // Try to process the next item in the queue
     this.processNext();
@@ -234,12 +235,12 @@ export class Executor {
     };
   }
 
-  /** Handle run completion: update status, nextFireAt, emit events */
-  private onRunCompleted(
+  /** Handle run completion: determine status, summarise, persist, emit events */
+  private async onRunCompleted(
     runId: string,
     job: { id: string; scheduleType: string; scheduleConfig: unknown },
     result: ClaudeCodeRunResult,
-  ): void {
+  ): Promise<void> {
     const finishedAt = new Date().toISOString();
 
     // Determine final status
@@ -259,18 +260,24 @@ export class Executor {
       finalStatus = "failed";
     }
 
-    // Update run status
+    // Generate AI summary BEFORE updating run — so the summary is present
+    // in the DB when the statusChanged event reaches the UI
+    const summary = await generateRunSummary(runId, finalStatus);
+
+    // Update run status with summary
     updateRun({
       id: runId,
       status: finalStatus,
       finishedAt,
       exitCode: result.exitCode,
+      summary,
     });
 
     emit("run.statusChanged", {
       runId,
       status: finalStatus,
       previousStatus: "running",
+      summary,
     });
     emit("run.completed", {
       runId,

@@ -714,12 +714,12 @@ Summarisation failures — API errors, timeouts, malformed responses — must ne
 ---
 
 ### Phase 6 Completion Checklist
-- [ ] A summary is generated for every run reaching a terminal state
-- [ ] Summaries use Haiku, not Sonnet
-- [ ] Long outputs are truncated from the beginning, keeping the end
-- [ ] Summaries are 2–3 sentences maximum
-- [ ] Summaries appear in the runs list (first line) and the run detail panel (full paragraph)
-- [ ] Summarisation failures are logged and handled gracefully with no UI crash
+- [x] A summary is generated for every run reaching a terminal state
+- [x] Summaries use Haiku, not Sonnet
+- [x] Long outputs are truncated from the beginning, keeping the end
+- [x] Summaries are 2–3 sentences maximum
+- [x] Summaries appear in the runs list (first line) and the run detail panel (full paragraph)
+- [x] Summarisation failures are logged and handled gracefully with no UI crash
 
 ---
 

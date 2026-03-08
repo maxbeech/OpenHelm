@@ -36,7 +36,7 @@ const TRIGGER_LABELS: Record<TriggerSource, string> = {
 
 export function RunsScreen() {
   const { activeProjectId, filter } = useAppStore();
-  const { runs, loading, fetchRuns, updateRunStatus, updateRunInStore } =
+  const { runs, loading, fetchRuns, updateRunInStore } =
     useRunStore();
   const { jobs, fetchJobs } = useJobStore();
 
@@ -57,12 +57,16 @@ export function RunsScreen() {
     if (filter.runId) setSelectedRunId(filter.runId);
   }, [filter.runId]);
 
-  // Listen for live run status changes
+  // Listen for live run status changes (may include summary for terminal states)
   const handleStatusChange = useCallback(
-    (data: { runId: string; status: RunStatus; jobId: string }) => {
-      updateRunStatus(data.runId, data.status);
+    (data: { runId: string; status: RunStatus; summary?: string | null }) => {
+      updateRunInStore({
+        id: data.runId,
+        status: data.status,
+        ...(data.summary != null && { summary: data.summary }),
+      });
     },
-    [updateRunStatus],
+    [updateRunInStore],
   );
   useAgentEvent("run.statusChanged", handleStatusChange);
 
