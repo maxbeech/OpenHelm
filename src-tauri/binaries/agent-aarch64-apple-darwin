@@ -1,0 +1,5 @@
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+export OPENORCHESTRA_MIGRATIONS_PATH="$PROJECT_ROOT/agent/src/db/migrations"
+exec node "$PROJECT_ROOT/agent/dist/agent.mjs"

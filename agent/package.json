@@ -1,0 +1,21 @@
+{
+  "name": "@openorchestra/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch"
+  },
+  "dependencies": {
+    "@openorchestra/shared": "*",
+    "better-sqlite3": "^11.9.1",
+    "drizzle-orm": "0.38.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "0.30.4",
+    "esbuild": "^0.25.4",
+    "typescript": "^5.8.3"
+  }
+}

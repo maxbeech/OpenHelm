@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-node/
+target/
+agent/dist/
+
+# Tauri generated
+src-tauri/gen/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Element clones (design reference only)
+element_clones/
+
+
+# Local Claude config
+CLAUDE.local.md
