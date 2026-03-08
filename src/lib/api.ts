@@ -27,6 +27,12 @@ import type {
   TriggerRunParams,
   CancelRunParams,
   SchedulerStatus,
+  AssessGoalParams,
+  AssessmentResult,
+  GeneratePlanParams,
+  GeneratedPlan,
+  CommitPlanParams,
+  CommitPlanResult,
 } from "@openorchestra/shared";
 
 // ─── Projects ───
@@ -185,4 +191,24 @@ export function cancelRun(params: CancelRunParams): Promise<{ cancelled: boolean
 
 export function getSchedulerStatus(): Promise<SchedulerStatus> {
   return agentClient.request<SchedulerStatus>("scheduler.status");
+}
+
+// ─── Planner ───
+
+export function assessGoal(
+  params: AssessGoalParams,
+): Promise<AssessmentResult> {
+  return agentClient.request<AssessmentResult>("planner.assess", params);
+}
+
+export function generatePlan(
+  params: GeneratePlanParams,
+): Promise<GeneratedPlan> {
+  return agentClient.request<GeneratedPlan>("planner.generate", params);
+}
+
+export function commitPlan(
+  params: CommitPlanParams,
+): Promise<CommitPlanResult> {
+  return agentClient.request<CommitPlanResult>("planner.commit", params);
 }

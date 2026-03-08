@@ -1,6 +1,6 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { getDb } from "../init.js";
-import { runs } from "../schema.js";
+import { runs, jobs } from "../schema.js";
 import type {
   Run,
   RunStatus,
@@ -52,6 +52,13 @@ export function listRuns(params?: ListRunsParams): Run[] {
   const db = getDb();
   const conditions = [];
 
+  if (params?.projectId) {
+    const jobIdsSubquery = db
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(eq(jobs.projectId, params.projectId));
+    conditions.push(inArray(runs.jobId, jobIdsSubquery));
+  }
   if (params?.jobId) {
     conditions.push(eq(runs.jobId, params.jobId));
   }

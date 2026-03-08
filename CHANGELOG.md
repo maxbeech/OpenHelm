@@ -108,3 +108,82 @@
 - IPC handlers: `planner.assess`, `planner.generate`, `planner.commit`
 - Shared types: `AssessmentResult`, `ClarifyingQuestion`, `PlannedJob`, `GeneratedPlan`, `CommitPlanResult`, plus IPC param types
 - 46 new tests (208 total): llm-client (5), llm-loop (7), llm-tools (8), planner-assess (9), planner-generate (10), planner-commit (7)
+
+### Phase 5 — Core UI
+- Design system and visual language (`src/styles/globals.css`)
+  - Deep navy colour palette with warm amber accent
+  - Tailwind CSS 4 theme tokens via `@theme inline`
+  - Custom animations: `pulse-border` for running states, `pulse-dot` for sidebar indicators
+  - Dark-themed scrollbar styling, monospace log viewer typography
+  - `tw-animate-css` for shadcn/ui component transitions
+- 17 shadcn/ui primitive components installed (button, input, textarea, label, badge, switch, select, sheet, dialog, card, separator, skeleton, scroll-area, dropdown-menu, radio-group, progress, tooltip)
+- Application shell and navigation (`src/components/layout/`)
+  - `AppShell`: fixed sidebar + main content layout
+  - `Sidebar`: project selector dropdown, 4-item navigation (Goals, Jobs, Runs, Settings), live count badges with pulse animation for running runs
+- Zustand stores (`src/stores/`)
+  - `app-store`: page routing, navigation filters, active project, onboarding state, agent readiness
+  - `project-store`: project CRUD with async fetching
+  - `goal-store`: goal listing and status updates
+  - `job-store`: job listing, enable/disable toggle, delete
+  - `run-store`: run listing, manual trigger, cancel, real-time status updates
+- Custom React hooks (`src/hooks/`)
+  - `useAgentEvent`: subscribes to agent events via `CustomEvent` on `window`
+  - `useRunLogs`: write-through buffer pattern for log streaming (100ms flush interval)
+  - `useAutoScroll`: auto-scroll with user scroll detection and "Jump to latest" support
+- Onboarding wizard (`src/components/onboarding/`)
+  - 5-step flow: Welcome → Claude Code detection → API key → First project → Complete
+  - Gates entire application until onboarding is complete
+  - Auto-detection of Claude Code with manual path override
+  - API key input with masked display and test functionality
+  - Native directory picker via `@tauri-apps/plugin-dialog`
+- Goals screen (`src/components/goals/goals-screen.tsx`)
+  - Prominent goal input with example chips
+  - Responsive goal card grid with status, job count, latest run, next fire time
+  - Animated border on cards with running jobs
+- Goal creation sheet (`src/components/goals/goal-creation-sheet.tsx`)
+  - 4-step slide-over: Goal input → Clarification (conditional) → Plan review → Confirmation
+  - Clarification step: radio chips with "Something else" free-text option
+  - Plan review: editable job cards with name, prompt, schedule; add/delete jobs
+  - Human-readable schedule display for all schedule types
+  - Summary banner showing job counts and schedule breakdown
+- Jobs screen (`src/components/jobs/`)
+  - Table view with goal filter dropdown and show/hide disabled toggle
+  - Columns: name, goal, schedule, enabled toggle, last run status, next fire time
+  - Right-side detail panel with prompt, schedule, run now button, run history
+  - "Run now" confirmation when a run is already in progress
+- Runs screen (`src/components/runs/`)
+  - Table view with job and status filter dropdowns
+  - Real-time status updates via `run.statusChanged` events (no polling)
+  - Trigger source labels (Scheduled / Manual / Corrective)
+  - Right-side detail panel with status banner, cancel button, AI summary, log viewer
+- Run status banner (`src/components/runs/run-status-banner.tsx`)
+  - Full-width coloured banners: amber (running), green (succeeded), red (failed)
+  - Live elapsed time counter updating every second for running runs
+- Log viewer (`src/components/runs/log-viewer.tsx`)
+  - Monospace display with stdout/stderr colour differentiation
+  - Write-through buffer pattern: events buffered in `useRef`, flushed to state at 100ms intervals
+  - Auto-scroll during live runs, pauses when user scrolls up
+  - "Jump to latest" button appears when user scrolls up during live run
+  - Search with highlight support
+- Settings screen (`src/components/settings/settings-screen.tsx`)
+  - Claude Code: detected path/version display, manual path override
+  - Anthropic API: masked key display, change/add key
+  - Execution: max concurrent runs (1-3), default timeout (10-120 minutes)
+  - Application: version display, external links
+- Shared components (`src/components/shared/`)
+  - `RunStatusBadge` / `GoalStatusBadge`: coloured badges with icons for all statuses
+  - `EmptyState`: icon + title + description + optional action
+  - `LoadingSkeleton`: card, table row, and list skeleton variants
+  - `NewProjectDialog`: project creation dialog for adding projects post-onboarding
+- Utility functions (`src/lib/format.ts`)
+  - `formatSchedule`: human-readable schedule descriptions for once/interval/cron
+  - `formatRelativeTime`: relative time strings (just now, 5m ago, in 2h)
+  - `formatDuration`: elapsed time formatting (<1s, 45s, 2m 5s, 1h 2m)
+  - `getElapsed`: duration calculation between ISO dates
+- Frontend API additions
+  - Planner wrappers: `assessGoal()`, `generatePlan()`, `commitPlan()`
+  - `projectId` filter added to `ListRunsParams` for project-scoped run queries
+- Frontend test infrastructure
+  - Vitest config with jsdom environment, React testing library
+  - Tauri API mocks for testing without native runtime
+  - 45 new tests (254 total): stores (10), format utils (20), hooks (3), components (12)

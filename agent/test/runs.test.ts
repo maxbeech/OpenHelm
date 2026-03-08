@@ -125,6 +125,43 @@ describe("run queries", () => {
     expect(deleteRun(run.id)).toBe(true);
     expect(getRun(run.id)).toBeNull();
   });
+
+  it("should filter runs by projectId", () => {
+    // Create a second project with its own job and runs
+    const project2 = createProject({
+      name: "Other Project",
+      directoryPath: "/tmp/other-project",
+    });
+    const job2 = createJob({
+      projectId: project2.id,
+      name: "Other Job",
+      prompt: "other test",
+      scheduleType: "once",
+      scheduleConfig: { fireAt: new Date().toISOString() },
+    });
+    createRun({ jobId: job2.id, triggerSource: "manual" });
+    createRun({ jobId: job2.id, triggerSource: "scheduled" });
+
+    // Filter by project2 — should only return runs for job2
+    const project2Runs = listRuns({ projectId: project2.id });
+    expect(project2Runs.length).toBe(2);
+    project2Runs.forEach((r) => expect(r.jobId).toBe(job2.id));
+
+    // Filter by original project — should not include project2 runs
+    const project1Runs = listRuns({ projectId });
+    project1Runs.forEach((r) => expect(r.jobId).toBe(jobId));
+    expect(project1Runs.length).toBeGreaterThanOrEqual(1);
+
+    // Filter by projectId + status combined
+    const filteredRuns = listRuns({
+      projectId: project2.id,
+      status: "queued",
+    });
+    filteredRuns.forEach((r) => {
+      expect(r.jobId).toBe(job2.id);
+      expect(r.status).toBe("queued");
+    });
+  });
 });
 
 describe("run log queries", () => {

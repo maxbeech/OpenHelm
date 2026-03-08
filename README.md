@@ -30,28 +30,35 @@ This starts the Vite dev server (port 1420), compiles the Rust shell, and launch
 ## Testing
 
 ```bash
-npm test              # Run all agent tests
-cd agent && npm test  # Run agent tests directly
+npm test              # Run all tests (agent + UI)
+npm run test:agent    # Run agent tests only
+npm run test:ui       # Run frontend tests only
 ```
 
-Tests use real SQLite databases in temporary directories — no mocks.
+Agent tests use real SQLite databases in temporary directories. Frontend tests use jsdom with mocked Tauri APIs.
 
 ## Architecture
 
-- **`src/`** — React frontend (Vite + Tailwind CSS 4)
+- **`src/`** — React frontend (Vite + Tailwind CSS 4 + shadcn/ui)
+  - `src/components/layout/` — AppShell, Sidebar with project selector
+  - `src/components/onboarding/` — 5-step onboarding wizard
+  - `src/components/goals/` — Goals screen, goal cards, goal creation sheet
+  - `src/components/jobs/` — Jobs table with detail panel
+  - `src/components/runs/` — Runs table, run detail panel, log viewer
+  - `src/components/settings/` — Settings screen (Claude Code, API key, execution, app)
+  - `src/components/shared/` — Status badges, empty states, skeletons
+  - `src/stores/` — Zustand stores (app, project, goal, job, run)
+  - `src/hooks/` — useAgentEvent, useRunLogs, useAutoScroll
+  - `src/lib/api.ts` — Typed wrapper over all IPC calls
 - **`src-tauri/`** — Tauri Rust shell (thin wrapper)
 - **`agent/`** — Node.js background agent (sidecar)
-  - `agent/src/db/schema.ts` — Drizzle schema (Projects, Goals, Jobs, Runs, RunLogs, Settings)
-  - `agent/src/db/queries/` — Named query functions per entity
-  - `agent/src/ipc/handlers/` — IPC handlers per domain
-  - `agent/src/scheduler/schedule.ts` — Schedule computation (once, interval, cron)
-  - `agent/src/claude-code/runner.ts` — ClaudeCodeRunner (sole entry point for spawning Claude Code)
-  - `agent/src/claude-code/detector.ts` — CLI auto-detection and version management
-  - `agent/src/claude-code/interactive-detector.ts` — Detects when Claude Code is waiting for input
-  - `agent/src/claude-code/stream-parser.ts` — Parses `stream-json` output into log entries
-  - `agent/src/scheduler/index.ts` — 1-minute tick scheduler, enqueues due jobs
-  - `agent/src/scheduler/queue.ts` — In-memory priority queue (manual > scheduled > corrective)
-  - `agent/src/executor/index.ts` — Worker pool: dequeues runs, spawns ClaudeCodeRunner, manages lifecycle
+  - `agent/src/db/` — Drizzle schema, migrations, query layer
+  - `agent/src/ipc/` — IPC server and domain handlers
+  - `agent/src/claude-code/` — ClaudeCodeRunner, detector, stream parser
+  - `agent/src/scheduler/` — 1-minute tick scheduler, priority queue
+  - `agent/src/executor/` — Worker pool, process lifecycle management
+  - `agent/src/llm/` — Anthropic SDK wrapper, agent loop, tool definitions
+  - `agent/src/planner/` — Goal assessment, plan generation, plan commit
 - **`shared/`** — IPC type contract shared between frontend and agent
 - **`docs/`** — PRD, implementation plan, competitor research
 

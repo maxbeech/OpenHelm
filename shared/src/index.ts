@@ -231,6 +231,7 @@ export interface SetSettingParams {
 
 // List params
 export interface ListRunsParams {
+  projectId?: string;
   jobId?: string;
   status?: RunStatus;
   limit?: number;

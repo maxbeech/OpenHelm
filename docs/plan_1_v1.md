@@ -672,24 +672,24 @@ The Settings screen is accessible from the bottom of the sidebar and contains fo
 ---
 
 ### Phase 5 Completion Checklist
-- [ ] Fresh install → onboarding → first project → goal creation sheet opens automatically
-- [ ] Onboarding completes correctly on a machine with Claude Code already installed
-- [ ] Onboarding completes correctly on a machine where Claude Code is not yet installed
-- [ ] Goal creation flow works end-to-end: input → (optional clarification) → plan review → approve → once-job fires within 60 seconds
-- [ ] Plan review correctly shows human-readable schedules for all schedule types
-- [ ] Jobs can be edited and deleted from the plan before approving
-- [ ] Jobs screen shows all jobs with correct status and next scheduled time
-- [ ] Enabled toggle on jobs screen takes effect immediately
-- [ ] "Run now" triggers a manual run visible in the runs screen immediately
-- [ ] Runs screen shows live status updates without page refresh
-- [ ] Log viewer auto-scrolls during live runs and stays put when the user manually scrolls up
-- [ ] Log viewer handles at least 5,000 lines without visible performance degradation
-- [ ] "Jump to latest" button appears when the user scrolls up during a live run
-- [ ] Settings changes take effect for new runs immediately
-- [ ] All screens have correct empty states — no blank screens
-- [ ] All screens have skeleton loaders for initial data loads
-- [ ] All screens are usable at 960×600 minimum window size
-- [ ] No TypeScript errors anywhere in `src/`
+- [x] Fresh install → onboarding → first project → goal creation sheet opens automatically
+- [x] Onboarding completes correctly on a machine with Claude Code already installed
+- [x] Onboarding completes correctly on a machine where Claude Code is not yet installed
+- [x] Goal creation flow works end-to-end: input → (optional clarification) → plan review → approve → once-job fires within 60 seconds
+- [x] Plan review correctly shows human-readable schedules for all schedule types
+- [x] Jobs can be edited and deleted from the plan before approving
+- [x] Jobs screen shows all jobs with correct status and next scheduled time
+- [x] Enabled toggle on jobs screen takes effect immediately
+- [x] "Run now" triggers a manual run visible in the runs screen immediately
+- [x] Runs screen shows live status updates without page refresh
+- [x] Log viewer auto-scrolls during live runs and stays put when the user manually scrolls up
+- [x] Log viewer handles at least 5,000 lines without visible performance degradation
+- [x] "Jump to latest" button appears when the user scrolls up during a live run
+- [x] Settings changes take effect for new runs immediately
+- [x] All screens have correct empty states — no blank screens
+- [x] All screens have skeleton loaders for initial data loads
+- [x] All screens are usable at 960×600 minimum window size
+- [x] No TypeScript errors anywhere in `src/`
 
 ---
 
