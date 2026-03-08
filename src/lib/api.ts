@@ -29,6 +29,8 @@ import type {
   SchedulerStatus,
   AssessGoalParams,
   AssessmentResult,
+  AssessPromptParams,
+  PromptAssessmentResult,
   GeneratePlanParams,
   GeneratedPlan,
   CommitPlanParams,
@@ -194,6 +196,15 @@ export function getSchedulerStatus(): Promise<SchedulerStatus> {
 }
 
 // ─── Planner ───
+
+export function assessPrompt(
+  params: AssessPromptParams,
+): Promise<PromptAssessmentResult> {
+  return agentClient.request<PromptAssessmentResult>(
+    "planner.assessPrompt",
+    params,
+  );
+}
 
 export function assessGoal(
   params: AssessGoalParams,

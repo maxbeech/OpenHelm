@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
-import { Briefcase } from "lucide-react";
+import { Briefcase, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -12,7 +13,9 @@ import { useAppStore } from "@/stores/app-store";
 import { useJobStore } from "@/stores/job-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { useRunStore } from "@/stores/run-store";
+import { useProjectStore } from "@/stores/project-store";
 import { JobDetailPanel } from "./job-detail-panel";
+import { JobCreationSheet } from "./job-creation-sheet";
 import { RunStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { TableRowSkeleton } from "@/components/shared/loading-skeleton";
@@ -24,12 +27,19 @@ export function JobsScreen() {
   const { jobs, loading, fetchJobs, toggleEnabled } = useJobStore();
   const { goals, fetchGoals } = useGoalStore();
   const { runs, fetchRuns } = useRunStore();
+  const { projects } = useProjectStore();
 
   const [showDisabled, setShowDisabled] = useState(false);
   const [goalFilter, setGoalFilter] = useState<string>(
     filter.goalId ?? "all",
   );
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [showCreationSheet, setShowCreationSheet] = useState(false);
+
+  const activeProject = useMemo(
+    () => projects.find((p) => p.id === activeProjectId),
+    [projects, activeProjectId],
+  );
 
   useEffect(() => {
     if (activeProjectId) {
@@ -64,7 +74,7 @@ export function JobsScreen() {
   return (
     <div className="flex h-full">
       <div className={cn("flex-1 overflow-auto p-6", selectedJob && "pr-0")}>
-        {/* Filters */}
+        {/* Header with filters */}
         <div className="mb-4 flex items-center gap-4">
           <h2 className="text-xl font-semibold">Jobs</h2>
           <div className="flex-1" />
@@ -86,6 +96,13 @@ export function JobsScreen() {
             <Switch checked={showDisabled} onCheckedChange={setShowDisabled} />
             Show disabled
           </label>
+          <Button
+            size="sm"
+            onClick={() => setShowCreationSheet(true)}
+          >
+            <Plus className="size-4" />
+            New job
+          </Button>
         </div>
 
         {/* Table */}
@@ -190,6 +207,17 @@ export function JobsScreen() {
           job={selectedJob}
           runs={runs.filter((r) => r.jobId === selectedJob.id)}
           onClose={() => setSelectedJobId(null)}
+        />
+      )}
+
+      {/* Creation Sheet */}
+      {activeProject && (
+        <JobCreationSheet
+          open={showCreationSheet}
+          onOpenChange={setShowCreationSheet}
+          projectId={activeProjectId}
+          projectDirectory={activeProject.directoryPath}
+          onComplete={() => fetchJobs(activeProjectId)}
         />
       )}
     </div>

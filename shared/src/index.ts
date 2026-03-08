@@ -98,6 +98,7 @@ export interface Job {
   scheduleType: ScheduleType;
   scheduleConfig: ScheduleConfig;
   isEnabled: boolean;
+  workingDirectory: string | null;
   nextFireAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -189,6 +190,7 @@ export interface CreateJobParams {
   scheduleType: ScheduleType;
   scheduleConfig: ScheduleConfig;
   isEnabled?: boolean;
+  workingDirectory?: string;
 }
 
 export interface UpdateJobParams {
@@ -199,6 +201,7 @@ export interface UpdateJobParams {
   scheduleType?: ScheduleType;
   scheduleConfig?: ScheduleConfig;
   isEnabled?: boolean;
+  workingDirectory?: string | null;
 }
 
 // Runs
@@ -366,4 +369,16 @@ export interface CommitPlanParams {
   projectId: string;
   goalDescription: string;
   jobs: PlannedJob[];
+}
+
+/** Params for assessing a manual job prompt */
+export interface AssessPromptParams {
+  projectId: string;
+  prompt: string;
+}
+
+/** Result of assessing a manual job prompt for clarity */
+export interface PromptAssessmentResult {
+  needsClarification: boolean;
+  questions: ClarifyingQuestion[];
 }

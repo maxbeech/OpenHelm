@@ -187,3 +187,32 @@
   - Vitest config with jsdom environment, React testing library
   - Tauri API mocks for testing without native runtime
   - 45 new tests (254 total): stores (10), format utils (20), hooks (3), components (12)
+
+### Phase 6 — Real-Time Event Wiring
+- (Completed previously — event bus, live log streaming, status updates)
+
+### Phase 7 — Manual Job Creation
+- Manual job creation sheet (`src/components/jobs/job-creation-sheet.tsx`)
+  - Accessed via "New job" button on Jobs screen header
+  - Fields: Name (required), Prompt (required, with char count), Goal association (optional dropdown of active goals), Schedule (Once/Interval/Cron with dynamic config fields), Working directory (defaults to project dir)
+  - Prompt clarity check via LLM assessment on submit; shows inline clarification questions if needed
+  - "Create anyway" escape hatch for users who know what they want
+  - Appends clarification answers to prompt as additional context
+  - Resets form state on close
+- Prompt clarification component (`src/components/jobs/prompt-clarification.tsx`)
+  - Inline display of 1-2 clarifying questions with radio chip options
+  - "Other" free-text option for each question
+  - Styled with primary accent border to draw attention
+- Prompt assessment backend (`agent/src/planner/assess-prompt.ts`)
+  - Uses classification model (Haiku) for fast assessment
+  - Prompt-specific system prompt (softer than goal assessment — manual creation implies intentionality)
+  - Max 2 questions, capped at 5 options each
+  - IPC handler: `planner.assessPrompt`
+- `workingDirectory` field added to Job entity
+  - New nullable column in SQLite schema (migration `0002_icy_phil_sheldon.sql`)
+  - Executor uses job's `workingDirectory` when set, falls back to project directory
+  - Available in `CreateJobParams` and `UpdateJobParams`
+- Job store `createJob` action — prepends new job to list
+- Frontend API: `assessPrompt()` wrapper
+- Shared types: `AssessPromptParams`, `PromptAssessmentResult`
+- 37 new tests (291 total): prompt assessment (9), job store (4), creation sheet (6), clarification component (5), existing suites unchanged

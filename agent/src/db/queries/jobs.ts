@@ -46,6 +46,7 @@ export function createJob(params: CreateJobParams): Job {
       scheduleType: params.scheduleType,
       scheduleConfig: JSON.stringify(params.scheduleConfig),
       isEnabled,
+      workingDirectory: params.workingDirectory ?? null,
       nextFireAt,
       createdAt: now,
       updatedAt: now,
@@ -127,6 +128,9 @@ export function updateJob(params: UpdateJobParams): Job {
         description: params.description,
       }),
       ...(params.prompt !== undefined && { prompt: params.prompt }),
+      ...(params.workingDirectory !== undefined && {
+        workingDirectory: params.workingDirectory,
+      }),
       ...(params.scheduleType !== undefined && {
         scheduleType: params.scheduleType,
       }),

@@ -746,12 +746,12 @@ Manually created jobs are data-model-identical to planned jobs. The only differe
 ---
 
 ### Phase 7 Completion Checklist
-- [ ] Manual job creation form accessible from the Jobs screen
-- [ ] All required fields validated with user-facing error messages before submission
-- [ ] Prompt clarity check runs and shows questions if needed, with a "Create anyway" escape hatch
-- [ ] Once-jobs created manually fire within one scheduler tick
-- [ ] Recurring jobs appear in the jobs list with correct next fire time
-- [ ] Manually created jobs display and behave identically to planned jobs throughout the application
+- [x] Manual job creation form accessible from the Jobs screen
+- [x] All required fields validated with user-facing error messages before submission
+- [x] Prompt clarity check runs and shows questions if needed, with a "Create anyway" escape hatch
+- [x] Once-jobs created manually fire within one scheduler tick
+- [x] Recurring jobs appear in the jobs list with correct next fire time
+- [x] Manually created jobs display and behave identically to planned jobs throughout the application
 
 ---
 

@@ -168,7 +168,7 @@ export class Executor {
     const result = await this.runnerFn(
       {
         binaryPath: claudePath,
-        workingDirectory: project.directoryPath,
+        workingDirectory: job.workingDirectory ?? project.directoryPath,
         prompt: job.prompt,
         timeoutMs,
         onLogChunk: (stream, text) => {

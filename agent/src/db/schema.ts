@@ -56,6 +56,7 @@ export const jobs = sqliteTable("jobs", {
   }).notNull(),
   scheduleConfig: text("schedule_config").notNull(), // JSON string
   isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
+  workingDirectory: text("working_directory"),
   nextFireAt: text("next_fire_at"),
   createdAt: text("created_at")
     .notNull()
