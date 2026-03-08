@@ -21,6 +21,9 @@ import type {
   CreateRunLogParams,
   ListRunLogsParams,
   SetSettingParams,
+  ClaudeCodeDetectionResult,
+  DetectClaudeCodeParams,
+  VerifyClaudeCodeParams,
 } from "@openorchestra/shared";
 
 // ─── Projects ───
@@ -139,4 +142,30 @@ export function deleteSetting(
   key: SettingKey,
 ): Promise<{ deleted: boolean }> {
   return agentClient.request<{ deleted: boolean }>("settings.delete", { key });
+}
+
+// ─── Claude Code ───
+
+export function detectClaudeCode(
+  params?: DetectClaudeCodeParams,
+): Promise<ClaudeCodeDetectionResult> {
+  return agentClient.request<ClaudeCodeDetectionResult>(
+    "claudeCode.detect",
+    params,
+  );
+}
+
+export function verifyClaudeCode(
+  params: VerifyClaudeCodeParams,
+): Promise<ClaudeCodeDetectionResult> {
+  return agentClient.request<ClaudeCodeDetectionResult>(
+    "claudeCode.verify",
+    params,
+  );
+}
+
+export function getClaudeCodeStatus(): Promise<ClaudeCodeDetectionResult> {
+  return agentClient.request<ClaudeCodeDetectionResult>(
+    "claudeCode.getStatus",
+  );
 }

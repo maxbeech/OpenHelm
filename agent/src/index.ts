@@ -1,19 +1,10 @@
 import { createInterface } from "readline";
-import type { IpcRequest, IpcEvent } from "@openorchestra/shared";
+import type { IpcRequest } from "@openorchestra/shared";
 import { handleRequest } from "./ipc/handler.js";
 import { registerAllHandlers } from "./ipc/handlers/index.js";
 import { initDatabase } from "./db/init.js";
-
-/** Write a JSON message to stdout (IPC channel) */
-function send(msg: object) {
-  process.stdout.write(JSON.stringify(msg) + "\n");
-}
-
-/** Emit an IPC event to the frontend */
-function emit(event: string, data: unknown = {}) {
-  const evt: IpcEvent = { event, data };
-  send(evt);
-}
+import { emit, send } from "./ipc/emitter.js";
+import { detectClaudeCode } from "./claude-code/detector.js";
 
 // -- Bootstrap --
 
@@ -60,3 +51,21 @@ rl.on("close", () => {
 // 4. Signal readiness
 emit("agent.ready", { version: "0.1.0" });
 console.error("[agent] ready, listening for IPC on stdin");
+
+// 5. Auto-detect Claude Code CLI in background (non-blocking)
+detectClaudeCode()
+  .then((result) => {
+    if (result.found) {
+      console.error(
+        `[agent] Claude Code detected: ${result.path} (v${result.version})`,
+      );
+    } else {
+      console.error(
+        `[agent] Claude Code not found: ${result.error}`,
+      );
+    }
+    emit("claudeCode.detected", result);
+  })
+  .catch((err) => {
+    console.error("[agent] Claude Code detection error:", err);
+  });

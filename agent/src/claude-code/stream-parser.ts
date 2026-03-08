@@ -1,0 +1,115 @@
+/**
+ * Parse Claude Code `--output-format stream-json` output lines.
+ * Each line is a JSON object representing a streaming event.
+ *
+ * This module extracts human-readable text from structured events
+ * for display in the log viewer.
+ */
+
+/** Content block types from Claude API messages */
+interface TextBlock {
+  type: "text";
+  text: string;
+}
+
+interface ToolUseBlock {
+  type: "tool_use";
+  name: string;
+  id: string;
+  input: unknown;
+}
+
+interface ToolResultBlock {
+  type: "tool_result";
+  tool_use_id: string;
+  content: unknown;
+}
+
+type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+
+/** Parsed log entry extracted from a stream-json line */
+export interface ParsedLogEntry {
+  text: string;
+  isResult: boolean;
+  costUsd?: number;
+  durationMs?: number;
+  numTurns?: number;
+}
+
+/**
+ * Parse a single stream-json line into a human-readable log entry.
+ * Returns null if the line has no meaningful content to display.
+ */
+export function parseStreamLine(line: string): ParsedLogEntry | null {
+  let event: Record<string, unknown>;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    // Not valid JSON — return the raw line
+    return { text: line, isResult: false };
+  }
+
+  const type = event.type as string;
+
+  if (type === "result") {
+    return {
+      text: (event.result as string) ?? "",
+      isResult: true,
+      costUsd: event.cost_usd as number | undefined,
+      durationMs: event.duration_ms as number | undefined,
+      numTurns: event.num_turns as number | undefined,
+    };
+  }
+
+  if (type === "assistant" || type === "user") {
+    const message = event.message as Record<string, unknown> | undefined;
+    if (!message) return null;
+
+    const content = message.content as ContentBlock[] | undefined;
+    if (!content || !Array.isArray(content)) return null;
+
+    const parts: string[] = [];
+
+    for (const block of content) {
+      if (block.type === "text" && block.text) {
+        parts.push(block.text);
+      } else if (block.type === "tool_use") {
+        parts.push(`[Tool: ${block.name}]`);
+      } else if (block.type === "tool_result") {
+        const resultText = extractToolResultText(block.content);
+        if (resultText) {
+          parts.push(resultText);
+        }
+      }
+    }
+
+    if (parts.length === 0) return null;
+    return { text: parts.join("\n"), isResult: false };
+  }
+
+  // system messages and other types — skip
+  return null;
+}
+
+/** Extract readable text from a tool_result content field */
+function extractToolResultText(content: unknown): string | null {
+  if (typeof content === "string") {
+    // Truncate very long tool results for log readability
+    return content.length > 500
+      ? content.slice(0, 500) + "... (truncated)"
+      : content;
+  }
+  if (Array.isArray(content)) {
+    const texts = content
+      .filter(
+        (b: Record<string, unknown>) =>
+          b.type === "text" && typeof b.text === "string",
+      )
+      .map((b: Record<string, unknown>) => b.text as string);
+    const joined = texts.join("\n");
+    return joined.length > 500
+      ? joined.slice(0, 500) + "... (truncated)"
+      : joined || null;
+  }
+  return null;
+}

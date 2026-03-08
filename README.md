@@ -45,6 +45,10 @@ Tests use real SQLite databases in temporary directories — no mocks.
   - `agent/src/db/queries/` — Named query functions per entity
   - `agent/src/ipc/handlers/` — IPC handlers per domain
   - `agent/src/scheduler/schedule.ts` — Schedule computation (once, interval, cron)
+  - `agent/src/claude-code/runner.ts` — ClaudeCodeRunner (sole entry point for spawning Claude Code)
+  - `agent/src/claude-code/detector.ts` — CLI auto-detection and version management
+  - `agent/src/claude-code/interactive-detector.ts` — Detects when Claude Code is waiting for input
+  - `agent/src/claude-code/stream-parser.ts` — Parses `stream-json` output into log entries
 - **`shared/`** — IPC type contract shared between frontend and agent
 - **`docs/`** — PRD, implementation plan, competitor research
 

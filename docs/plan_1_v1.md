@@ -351,17 +351,17 @@ These tests require API credentials and make real API calls. Tag them so they ru
 ---
 
 ### Phase 2 Completion Checklist
-- [ ] Auto-detection finds the Claude Code binary on a standard macOS installation
-- [ ] Manual path entry and re-verification work correctly
-- [ ] Version detection correctly identifies the version and compares against the minimum requirement
-- [ ] A real Claude Code job runs against a real project directory and output is captured in the database
-- [ ] Log chunks appear in the database during the run, not only after the process exits
-- [ ] Chunks are numbered sequentially and correctly distinguish stdout from stderr
-- [ ] Exit code 0 is captured for a successful run, non-zero for a failure
-- [ ] The timeout fires correctly and the process is killed with SIGTERM, then SIGKILL if still running after 5 seconds
-- [ ] Interactive prompt detection triggers within 60 seconds of output silence
-- [ ] The runner emits the correct IPC events at each lifecycle stage (started, log chunk, status change, completed)
-- [ ] All unit and integration tests pass
+- [x] Auto-detection finds the Claude Code binary on a standard macOS installation
+- [x] Manual path entry and re-verification work correctly
+- [x] Version detection correctly identifies the version and compares against the minimum requirement
+- [x] A real Claude Code job runs against a real project directory and output is captured in the database
+- [x] Log chunks appear in the database during the run, not only after the process exits
+- [x] Chunks are numbered sequentially and correctly distinguish stdout from stderr
+- [x] Exit code 0 is captured for a successful run, non-zero for a failure
+- [x] The timeout fires correctly and the process is killed with SIGTERM, then SIGKILL if still running after 5 seconds
+- [x] Interactive prompt detection triggers within 60 seconds of output silence
+- [x] The runner emits the correct IPC events at each lifecycle stage (started, log chunk, status change, completed)
+- [x] All unit and integration tests pass (112 tests across 11 files)
 
 ---
 

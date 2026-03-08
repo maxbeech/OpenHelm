@@ -139,8 +139,10 @@ export interface RunLog {
 export type SettingKey =
   | "anthropic_api_key"
   | "claude_code_path"
+  | "claude_code_version"
   | "max_concurrent_runs"
   | "default_timeout_minutes"
+  | "run_timeout_minutes"
   | "theme";
 
 export interface Setting {
@@ -249,4 +251,42 @@ export interface ListJobsParams {
 export interface ListGoalsParams {
   projectId: string;
   status?: GoalStatus;
+}
+
+// ─── Claude Code Integration Types ───
+
+/** Result of auto-detecting the Claude Code CLI */
+export interface ClaudeCodeDetectionResult {
+  found: boolean;
+  path: string | null;
+  version: string | null;
+  meetsMinVersion: boolean;
+  error?: string;
+}
+
+/** Params for detecting Claude Code (optionally with a manual path) */
+export interface DetectClaudeCodeParams {
+  manualPath?: string;
+}
+
+/** Params for verifying a specific Claude Code path */
+export interface VerifyClaudeCodeParams {
+  path: string;
+}
+
+/** Configuration for a Claude Code run */
+export interface ClaudeCodeRunConfig {
+  binaryPath: string;
+  workingDirectory: string;
+  prompt: string;
+  timeoutMs: number;
+  permissionMode?: string;
+  maxBudgetUsd?: number;
+}
+
+/** Result of a Claude Code run */
+export interface ClaudeCodeRunResult {
+  exitCode: number | null;
+  timedOut: boolean;
+  killed: boolean;
 }
