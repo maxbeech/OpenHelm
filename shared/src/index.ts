@@ -311,3 +311,58 @@ export interface SchedulerStatus {
   queuedRuns: number;
   maxConcurrency: number;
 }
+
+// ─── Planner Types ───
+
+/** A single clarifying question with multiple-choice options */
+export interface ClarifyingQuestion {
+  question: string;
+  options: string[];
+}
+
+/** Result of assessing whether a goal needs clarification */
+export interface AssessmentResult {
+  needsClarification: boolean;
+  questions: ClarifyingQuestion[];
+}
+
+/** A single job in a generated plan */
+export interface PlannedJob {
+  name: string;
+  description: string;
+  prompt: string;
+  rationale: string;
+  scheduleType: ScheduleType;
+  scheduleConfig: ScheduleConfig;
+}
+
+/** A complete generated plan */
+export interface GeneratedPlan {
+  jobs: PlannedJob[];
+}
+
+/** Result of committing a plan to the database */
+export interface CommitPlanResult {
+  goalId: string;
+  jobIds: string[];
+}
+
+/** Params for assessing a goal */
+export interface AssessGoalParams {
+  projectId: string;
+  goalDescription: string;
+}
+
+/** Params for generating a plan */
+export interface GeneratePlanParams {
+  projectId: string;
+  goalDescription: string;
+  clarificationAnswers?: Record<string, string>;
+}
+
+/** Params for committing a plan */
+export interface CommitPlanParams {
+  projectId: string;
+  goalDescription: string;
+  jobs: PlannedJob[];
+}

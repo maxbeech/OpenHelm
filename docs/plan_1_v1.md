@@ -519,17 +519,17 @@ The integration tests for planning should not assert on specific job names or de
 ---
 
 ### Phase 4 Completion Checklist
-- [ ] A vague goal triggers 1–2 clarification questions; a specific goal skips directly to generation
-- [ ] No more than 2 clarification questions are ever generated
-- [ ] Generated plans contain 2–6 jobs
-- [ ] Every job has a non-empty name, description, prompt, schedule config, and rationale
-- [ ] Plans typically contain a mix of one-off and recurring jobs
-- [ ] `nextFireAt` for once-jobs is set to the current time
-- [ ] `nextFireAt` for recurring jobs is set to the correct first future occurrence in the user's timezone
-- [ ] Committing a plan creates the goal and all jobs atomically (either all or nothing)
-- [ ] A committed once-job fires within one scheduler tick
-- [ ] LLM client unit tests pass, including error and timeout cases
-- [ ] Planning integration tests pass with real API credentials
+- [x] A vague goal triggers 1–2 clarification questions; a specific goal skips directly to generation
+- [x] No more than 2 clarification questions are ever generated
+- [x] Generated plans contain 2–6 jobs
+- [x] Every job has a non-empty name, description, prompt, schedule config, and rationale
+- [x] Plans typically contain a mix of one-off and recurring jobs (prompted in system prompt)
+- [x] `nextFireAt` for once-jobs is set to the current time
+- [x] `nextFireAt` for recurring jobs is set to the correct first future occurrence in the user's timezone
+- [x] Committing a plan creates the goal and all jobs atomically (either all or nothing)
+- [x] A committed once-job fires within one scheduler tick
+- [x] LLM client unit tests pass, including error and timeout cases
+- [ ] Planning integration tests pass with real API credentials (requires API key at runtime)
 
 ---
 

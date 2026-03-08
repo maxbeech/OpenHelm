@@ -79,3 +79,32 @@
 - Frontend API wrappers: `triggerRun()`, `cancelRun()`, `getSchedulerStatus()`
 - Due job query: `listDueJobs()` and `disableJob()` added to jobs query layer
 - 50 new tests (162 total): queue (10), state machine (13), scheduler tick (10), executor (17)
+
+### Phase 4 — LLM Layer & AI Planning
+- Custom LLM layer (`agent/src/llm/`)
+  - `client.ts`: Thin Anthropic SDK wrapper with typed error hierarchy (`LlmError`)
+    - Reads API key from settings table (not env vars)
+    - Model tiers: `claude-sonnet-4-6` (planning), `claude-haiku-4-5-20251001` (classification)
+    - Maps SDK errors to typed codes: missing_api_key, authentication_failed, rate_limited, etc.
+  - `loop.ts`: Agent loop for tool-calling interactions
+    - Configurable max iterations (default 3), safety-bounded execution
+    - Accumulates token usage across all iterations
+    - Handles single and parallel tool use in one response
+  - `tools.ts`: Planning tool definitions and executors
+    - `validate_cron_expression`: validates + returns next 3 human-readable occurrences
+    - `get_current_datetime`: returns ISO, local, timezone, and day of week
+- Planner module (`agent/src/planner/`)
+  - `assess.ts`: Fast classification call to determine if goal needs clarification
+    - Max 2 questions (hardcoded limit), multiple-choice with free-text option
+    - Errs strongly on the side of NOT asking questions
+  - `generate.ts`: Full agent loop producing structured job plans
+    - Validates 2-6 jobs, each with name, description, prompt, rationale, schedule
+    - Strips markdown fences from LLM output, validates schedule types
+  - `commit.ts`: Atomic database transaction for plan commitment
+    - Creates goal + all jobs in single transaction (all or nothing)
+    - Once-jobs: `nextFireAt` set to now (fires within one scheduler tick)
+    - Recurring jobs: `nextFireAt` computed forward from current time
+  - `prompts.ts`: System prompts for assessment and plan generation
+- IPC handlers: `planner.assess`, `planner.generate`, `planner.commit`
+- Shared types: `AssessmentResult`, `ClarifyingQuestion`, `PlannedJob`, `GeneratedPlan`, `CommitPlanResult`, plus IPC param types
+- 46 new tests (208 total): llm-client (5), llm-loop (7), llm-tools (8), planner-assess (9), planner-generate (10), planner-commit (7)
