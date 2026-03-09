@@ -20,30 +20,30 @@ afterAll(() => {
 
 describe("settings queries", () => {
   it("should return null for a non-existent setting", () => {
-    const result = getSetting("anthropic_api_key" as SettingKey);
+    const result = getSetting("claude_code_path" as SettingKey);
     expect(result).toBeNull();
   });
 
   it("should set and get a setting", () => {
-    const key: SettingKey = "anthropic_api_key";
-    const result = setSetting(key, "sk-test-123");
+    const key: SettingKey = "claude_code_path";
+    const result = setSetting(key, "/usr/bin/claude");
     expect(result.key).toBe(key);
-    expect(result.value).toBe("sk-test-123");
+    expect(result.value).toBe("/usr/bin/claude");
     expect(result.updatedAt).toBeDefined();
 
     const fetched = getSetting(key);
     expect(fetched).not.toBeNull();
-    expect(fetched!.value).toBe("sk-test-123");
+    expect(fetched!.value).toBe("/usr/bin/claude");
   });
 
   it("should update an existing setting (upsert)", () => {
-    const key: SettingKey = "anthropic_api_key";
-    setSetting(key, "sk-old");
-    const updated = setSetting(key, "sk-new");
-    expect(updated.value).toBe("sk-new");
+    const key: SettingKey = "claude_code_path";
+    setSetting(key, "/old/path");
+    const updated = setSetting(key, "/new/path");
+    expect(updated.value).toBe("/new/path");
 
     const fetched = getSetting(key);
-    expect(fetched!.value).toBe("sk-new");
+    expect(fetched!.value).toBe("/new/path");
   });
 
   it("should list all settings", () => {
@@ -51,7 +51,7 @@ describe("settings queries", () => {
     const all = getAllSettings();
     expect(all.length).toBeGreaterThanOrEqual(2);
     const keys = all.map((s) => s.key);
-    expect(keys).toContain("anthropic_api_key");
+    expect(keys).toContain("claude_code_path");
     expect(keys).toContain("theme");
   });
 

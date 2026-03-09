@@ -1,4 +1,5 @@
-import { callLlm, LlmError } from "../llm/client.js";
+import { callLlmViaCli } from "./llm-via-cli.js";
+import { extractJson } from "./extract-json.js";
 import { getProject } from "../db/queries/projects.js";
 import { PROMPT_ASSESSMENT_SYSTEM_PROMPT } from "./prompts.js";
 import type {
@@ -30,23 +31,13 @@ export async function assessPrompt(
     prompt,
   );
 
-  const response = await callLlm({
+  const text = await callLlmViaCli({
     model: "classification",
-    system: PROMPT_ASSESSMENT_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-    maxTokens: 1024,
-    temperature: 0,
+    systemPrompt: PROMPT_ASSESSMENT_SYSTEM_PROMPT,
+    userMessage,
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new LlmError(
-      "Prompt assessment returned no text response",
-      "unknown",
-    );
-  }
-
-  return parsePromptAssessmentResponse(textBlock.text);
+  return parsePromptAssessmentResponse(text);
 }
 
 function buildPromptAssessmentMessage(
@@ -67,27 +58,24 @@ function parsePromptAssessmentResponse(
 ): PromptAssessmentResult {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text.trim());
+    parsed = JSON.parse(extractJson(text));
   } catch {
-    throw new LlmError(
+    throw new Error(
       `Failed to parse prompt assessment response as JSON: ${text.slice(0, 200)}`,
-      "unknown",
     );
   }
 
   if (typeof parsed !== "object" || parsed === null) {
-    throw new LlmError(
+    throw new Error(
       "Prompt assessment response is not a JSON object",
-      "unknown",
     );
   }
 
   const obj = parsed as Record<string, unknown>;
 
   if (typeof obj.needsClarification !== "boolean") {
-    throw new LlmError(
+    throw new Error(
       "Prompt assessment response missing needsClarification boolean",
-      "unknown",
     );
   }
 

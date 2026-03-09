@@ -28,8 +28,6 @@ export function SettingsScreen() {
       <div className="space-y-8">
         <ClaudeCodeSection />
         <Separator />
-        <ApiKeySection />
-        <Separator />
         <ExecutionSection />
         <Separator />
         <ApplicationSection />
@@ -87,9 +85,24 @@ function ClaudeCodeSection() {
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <XCircle className="size-4" />
-          Not detected
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <XCircle className="size-4" />
+            Not detected
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Install with:{" "}
+            <code className="rounded bg-muted px-1 py-0.5">
+              npm install -g @anthropic-ai/claude-code
+            </code>
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowChange(true)}
+          >
+            Set path manually
+          </Button>
         </div>
       )}
       {showChange && (
@@ -102,75 +115,6 @@ function ClaudeCodeSection() {
           />
           <Button variant="outline" size="sm" onClick={verifyPath} disabled={!customPath || verifying}>
             {verifying ? "..." : "Verify"}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ApiKeySection() {
-  const [maskedKey, setMaskedKey] = useState<string | null>(null);
-  const [showChange, setShowChange] = useState(false);
-  const [newKey, setNewKey] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    api.getSetting("anthropic_api_key").then((s) => {
-      if (s?.value) {
-        setMaskedKey("****" + s.value.slice(-4));
-      }
-    });
-  }, []);
-
-  const saveKey = async () => {
-    setSaving(true);
-    try {
-      await api.setSetting({ key: "anthropic_api_key", value: newKey });
-      setMaskedKey("****" + newKey.slice(-4));
-      setShowChange(false);
-      setNewKey("");
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div>
-      <h3 className="mb-3 font-medium">Anthropic API</h3>
-      <p className="mb-2 text-xs text-muted-foreground">
-        Used for goal planning and run summarisation. Separate from your Claude
-        Code subscription.
-      </p>
-      {maskedKey && (
-        <p className="mb-2 text-sm">
-          Key: <code className="font-mono text-muted-foreground">{maskedKey}</code>
-        </p>
-      )}
-      {saved && (
-        <p className="mb-2 text-sm text-success">Key updated successfully</p>
-      )}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setShowChange(!showChange)}
-      >
-        {maskedKey ? "Change key" : "Add key"}
-      </Button>
-      {showChange && (
-        <div className="mt-2 flex gap-2">
-          <Input
-            type="password"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
-            placeholder="sk-ant-..."
-            className="flex-1"
-          />
-          <Button variant="outline" size="sm" onClick={saveKey} disabled={!newKey || saving}>
-            {saving ? "..." : "Save"}
           </Button>
         </div>
       )}

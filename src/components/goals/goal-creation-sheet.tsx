@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -10,6 +11,8 @@ import { GoalInputStep } from "./sheet-steps/goal-input-step";
 import { ClarificationStep } from "./sheet-steps/clarification-step";
 import { PlanReviewStep } from "./sheet-steps/plan-review-step";
 import { ConfirmationStep } from "./sheet-steps/confirmation-step";
+import { ErrorBanner } from "@/components/shared/error-banner";
+import * as api from "@/lib/api";
 import type {
   AssessmentResult,
   GeneratedPlan,
@@ -40,10 +43,18 @@ export function GoalCreationSheet({
     Record<string, string>
   >({});
   const [plan, setPlan] = useState<GeneratedPlan | null>(null);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
   const [commitResult, setCommitResult] = useState<{
     goalId: string;
     jobIds: string[];
   } | null>(null);
+
+  // Sync goalText when the sheet opens with new initialGoalText
+  // (useState only captures the initial value at mount time)
+  useEffect(() => {
+    if (open) setGoalText(initialGoalText);
+  }, [open, initialGoalText]);
 
   const progress = ((step + 1) / STEP_LABELS.length) * 100;
 
@@ -53,7 +64,24 @@ export function GoalCreationSheet({
     setAssessment(null);
     setClarificationAnswers({});
     setPlan(null);
+    setGeneratingPlan(false);
+    setPlanError(null);
     setCommitResult(null);
+  };
+
+  const doGeneratePlan = (goalDescription: string, answers: Record<string, string>) => {
+    setGeneratingPlan(true);
+    setPlanError(null);
+    api
+      .generatePlan({ projectId, goalDescription, clarificationAnswers: answers })
+      .then((generatedPlan) => {
+        setPlan(generatedPlan);
+        setGeneratingPlan(false);
+      })
+      .catch((err) => {
+        setPlanError(err instanceof Error ? err.message : "Plan generation failed");
+        setGeneratingPlan(false);
+      });
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -66,8 +94,9 @@ export function GoalCreationSheet({
     if (result.needsClarification) {
       setStep(1);
     } else {
-      // Skip clarification, go straight to plan generation
+      // Skip clarification — auto-generate the plan immediately
       setStep(2);
+      doGeneratePlan(goalText, {});
     }
   };
 
@@ -138,16 +167,29 @@ export function GoalCreationSheet({
               onPlanGenerated={handlePlanGenerated}
             />
           )}
-          {step === 2 && plan && (
-            <PlanReviewStep
-              plan={plan}
-              projectId={projectId}
-              goalText={goalText}
-              onJobUpdate={handleJobUpdate}
-              onJobDelete={handleJobDelete}
-              onJobAdd={handleJobAdd}
-              onCommit={handlePlanCommitted}
-            />
+          {step === 2 && (
+            generatingPlan ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Generating plan…</p>
+              </div>
+            ) : planError ? (
+              <ErrorBanner
+                message={planError}
+                onRetry={() => doGeneratePlan(goalText, clarificationAnswers)}
+                onDismiss={() => setPlanError(null)}
+              />
+            ) : plan && (
+              <PlanReviewStep
+                plan={plan}
+                projectId={projectId}
+                goalText={goalText}
+                onJobUpdate={handleJobUpdate}
+                onJobDelete={handleJobDelete}
+                onJobAdd={handleJobAdd}
+                onCommit={handlePlanCommitted}
+              />
+            )
           )}
           {step === 3 && commitResult && (
             <ConfirmationStep

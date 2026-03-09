@@ -39,18 +39,8 @@
     ]
   },
   "plugins": {
-    "notification": {
-      "registerForRemoteNotifications": false
-    },
-    "autostart": {
-      "macosLauncher": "LaunchAgent"
-    },
-    "updater": {
-      "active": true,
-      "dialog": true,
-      "endpoints": [
-        "https://github.com/openorchestra/openorchestra/releases/latest/download/latest.json"
-      ]
-    }
+    "notification": null,
+    "autostart": null,
+    "updater": {"endpoints": [], "pubkey": ""}
   }
 }

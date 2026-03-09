@@ -65,10 +65,14 @@ export function runClaudeCode(
     );
     console.error(`[runner] cwd: ${config.workingDirectory}`);
 
-    // Spawn the process — inherit the parent's full environment
+    // Spawn the process — inherit the parent's full environment,
+    // but unset CLAUDECODE so jobs aren't blocked by nested session detection.
+    const env = { ...process.env };
+    delete env.CLAUDECODE;
+
     const child = spawn(config.binaryPath, args, {
       cwd: config.workingDirectory,
-      env: process.env,
+      env,
       stdio: ["pipe", "pipe", "pipe"],
     });
 
@@ -155,6 +159,7 @@ export function runClaudeCode(
 function buildArgs(config: RunnerConfig): string[] {
   const args: string[] = [
     "--print",
+    "--verbose",
     "--output-format",
     "stream-json",
   ];

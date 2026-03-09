@@ -3,21 +3,11 @@ import { setupTestDb } from "./helpers.js";
 import { createProject } from "../src/db/queries/projects.js";
 import { setSetting } from "../src/db/queries/settings.js";
 
-const createMock = vi.fn();
+const callLlmViaCliMock = vi.fn();
 
-vi.mock("@anthropic-ai/sdk", () => {
-  class MockAnthropic {
-    messages = { create: createMock };
-    constructor() {}
-  }
-  MockAnthropic.AuthenticationError = class extends Error {};
-  MockAnthropic.RateLimitError = class extends Error {};
-  MockAnthropic.BadRequestError = class extends Error {};
-  MockAnthropic.APIConnectionError = class extends Error {};
-  MockAnthropic.APIConnectionTimeoutError = class extends Error {};
-  MockAnthropic.InternalServerError = class extends Error {};
-  return { default: MockAnthropic };
-});
+vi.mock("../src/planner/llm-via-cli.js", () => ({
+  callLlmViaCli: (...args: unknown[]) => callLlmViaCliMock(...args),
+}));
 
 import { assessGoal } from "../src/planner/assess.js";
 
@@ -26,7 +16,7 @@ let projectId: string;
 
 beforeAll(() => {
   cleanup = setupTestDb();
-  setSetting("anthropic_api_key", "test-key-assess");
+  setSetting("claude_code_path", "/usr/bin/claude");
   const project = createProject({
     name: "Test Project",
     description: "A project for testing",
@@ -45,16 +35,9 @@ beforeEach(() => {
 
 describe("assessGoal", () => {
   it("should return no clarification for a specific goal", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({ needsClarification: false }),
-        },
-      ],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 20 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      JSON.stringify({ needsClarification: false }),
+    );
 
     const result = await assessGoal(projectId, "Add unit tests for all utility functions in src/utils/");
     expect(result.needsClarification).toBe(false);
@@ -62,29 +45,22 @@ describe("assessGoal", () => {
   });
 
   it("should return clarifying questions for a vague goal", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            needsClarification: true,
-            questions: [
-              {
-                question: "What type of improvements are you looking for?",
-                options: [
-                  "Performance optimization",
-                  "Code quality and readability",
-                  "Test coverage",
-                  "Something else",
-                ],
-              },
+    callLlmViaCliMock.mockResolvedValueOnce(
+      JSON.stringify({
+        needsClarification: true,
+        questions: [
+          {
+            question: "What type of improvements are you looking for?",
+            options: [
+              "Performance optimization",
+              "Code quality and readability",
+              "Test coverage",
+              "Something else",
             ],
-          }),
-        },
-      ],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 100 },
-    });
+          },
+        ],
+      }),
+    );
 
     const result = await assessGoal(projectId, "Improve the codebase");
     expect(result.needsClarification).toBe(true);
@@ -94,24 +70,17 @@ describe("assessGoal", () => {
   });
 
   it("should cap questions at 2 even if model returns more", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            needsClarification: true,
-            questions: [
-              { question: "Q1?", options: ["A", "B"] },
-              { question: "Q2?", options: ["C", "D"] },
-              { question: "Q3?", options: ["E", "F"] },
-              { question: "Q4?", options: ["G", "H"] },
-            ],
-          }),
-        },
-      ],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 150 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      JSON.stringify({
+        needsClarification: true,
+        questions: [
+          { question: "Q1?", options: ["A", "B"] },
+          { question: "Q2?", options: ["C", "D"] },
+          { question: "Q3?", options: ["E", "F"] },
+          { question: "Q4?", options: ["G", "H"] },
+        ],
+      }),
+    );
 
     const result = await assessGoal(projectId, "Vague goal");
     expect(result.questions.length).toBeLessThanOrEqual(2);
@@ -124,13 +93,8 @@ describe("assessGoal", () => {
   });
 
   it("should throw on invalid JSON response after retry", async () => {
-    const badResponse = {
-      content: [{ type: "text", text: "This is not JSON" }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 10, output_tokens: 10 },
-    };
-    createMock.mockResolvedValueOnce(badResponse);
-    createMock.mockResolvedValueOnce(badResponse); // retry also fails
+    callLlmViaCliMock.mockResolvedValueOnce("This is not JSON");
+    callLlmViaCliMock.mockResolvedValueOnce("This is not JSON"); // retry also fails
 
     await expect(
       assessGoal(projectId, "Some goal"),
@@ -138,13 +102,8 @@ describe("assessGoal", () => {
   });
 
   it("should throw when response missing needsClarification after retry", async () => {
-    const badResponse = {
-      content: [{ type: "text", text: JSON.stringify({ foo: "bar" }) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 10, output_tokens: 10 },
-    };
-    createMock.mockResolvedValueOnce(badResponse);
-    createMock.mockResolvedValueOnce(badResponse); // retry also fails
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify({ foo: "bar" }));
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify({ foo: "bar" })); // retry also fails
 
     await expect(
       assessGoal(projectId, "Some goal"),
@@ -152,56 +111,39 @@ describe("assessGoal", () => {
   });
 
   it("should use classification model tier", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [
-        { type: "text", text: JSON.stringify({ needsClarification: false }) },
-      ],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 10, output_tokens: 10 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      JSON.stringify({ needsClarification: false }),
+    );
 
     await assessGoal(projectId, "Specific goal");
 
-    expect(createMock).toHaveBeenCalledWith(
+    expect(callLlmViaCliMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "claude-haiku-4-5-20251001",
-        temperature: 0,
+        model: "classification",
       }),
     );
   });
 
   it("should include project context in the message", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [
-        { type: "text", text: JSON.stringify({ needsClarification: false }) },
-      ],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 10, output_tokens: 10 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      JSON.stringify({ needsClarification: false }),
+    );
 
     await assessGoal(projectId, "Add tests");
 
-    const callArgs = createMock.mock.calls[0][0];
-    const userMessage = callArgs.messages[0].content;
-    expect(userMessage).toContain("Test Project");
-    expect(userMessage).toContain("A project for testing");
-    expect(userMessage).toContain("Add tests");
+    const callArgs = callLlmViaCliMock.mock.calls[0][0];
+    expect(callArgs.userMessage).toContain("Test Project");
+    expect(callArgs.userMessage).toContain("A project for testing");
+    expect(callArgs.userMessage).toContain("Add tests");
   });
 
   it("should handle empty questions array gracefully", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            needsClarification: true,
-            questions: [],
-          }),
-        },
-      ],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 10, output_tokens: 10 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      JSON.stringify({
+        needsClarification: true,
+        questions: [],
+      }),
+    );
 
     const result = await assessGoal(projectId, "Vague goal");
     expect(result.needsClarification).toBe(true);

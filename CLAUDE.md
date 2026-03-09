@@ -21,7 +21,7 @@ The project is currently in the planning/bootstrapping phase. The `docs/` direct
 | ORM | Drizzle ORM |
 | Background agent | Node.js sidecar process |
 | IPC (UI ↔ agent) | Tauri stdin/stdout sidecar (JSON-RPC) |
-| AI planning/summarisation | Anthropic SDK (direct API, `claude-sonnet-4-5`) |
+| AI planning/summarisation | Claude Code CLI (`--print` mode) |
 | State management | Zustand |
 
 **Prerequisites**: Node 20+, Rust toolchain, Xcode Command Line Tools.
@@ -83,7 +83,7 @@ openorchestra/
 │   │   ├── index.ts         # Entry point, IPC server init
 │   │   ├── scheduler/       # Job queue and scheduling engine
 │   │   ├── executor/        # Claude Code process management
-│   │   ├── planner/         # Goal → job plan generation (Anthropic API)
+│   │   ├── planner/         # Goal → job plan generation (via CLI)
 │   │   ├── db/              # Drizzle schema, migrations, queries
 │   │   ├── claude-code/     # ClaudeCodeRunner abstraction layer
 │   │   └── ipc/             # JSON-RPC server (stdin/stdout)
@@ -97,13 +97,15 @@ openorchestra/
 
 ---
 
-## Two Distinct Claude Integrations
+## Claude Code CLI — Single Integration Point
 
-**Never conflate these. Keep them in completely separate modules.**
+All LLM operations route through the Claude Code CLI. Users only need a Claude Code subscription — no separate API key required.
 
-1. **Claude Code CLI** — the agentic tool users subscribe to. Used exclusively for *running jobs*. Spawned as a child process from `agent/src/claude-code/ClaudeCodeRunner.ts`. All CLI invocations must go through this single module — never call Claude Code flags directly from the scheduler.
+1. **Job execution** — spawns Claude Code via `agent/src/claude-code/runner.ts` with `--print --output-format stream-json` for real-time streaming.
 
-2. **Anthropic API** (`claude-sonnet-4-5`) — used for goal planning, prompt clarification, run summarisation, and failure triage. Simple completions; not agentic. Requires a separate API key the user provides in settings.
+2. **Planning, assessment, and summarisation** — spawns Claude Code via `agent/src/claude-code/print.ts` with `--print --output-format text --tools ""` for single-turn text completions. Uses `--model sonnet` for planning and `--model claude-haiku-4-5-20251001` for classification/summarisation.
+
+All CLI invocations must go through the `agent/src/claude-code/` directory — never call Claude Code from elsewhere.
 
 ---
 
@@ -152,7 +154,7 @@ A UI crash must never interrupt a running job.
 
 ## Key Architecture Rules
 
-- **`ClaudeCodeRunner` is the only entry point** to the Claude Code CLI. Pin a minimum supported CLI version; warn users if their installed version is below it.
+- **`agent/src/claude-code/` is the only entry point** to the Claude Code CLI (`runner.ts` for jobs, `print.ts` for LLM calls). Pin a minimum supported CLI version; warn users if their installed version is below it.
 - **No plan runs without user approval.** The plan review step is mandatory before any job fires for the first time.
 - **Jobs can exist without a goal** (`goal_id` is nullable). Manual job creation is a first-class feature.
 - **File size limit**: keep code files ≤ 225 lines; split into submodules when a file grows beyond this.

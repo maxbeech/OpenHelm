@@ -1,5 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import type {
   IpcRequest,
   IpcResponse,
@@ -7,7 +5,17 @@ import type {
 } from "@openorchestra/shared";
 import { isIpcResponse, isIpcEvent } from "@openorchestra/shared";
 
-const REQUEST_TIMEOUT_MS = 30_000;
+/**
+ * Detect whether we are running inside the Tauri WebView.
+ * When accessed from a plain browser (e.g. browser MCP at localhost:1420)
+ * the Tauri internals are not injected, so we fall back to the HTTP+SSE dev bridge.
+ */
+function isTauriContext(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+const DEV_BRIDGE_URL = "http://localhost:1421";
+const REQUEST_TIMEOUT_MS = 240_000; // 4 minutes
 
 type PendingRequest = {
   resolve: (value: unknown) => void;
@@ -29,20 +37,15 @@ class AgentClient {
     });
   }
 
-  /** Start listening for sidecar stdout events */
+  /** Start listening for sidecar / SSE events */
   async start() {
     if (this.unlisten) return;
 
-    this.unlisten = await listen<string>("sidecar-stdout", (event) => {
-      this.handleLine(event.payload);
-    });
-
-    this.connected = true;
-
-    // The agent.ready event likely fired before this listener was set up
-    // (sidecar starts in Rust setup(), before WebView loads).
-    // Probe with a ping to confirm the agent is alive.
-    this.probeReadiness();
+    if (isTauriContext()) {
+      await this.startTauri();
+    } else {
+      this.startSse();
+    }
   }
 
   /** Stop listening */
@@ -62,28 +65,70 @@ class AgentClient {
   }
 
   /** Send an IPC request and wait for the response */
-  async request<T = unknown>(
-    method: string,
-    params?: unknown,
-  ): Promise<T> {
+  async request<T = unknown>(method: string, params?: unknown): Promise<T> {
     await this.readyPromise;
     return this.sendRaw<T>(method, params);
   }
 
-  /** Whether the agent is connected and ready */
-  isReady() {
-    return this.ready;
+  isReady() { return this.ready; }
+  isConnected() { return this.connected; }
+
+  // ── Tauri transport ──────────────────────────────────────────────────────
+
+  private async startTauri() {
+    const { listen } = await import("@tauri-apps/api/event");
+    this.unlisten = await listen<string>("sidecar-stdout", (event) => {
+      this.handleLine(event.payload);
+    });
+    this.connected = true;
+    this.probeReadiness();
   }
 
-  isConnected() {
-    return this.connected;
+  private async sendViaTauri(req: IpcRequest): Promise<void> {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("write_to_sidecar", { message: JSON.stringify(req) });
   }
 
-  /** Send a request without waiting for readiness */
-  private sendRaw<T = unknown>(
-    method: string,
-    params?: unknown,
-  ): Promise<T> {
+  // ── SSE + HTTP transport (browser / dev mode) ────────────────────────────
+
+  private startSse() {
+    const es = new EventSource(`${DEV_BRIDGE_URL}/events`);
+
+    es.onopen = () => {
+      this.connected = true;
+      this.probeReadiness();
+    };
+
+    es.onmessage = (evt) => {
+      this.handleLine(evt.data);
+    };
+
+    es.onerror = () => {
+      console.warn("[agent-client] SSE connection error");
+    };
+
+    this.unlisten = () => es.close();
+    // Mark connected immediately (SSE may not fire onopen until data arrives)
+    this.connected = true;
+    // Probe after a short delay to let the SSE connection establish
+    setTimeout(() => this.probeReadiness(), 200);
+  }
+
+  private async sendViaSse(req: IpcRequest): Promise<void> {
+    const res = await fetch(`${DEV_BRIDGE_URL}/ipc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) throw new Error(`Dev bridge /ipc returned ${res.status}`);
+    const response: IpcResponse = await res.json();
+    // The HTTP response IS the IPC response — handle directly
+    this.handleLine(JSON.stringify(response));
+  }
+
+  // ── Shared ───────────────────────────────────────────────────────────────
+
+  private sendRaw<T = unknown>(method: string, params?: unknown): Promise<T> {
     const id = crypto.randomUUID();
     const req: IpcRequest = { id, method, params };
 
@@ -99,23 +144,24 @@ class AgentClient {
         timer,
       });
 
-      invoke("write_to_sidecar", { message: JSON.stringify(req) }).catch(
-        (err) => {
-          clearTimeout(timer);
-          this.pending.delete(id);
-          reject(new Error(`Failed to write to sidecar: ${err}`));
-        },
-      );
+      const send = isTauriContext()
+        ? this.sendViaTauri(req)
+        : this.sendViaSse(req);
+
+      send.catch((err) => {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(new Error(`Failed to send request: ${err}`));
+      });
     });
   }
 
-  /** Probe the agent with a ping — if it responds, mark as ready */
   private async probeReadiness() {
     try {
       await this.sendRaw("ping");
       this.markReady();
     } catch {
-      // Agent not responding yet; will be marked ready via agent.ready event
+      // Will be marked ready via agent.ready event
     }
   }
 
@@ -134,7 +180,7 @@ class AgentClient {
     try {
       parsed = JSON.parse(line);
     } catch {
-      console.warn("[agent-client] non-JSON line from sidecar:", line);
+      console.warn("[agent-client] non-JSON line from agent:", line);
       return;
     }
 
@@ -143,11 +189,8 @@ class AgentClient {
       if (pending) {
         clearTimeout(pending.timer);
         this.pending.delete(parsed.id);
-
         if (parsed.error) {
-          pending.reject(
-            new Error(`[${parsed.error.code}] ${parsed.error.message}`),
-          );
+          pending.reject(new Error(`[${parsed.error.code}] ${parsed.error.message}`));
         } else {
           pending.resolve(parsed.result);
         }
@@ -156,21 +199,13 @@ class AgentClient {
     }
 
     if (isIpcEvent(parsed)) {
-      // Handle ready event
-      if (parsed.event === "agent.ready") {
-        this.markReady();
-      }
-
-      // Dispatch as CustomEvent on window
-      window.dispatchEvent(
-        new CustomEvent(`agent:${parsed.event}`, { detail: parsed.data }),
-      );
+      if (parsed.event === "agent.ready") this.markReady();
+      window.dispatchEvent(new CustomEvent(`agent:${parsed.event}`, { detail: parsed.data }));
       return;
     }
 
-    console.warn("[agent-client] unknown message from sidecar:", parsed);
+    console.warn("[agent-client] unknown message from agent:", parsed);
   }
 }
 
-/** Singleton agent client */
 export const agentClient = new AgentClient();

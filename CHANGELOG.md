@@ -2,6 +2,15 @@
 
 ## [0.1.0] - Unreleased
 
+### Fixed (End-to-End Verification)
+- **runner.ts**: Added missing `--verbose` flag required by Claude Code CLI v2.1.71 when using `--print --output-format=stream-json`. Without it all jobs failed immediately with exit code 1.
+- **job-creation-sheet.tsx**: Once-type manual jobs set `fireAt: new Date()` which was already past by the time `createJob` ran, causing `nextFireAt = null` and the job never firing. Fixed with `+10_000ms` buffer (same pattern as `commit.ts`).
+- **goal-creation-sheet.tsx**: Pre-fill bug — `useState(initialGoalText)` only initialises at mount; added `useEffect` to sync `goalText` when the sheet re-opens with new `initialGoalText`.
+- **App.tsx**: `activeProjectId` was being stored under key `"theme"`. Fixed to use key `"active_project"`.
+- **commit.ts**: Once-jobs created with `fireAt: new Date()` were immediately past. Fixed with `ONCE_FIRE_BUFFER_MS = 10_000`.
+- **App.tsx + runs-screen.tsx**: `run.created` and `run.statusChanged` event handlers were only registered in `RunsScreen`. When the user was on the Jobs screen, scheduled runs appeared as "Never" until navigating to Runs and back. Moved handlers to `App.tsx` (global, always-active) and removed duplicates from `RunsScreen`.
+
+
 ### Added
 - Project scaffold: Tauri 2 + React 18 + TypeScript + Tailwind CSS 4
 - Node.js agent sidecar with stdin/stdout IPC
@@ -217,6 +226,25 @@
 - Shared types: `AssessPromptParams`, `PromptAssessmentResult`
 - 37 new tests (291 total): prompt assessment (9), job store (4), creation sheet (6), clarification component (5), existing suites unchanged
 
+### Phase 9 — Eliminate Anthropic API Key
+- Removed `@anthropic-ai/sdk` dependency entirely
+- All internal LLM calls (planning, assessment, summarisation) now route through Claude Code CLI in `--print` mode
+  - New `agent/src/claude-code/print.ts`: lightweight CLI wrapper for single-turn completions
+  - New `agent/src/planner/llm-via-cli.ts`: adapter translating planner needs into CLI calls
+  - New `agent/src/planner/cron-validator.ts`: standalone cron validation utility
+- Users no longer need a separate Anthropic API key — only a Claude Code subscription
+- Removed `anthropic_api_key` from `SettingKey` union type
+- Removed API key step from onboarding wizard (5 steps → 4 steps)
+- Removed API key section from settings screen
+- Deleted `agent/src/llm/` directory (client.ts, loop.ts, tools.ts, index.ts)
+- Deleted `src/components/onboarding/steps/api-key-step.tsx`
+- IPC error handling updated: `PrintError` replaces `LlmError`
+- Datetime context now inlined in plan generation prompt (replaces `get_current_datetime` tool)
+- Post-generation cron validation replaces `validate_cron_expression` tool
+- One-time cleanup on agent startup removes any stored legacy API key
+- Model selection: `sonnet` alias for planning, `claude-haiku-4-5-20251001` for classification
+- 16 new/rewritten tests, 20 tests deleted (net: 234 agent tests, down from 254 due to removed LLM layer tests)
+
 ### Phase 8 — Polish, Hardening & Distribution
 
 #### 8.1 Comprehensive Error Handling
@@ -295,3 +323,56 @@
   - Updater configured in `tauri.conf.json` plugins section with GitHub Releases endpoint
   - `updater:default` permission added to default capabilities
 - 24 new tests (315 total): IPC error mapping (7), friendlyError (7), ErrorBanner (8), executor preflight (1), planner retry fixes (1)
+
+### End-to-End Verification Bug Fixes
+
+#### Live Log Streaming (Critical)
+- Fixed `RunLogEvent` interface mismatch in `src/hooks/use-run-logs.ts`
+  - Agent emits individual events `{runId, sequence, stream, text}` but handler expected `{runId, logs: Array<...>}`, causing `data.logs.map is not a function` TypeError on every log event
+  - Corrected interface to match single-line agent emission; log streaming now works correctly
+
+#### Scheduled Runs Not Appearing in UI
+- Fixed missing `run.created` event emission in `agent/src/scheduler/index.ts`
+  - Scheduler only emitted `run.statusChanged` but the runs screen listens for `run.created` to refresh the list; scheduled runs were invisible until manual page refresh
+- Applied same fix to manual trigger handler in `agent/src/ipc/handlers/scheduler.ts`
+
+#### Run Duration Always Showing "< 1s"
+- Fixed `run.statusChanged` events missing timing fields in `agent/src/executor/index.ts`
+  - Running transition now includes `startedAt` in the event payload
+  - Terminal transition now includes `finishedAt` and `exitCode` in the event payload
+- Updated `handleStatusChange` in `src/components/runs/runs-screen.tsx` to apply all timing fields from events to the in-memory run store (conditional spread prevents null/undefined overwrites)
+
+#### Active Project Not Restored After Restart
+- Fixed `App.tsx` to actually use the saved project ID when restoring the active project
+  - Previously loaded the `theme` setting but ignored its value, always selecting `projectsList[0]`
+  - Now correctly selects the saved project or falls back to first available
+
+#### `permanent_failure` Not Filterable in Runs Screen
+- Added missing `permanent_failure` option to `STATUS_OPTIONS` in `src/components/runs/runs-screen.tsx`
+
+#### Settings: No Way to Set Claude Code Path When Not Detected
+- Fixed `ClaudeCodeSection` in `src/components/settings/settings-screen.tsx`
+  - "Change path" input was only accessible when Claude Code was already found (the toggle button was inside the "detected" branch only)
+  - Added "Set path manually" button and install instructions to the "not detected" branch so users can configure the path after onboarding
+
+#### TypeScript: null/undefined Mismatch in Executor
+- Fixed `agent/src/executor/index.ts` — `updateRun` call passed `number | null` for `exitCode` and `string | null` for `summary`, but `UpdateRunParams` declares these as `number | undefined` and `string | undefined`
+  - Added `?? undefined` coercions to both fields at the call site
+
+### End-to-End Verification — Round 2 Bug Fixes
+
+#### Critical: Goal Creation Sheet Shows Blank Screen When No Clarification Needed
+- Fixed `src/components/goals/goal-creation-sheet.tsx`
+  - When `assessGoal` returned `needsClarification: false`, the sheet jumped to step 2 but `plan` was still `null`, so `{step === 2 && plan && <PlanReviewStep />}` never rendered — completely blank content area
+  - Fix: added `doGeneratePlan()` helper that auto-generates the plan when skipping clarification; step 2 now shows a spinner while generating, an `ErrorBanner` with retry on failure, and `PlanReviewStep` when ready
+
+#### Critical: Once-Jobs Committed via `commitPlan` Never Fire
+- Fixed `agent/src/planner/commit.ts`
+  - `adjustScheduleConfig` set `fireAt: new Date().toISOString()`, but by the time `createJob` calls `computeNextFireAt(scheduleType, config, new Date())` (a few ms later), `fireAt` is already in the past → `computeNextFireAt` returns `null` → `nextFireAt = null` → scheduler never picks up the job
+  - Fix: added `ONCE_FIRE_BUFFER_MS = 10_000` — `fireAt` is now set 10 seconds in the future, ensuring it's still in the future when `createJob` processes it; the job fires on the next scheduler tick (≤ 60s)
+  - Added test assertion: `job.nextFireAt` must be non-null for once-jobs created via `commitPlan`
+
+#### Misleading Settings Key for Active Project
+- Fixed `App.tsx`: active project ID was stored and read under settings key `"theme"` — renamed to `"active_project"`
+  - Added `"active_project"` to `SettingKey` type in `shared/src/index.ts`
+  - `"theme"` key retained in the union type for forwards compatibility

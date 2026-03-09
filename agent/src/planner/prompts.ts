@@ -53,8 +53,8 @@ Schedule types:
 - "interval": runs every N minutes (minimum 60 for recurring tasks)
 - "cron": standard 5-field cron expression (minute hour day-of-month month day-of-week)
 
-Use the validate_cron_expression tool to verify any cron expressions before including them.
-Use the get_current_datetime tool to determine appropriate timing for schedules.
+The current datetime, timezone, and day of week are provided in the user message.
+Use standard 5-field cron syntax. Ensure all cron expressions are valid.
 
 Respond with a JSON object in this exact format:
 {

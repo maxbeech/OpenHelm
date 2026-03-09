@@ -158,6 +158,7 @@ export class Executor {
       runId,
       status: "running",
       previousStatus: "queued",
+      startedAt,
     });
 
     // Create abort controller for cancellation
@@ -282,8 +283,8 @@ export class Executor {
       id: runId,
       status: finalStatus,
       finishedAt,
-      exitCode: result.exitCode,
-      summary,
+      exitCode: result.exitCode ?? undefined,
+      summary: summary ?? undefined,
     });
 
     emit("run.statusChanged", {
@@ -291,6 +292,8 @@ export class Executor {
       status: finalStatus,
       previousStatus: "running",
       summary,
+      finishedAt,
+      exitCode: result.exitCode,
     });
     emit("run.completed", {
       runId,

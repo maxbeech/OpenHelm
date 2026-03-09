@@ -10,7 +10,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@openorchestra/shared": "*",
     "better-sqlite3": "^11.9.1",
     "cron-parser": "^5.5.0",

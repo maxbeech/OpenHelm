@@ -8,6 +8,9 @@ import {
 } from "@tauri-apps/plugin-notification";
 import { useAppStore } from "./stores/app-store";
 import { useProjectStore } from "./stores/project-store";
+import { useRunStore } from "./stores/run-store";
+import { useAgentEvent } from "./hooks/use-agent-event";
+import type { RunStatus } from "@openorchestra/shared";
 import { OnboardingWizard } from "./components/onboarding/onboarding-wizard";
 import { AppShell } from "./components/layout/app-shell";
 import { GoalsScreen } from "./components/goals/goals-screen";
@@ -28,9 +31,39 @@ export default function App() {
     setAgentReady,
   } = useAppStore();
   const { projects, fetchProjects } = useProjectStore();
+  const { fetchRuns, updateRunInStore } = useRunStore();
   const [showNewProject, setShowNewProject] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [agentTimeout, setAgentTimeout] = useState(false);
+
+  // Global run event handlers — active regardless of which screen is shown
+  const handleRunCreated = useCallback(() => {
+    if (activeProjectId) fetchRuns(activeProjectId);
+  }, [activeProjectId, fetchRuns]);
+
+  const handleRunStatusChanged = useCallback(
+    (data: {
+      runId: string;
+      status: RunStatus;
+      summary?: string | null;
+      startedAt?: string;
+      finishedAt?: string;
+      exitCode?: number | null;
+    }) => {
+      updateRunInStore({
+        id: data.runId,
+        status: data.status,
+        ...(data.summary != null && { summary: data.summary }),
+        ...(data.startedAt != null && { startedAt: data.startedAt }),
+        ...(data.finishedAt != null && { finishedAt: data.finishedAt }),
+        ...(data.exitCode !== undefined && { exitCode: data.exitCode }),
+      });
+    },
+    [updateRunInStore],
+  );
+
+  useAgentEvent("run.created", handleRunCreated);
+  useAgentEvent("run.statusChanged", handleRunStatusChanged);
 
   // Start agent client and detect readiness
   useEffect(() => {
@@ -60,9 +93,12 @@ export default function App() {
       const projectsList = useProjectStore.getState().projects;
       if (projectsList.length > 0) {
         setOnboardingComplete(true);
-        // Restore last active project or use the first one
-        const saved = await api.getSetting("theme"); // check if settings exist
-        setActiveProjectId(projectsList[0].id);
+        // Restore last active project or fall back to the first one
+        const saved = await api.getSetting("active_project");
+        const savedId = saved?.value;
+        const activeProj =
+          projectsList.find((p) => p.id === savedId) ?? projectsList[0];
+        setActiveProjectId(activeProj.id);
       }
       setInitialLoading(false);
     })();
@@ -94,7 +130,7 @@ export default function App() {
   useEffect(() => {
     if (activeProjectId) {
       // Persist active project for next session
-      api.setSetting({ key: "theme", value: activeProjectId }).catch(() => {});
+      api.setSetting({ key: "active_project", value: activeProjectId }).catch(() => {});
     }
   }, [activeProjectId]);
 

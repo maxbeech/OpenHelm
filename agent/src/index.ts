@@ -3,7 +3,9 @@ import type { IpcRequest } from "@openorchestra/shared";
 import { handleRequest } from "./ipc/handler.js";
 import { registerAllHandlers } from "./ipc/handlers/index.js";
 import { initDatabase } from "./db/init.js";
+import { deleteSetting } from "./db/queries/settings.js";
 import { emit, send } from "./ipc/emitter.js";
+import { startDevServer } from "./ipc/dev-server.js";
 import { detectClaudeCode } from "./claude-code/detector.js";
 import { scheduler } from "./scheduler/index.js";
 import { executor } from "./executor/index.js";
@@ -20,8 +22,18 @@ try {
   process.exit(1);
 }
 
+// 1b. One-time cleanup: remove legacy API key if stored
+try {
+  deleteSetting("anthropic_api_key" as any);
+} catch {
+  // Ignore — key may not exist
+}
+
 // 2. Register all IPC handlers
 registerAllHandlers();
+
+// 2b. Start browser-accessible dev HTTP bridge (port 1421)
+startDevServer();
 
 // 3. Crash recovery — must happen after DB init, before scheduler start
 executor.recoverFromCrash();

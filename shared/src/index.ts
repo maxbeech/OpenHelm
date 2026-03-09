@@ -138,13 +138,13 @@ export interface RunLog {
 }
 
 export type SettingKey =
-  | "anthropic_api_key"
   | "claude_code_path"
   | "claude_code_version"
   | "max_concurrent_runs"
   | "default_timeout_minutes"
   | "run_timeout_minutes"
   | "notification_permission_requested"
+  | "active_project"
   | "theme";
 
 export interface Setting {

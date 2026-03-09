@@ -95,7 +95,7 @@ export function JobCreationSheet({
   const getScheduleConfig = (): ScheduleConfig => {
     if (form.scheduleType === "interval") return { minutes: form.intervalMinutes };
     if (form.scheduleType === "cron") return { expression: form.cronExpression };
-    return { fireAt: new Date().toISOString() };
+    return { fireAt: new Date(Date.now() + 10_000).toISOString() };
   };
 
   const doCreate = async () => {

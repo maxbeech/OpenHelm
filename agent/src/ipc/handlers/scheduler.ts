@@ -33,6 +33,7 @@ export function registerSchedulerHandlers() {
       enqueuedAt: Date.now(),
     });
 
+    emit("run.created", { runId: run.id, jobId: p.jobId });
     emit("run.statusChanged", {
       runId: run.id,
       status: "queued",

@@ -3,9 +3,12 @@ import type { RunLog } from "@openorchestra/shared";
 import * as api from "@/lib/api";
 import { useAgentEvent } from "./use-agent-event";
 
+// Agent emits one event per log line: { runId, sequence, stream, text }
 interface RunLogEvent {
   runId: string;
-  logs: Array<{ stream: "stdout" | "stderr"; text: string; sequence: number }>;
+  sequence: number;
+  stream: "stdout" | "stderr";
+  text: string;
 }
 
 /**
@@ -49,19 +52,18 @@ export function useRunLogs(runId: string | null) {
     };
   }, []);
 
-  // Listen for live log events
+  // Listen for live log events (agent emits one event per line)
   const handleLogEvent = useCallback(
     (data: RunLogEvent) => {
       if (data.runId !== runId) return;
-      const newLogs: RunLog[] = data.logs.map((l) => ({
-        id: `live-${l.sequence}`,
+      bufferRef.current.push({
+        id: `live-${data.sequence}`,
         runId: data.runId,
-        sequence: l.sequence,
-        stream: l.stream,
-        text: l.text,
+        sequence: data.sequence,
+        stream: data.stream,
+        text: data.text,
         timestamp: new Date().toISOString(),
-      }));
-      bufferRef.current.push(...newLogs);
+      });
     },
     [runId],
   );

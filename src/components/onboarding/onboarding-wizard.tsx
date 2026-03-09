@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { WelcomeStep } from "./steps/welcome-step";
 import { ClaudeCodeStep } from "./steps/claude-code-step";
-import { ApiKeyStep } from "./steps/api-key-step";
 import { ProjectStep } from "./steps/project-step";
 import { CompleteStep } from "./steps/complete-step";
 import { Progress } from "@/components/ui/progress";
@@ -9,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 const STEPS = [
   { id: "welcome", label: "Welcome" },
   { id: "claude-code", label: "Claude Code" },
-  { id: "api-key", label: "API Key" },
   { id: "project", label: "Project" },
   { id: "complete", label: "Complete" },
 ] as const;
@@ -47,8 +45,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       <div className="w-full max-w-md">
         {step === 0 && <WelcomeStep onNext={next} />}
         {step === 1 && <ClaudeCodeStep onNext={next} />}
-        {step === 2 && <ApiKeyStep onNext={next} />}
-        {step === 3 && (
+        {step === 2 && (
           <ProjectStep
             onNext={(id) => {
               setProjectId(id);
@@ -56,7 +53,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             }}
           />
         )}
-        {step === 4 && (
+        {step === 3 && (
           <CompleteStep onComplete={() => onComplete(projectId!)} />
         )}
       </div>

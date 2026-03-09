@@ -5,18 +5,10 @@ import { createJob } from "../src/db/queries/jobs.js";
 import { createRun } from "../src/db/queries/runs.js";
 import { createRunLog } from "../src/db/queries/run-logs.js";
 
-// Mock the LLM client
-const callLlmMock = vi.fn();
-vi.mock("../src/llm/client.js", () => ({
-  callLlm: (...args: unknown[]) => callLlmMock(...args),
-  LlmError: class LlmError extends Error {
-    code: string;
-    constructor(message: string, code: string) {
-      super(message);
-      this.name = "LlmError";
-      this.code = code;
-    }
-  },
+// Mock the LLM via CLI adapter
+const callLlmViaCliMock = vi.fn();
+vi.mock("../src/planner/llm-via-cli.js", () => ({
+  callLlmViaCli: (...args: unknown[]) => callLlmViaCliMock(...args),
 }));
 
 import {
@@ -110,21 +102,17 @@ describe("generateRunSummary", () => {
     const run = createRun({ jobId: job.id, triggerSource: "manual" });
     createRunLog({ runId: run.id, stream: "stdout", text: "All tests passed." });
 
-    callLlmMock.mockResolvedValueOnce({
-      content: [
-        { type: "text", text: "The run completed successfully. All tests passed without errors." },
-      ],
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      "The run completed successfully. All tests passed without errors.",
+    );
 
     const summary = await generateRunSummary(run.id, "succeeded");
     expect(summary).toBe("The run completed successfully. All tests passed without errors.");
 
-    // Verify call was made with classification model (Haiku)
-    expect(callLlmMock).toHaveBeenCalledWith(
+    // Verify call was made with classification model
+    expect(callLlmViaCliMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "classification",
-        maxTokens: 256,
-        temperature: 0,
       }),
     );
   });
@@ -140,11 +128,9 @@ describe("generateRunSummary", () => {
     const run = createRun({ jobId: job.id, triggerSource: "manual" });
     createRunLog({ runId: run.id, stream: "stderr", text: "Error: module not found" });
 
-    callLlmMock.mockResolvedValueOnce({
-      content: [
-        { type: "text", text: "The run failed due to a missing module dependency." },
-      ],
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      "The run failed due to a missing module dependency.",
+    );
 
     const summary = await generateRunSummary(run.id, "failed");
     expect(summary).toBe("The run failed due to a missing module dependency.");
@@ -162,7 +148,7 @@ describe("generateRunSummary", () => {
 
     const summary = await generateRunSummary(run.id, "succeeded");
     expect(summary).toBe("Run completed successfully with no output.");
-    expect(callLlmMock).not.toHaveBeenCalled();
+    expect(callLlmViaCliMock).not.toHaveBeenCalled();
   });
 
   it("returns a fallback message when there are no logs (failed)", async () => {
@@ -177,7 +163,7 @@ describe("generateRunSummary", () => {
 
     const summary = await generateRunSummary(run.id, "failed");
     expect(summary).toBe("Run ended with no output captured.");
-    expect(callLlmMock).not.toHaveBeenCalled();
+    expect(callLlmViaCliMock).not.toHaveBeenCalled();
   });
 
   it("returns null when LLM call fails", async () => {
@@ -191,7 +177,7 @@ describe("generateRunSummary", () => {
     const run = createRun({ jobId: job.id, triggerSource: "manual" });
     createRunLog({ runId: run.id, stream: "stdout", text: "some output" });
 
-    callLlmMock.mockRejectedValueOnce(new Error("API unavailable"));
+    callLlmViaCliMock.mockRejectedValueOnce(new Error("CLI unavailable"));
 
     const summary = await generateRunSummary(run.id, "succeeded");
     expect(summary).toBeNull();
@@ -208,9 +194,7 @@ describe("generateRunSummary", () => {
     const run = createRun({ jobId: job.id, triggerSource: "manual" });
     createRunLog({ runId: run.id, stream: "stdout", text: "output" });
 
-    callLlmMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: "" }],
-    });
+    callLlmViaCliMock.mockResolvedValueOnce("");
 
     const summary = await generateRunSummary(run.id, "succeeded");
     expect(summary).toBeNull();
@@ -227,16 +211,13 @@ describe("generateRunSummary", () => {
     const run = createRun({ jobId: job.id, triggerSource: "manual" });
     createRunLog({ runId: run.id, stream: "stdout", text: "done" });
 
-    callLlmMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: "Summary." }],
-    });
+    callLlmViaCliMock.mockResolvedValueOnce("Summary.");
 
     await generateRunSummary(run.id, "cancelled");
 
-    const callArgs = callLlmMock.mock.calls[0][0];
-    const userMessage = callArgs.messages[0].content;
-    expect(userMessage).toContain("Run status: cancelled");
-    expect(userMessage).toContain("done");
+    const callArgs = callLlmViaCliMock.mock.calls[0][0];
+    expect(callArgs.userMessage).toContain("Run status: cancelled");
+    expect(callArgs.userMessage).toContain("done");
   });
 
   it("truncates long logs before sending to LLM", async () => {
@@ -253,16 +234,13 @@ describe("generateRunSummary", () => {
     const longText = "x".repeat(12_000);
     createRunLog({ runId: run.id, stream: "stdout", text: longText });
 
-    callLlmMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: "Summary of long output." }],
-    });
+    callLlmViaCliMock.mockResolvedValueOnce("Summary of long output.");
 
     await generateRunSummary(run.id, "succeeded");
 
-    const callArgs = callLlmMock.mock.calls[0][0];
-    const userMessage = callArgs.messages[0].content;
-    expect(userMessage).toContain("[Earlier output was truncated");
+    const callArgs = callLlmViaCliMock.mock.calls[0][0];
+    expect(callArgs.userMessage).toContain("[Earlier output was truncated");
     // The message should not contain the full 12000 chars
-    expect(userMessage.length).toBeLessThan(12_000);
+    expect(callArgs.userMessage.length).toBeLessThan(12_000);
   });
 });

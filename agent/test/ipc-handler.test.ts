@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { setupTestDb } from "./helpers.js";
 import { registerHandler, handleRequest } from "../src/ipc/handler.js";
-import { LlmError } from "../src/llm/client.js";
+import { PrintError } from "../src/claude-code/print.js";
 
 let cleanup: () => void;
 
@@ -9,16 +9,12 @@ beforeAll(() => {
   cleanup = setupTestDb();
 
   // Register test handlers that throw specific error types
-  registerHandler("test.throwLlmMissingKey", () => {
-    throw new LlmError("API key not set", "missing_api_key");
+  registerHandler("test.throwPrintError", () => {
+    throw new PrintError("Claude Code exited with code 1", 1);
   });
 
-  registerHandler("test.throwLlmNetwork", () => {
-    throw new LlmError("Connection refused", "network_error");
-  });
-
-  registerHandler("test.throwLlmRateLimited", () => {
-    throw new LlmError("Rate limited", "rate_limited");
+  registerHandler("test.throwPrintTimeout", () => {
+    throw new PrintError("Claude Code timed out after 60000ms", null);
   });
 
   registerHandler("test.throwGenericError", () => {
@@ -34,43 +30,32 @@ beforeAll(() => {
 
 afterAll(() => cleanup());
 
-describe("IPC handler — LlmError mapping", () => {
-  it("maps missing_api_key to code -32001 with friendly message", async () => {
+describe("IPC handler — PrintError mapping", () => {
+  it("maps PrintError to code -32001 with its message", async () => {
     const res = await handleRequest({
       id: "1",
-      method: "test.throwLlmMissingKey",
+      method: "test.throwPrintError",
     });
     expect(res.error).toBeDefined();
     expect(res.error!.code).toBe(-32001);
-    expect(res.error!.message).toContain("API key not configured");
-    expect(res.error!.message).toContain("Settings");
+    expect(res.error!.message).toContain("exited with code 1");
   });
 
-  it("maps network_error to code -32001 with friendly message", async () => {
+  it("maps PrintError timeout to code -32001", async () => {
     const res = await handleRequest({
       id: "2",
-      method: "test.throwLlmNetwork",
+      method: "test.throwPrintTimeout",
     });
     expect(res.error).toBeDefined();
     expect(res.error!.code).toBe(-32001);
-    expect(res.error!.message).toContain("internet connection");
-  });
-
-  it("maps rate_limited to code -32001 with friendly message", async () => {
-    const res = await handleRequest({
-      id: "3",
-      method: "test.throwLlmRateLimited",
-    });
-    expect(res.error).toBeDefined();
-    expect(res.error!.code).toBe(-32001);
-    expect(res.error!.message).toContain("rate limit");
+    expect(res.error!.message).toContain("timed out");
   });
 });
 
 describe("IPC handler — generic errors", () => {
   it("maps a regular Error to code -32603", async () => {
     const res = await handleRequest({
-      id: "4",
+      id: "3",
       method: "test.throwGenericError",
     });
     expect(res.error).toBeDefined();
@@ -80,7 +65,7 @@ describe("IPC handler — generic errors", () => {
 
   it("maps a thrown string to code -32603", async () => {
     const res = await handleRequest({
-      id: "5",
+      id: "4",
       method: "test.throwString",
     });
     expect(res.error).toBeDefined();
@@ -92,7 +77,7 @@ describe("IPC handler — generic errors", () => {
 describe("IPC handler — unknown method", () => {
   it("returns code -32601 for unknown methods", async () => {
     const res = await handleRequest({
-      id: "6",
+      id: "5",
       method: "nonexistent.method",
     });
     expect(res.error).toBeDefined();
@@ -103,9 +88,9 @@ describe("IPC handler — unknown method", () => {
 
 describe("IPC handler — success path", () => {
   it("returns result with no error on success", async () => {
-    const res = await handleRequest({ id: "7", method: "test.success" });
+    const res = await handleRequest({ id: "6", method: "test.success" });
     expect(res.error).toBeUndefined();
     expect(res.result).toEqual({ ok: true });
-    expect(res.id).toBe("7");
+    expect(res.id).toBe("6");
   });
 });

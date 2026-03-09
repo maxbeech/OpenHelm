@@ -65,7 +65,7 @@ describe("commitPlan", () => {
     }
   });
 
-  it("should set once-job nextFireAt to approximately now", () => {
+  it("should set once-job nextFireAt to a non-null near-future value", () => {
     const plannedJobs: PlannedJob[] = [
       {
         name: "Immediate task",
@@ -73,7 +73,7 @@ describe("commitPlan", () => {
         prompt: "Do something immediately",
         rationale: "Urgent task",
         scheduleType: "once",
-        // The fireAt here will be overridden to now
+        // fireAt here is irrelevant — commitPlan overrides it to now+buffer
         scheduleConfig: { fireAt: new Date(Date.now() + 86_400_000).toISOString() },
       },
       {
@@ -86,17 +86,19 @@ describe("commitPlan", () => {
       },
     ];
 
+    const before = Date.now();
     const result = commitPlan(projectId, "Immediate work", plannedJobs);
 
-    // Once-jobs should have nextFireAt near now (within a few seconds)
+    // Once-jobs must have a non-null nextFireAt so the scheduler can pick them up
     for (const jobId of result.jobIds) {
       const job = getJob(jobId);
       expect(job).not.toBeNull();
-      // For once-jobs, fireAt is set to now. computeNextFireAt for "once"
-      // returns null if fireAt is in the past. But we set it to now, which
-      // may be marginally in the past by the time createJob runs.
-      // The important thing is the config was set to now.
       expect(job!.scheduleType).toBe("once");
+      expect(job!.nextFireAt).not.toBeNull();
+      // nextFireAt should be in the near future (the buffer is 10s, we allow 30s)
+      const nextFire = new Date(job!.nextFireAt!).getTime();
+      expect(nextFire).toBeGreaterThan(before);
+      expect(nextFire).toBeLessThan(before + 30_000);
     }
   });
 

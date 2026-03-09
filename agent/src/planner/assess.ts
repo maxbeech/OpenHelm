@@ -1,4 +1,5 @@
-import { callLlm, LlmError } from "../llm/client.js";
+import { callLlmViaCli } from "./llm-via-cli.js";
+import { extractJson } from "./extract-json.js";
 import { getProject } from "../db/queries/projects.js";
 import { ASSESSMENT_SYSTEM_PROMPT } from "./prompts.js";
 import type { AssessmentResult, ClarifyingQuestion } from "@openorchestra/shared";
@@ -28,21 +29,14 @@ export async function assessGoal(
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= JSON_PARSE_MAX_RETRIES; attempt++) {
-    const response = await callLlm({
+    const text = await callLlmViaCli({
       model: "classification",
-      system: ASSESSMENT_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
-      maxTokens: 1024,
-      temperature: 0,
+      systemPrompt: ASSESSMENT_SYSTEM_PROMPT,
+      userMessage,
     });
 
-    const textBlock = response.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      throw new LlmError("Assessment returned no text response", "unknown");
-    }
-
     try {
-      return parseAssessmentResponse(textBlock.text);
+      return parseAssessmentResponse(text);
     } catch (err) {
       lastError = err;
       if (attempt < JSON_PARSE_MAX_RETRIES) {
@@ -72,22 +66,21 @@ function buildAssessmentMessage(
 function parseAssessmentResponse(text: string): AssessmentResult {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text.trim());
+    parsed = JSON.parse(extractJson(text));
   } catch {
-    throw new LlmError(
+    throw new Error(
       `Failed to parse assessment response as JSON: ${text.slice(0, 200)}`,
-      "unknown",
     );
   }
 
   if (typeof parsed !== "object" || parsed === null) {
-    throw new LlmError("Assessment response is not a JSON object", "unknown");
+    throw new Error("Assessment response is not a JSON object");
   }
 
   const obj = parsed as Record<string, unknown>;
 
   if (typeof obj.needsClarification !== "boolean") {
-    throw new LlmError("Assessment response missing needsClarification boolean", "unknown");
+    throw new Error("Assessment response missing needsClarification boolean");
   }
 
   if (!obj.needsClarification) {

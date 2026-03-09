@@ -1,14 +1,15 @@
 /**
  * Run Summarisation — generates a plain-English summary of a completed run.
  *
- * Uses a single, non-agentic completion call to Haiku. Invoked by the executor
+ * Uses a single CLI call to Haiku via --print mode. Invoked by the executor
  * after a run reaches a terminal state, before the statusChanged event is emitted.
  *
  * Summarisation failures must never affect run status or system stability.
  */
 
 import { listRunLogs } from "../db/queries/run-logs.js";
-import { callLlm, LlmError } from "../llm/client.js";
+import { callLlmViaCli } from "./llm-via-cli.js";
+import { PrintError } from "../claude-code/print.js";
 import type { RunStatus } from "@openorchestra/shared";
 
 const MAX_LOG_CHARS = 8_000;
@@ -59,25 +60,16 @@ export async function generateRunSummary(
     const truncated = truncateLogs(fullText);
     const userMessage = `Run status: ${status}\n\nRun output:\n${truncated}`;
 
-    const response = await callLlm({
-      model: "classification", // Maps to Haiku — low cost, sufficient for summarisation
-      system: SUMMARIZE_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
-      maxTokens: 256,
-      temperature: 0,
+    const text = await callLlmViaCli({
+      model: "classification",
+      systemPrompt: SUMMARIZE_SYSTEM_PROMPT,
+      userMessage,
     });
 
-    // Extract text from the response content blocks
-    const text = response.content
-      .filter((block): block is { type: "text"; text: string } => block.type === "text")
-      .map((block) => block.text)
-      .join("")
-      .trim();
-
-    return text || null;
+    return text.trim() || null;
   } catch (err) {
     // Log the failure but never propagate — summarisation is best-effort
-    const message = err instanceof LlmError ? err.message : String(err);
+    const message = err instanceof PrintError ? err.message : String(err);
     console.error(`[summariser] failed for run ${runId}: ${message}`);
     return null;
   }

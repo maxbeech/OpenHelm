@@ -1,6 +1,6 @@
-import { runAgentLoop } from "../llm/loop.js";
-import { PLANNING_TOOLS } from "../llm/tools.js";
-import { LlmError } from "../llm/client.js";
+import { callLlmViaCli } from "./llm-via-cli.js";
+import { validateCronExpression } from "./cron-validator.js";
+import { extractJson } from "./extract-json.js";
 import { getProject } from "../db/queries/projects.js";
 import { PLAN_GENERATION_SYSTEM_PROMPT } from "./prompts.js";
 import type {
@@ -16,7 +16,7 @@ const JSON_PARSE_MAX_RETRIES = 1;
 
 /**
  * Generate a plan of Claude Code jobs for a given goal.
- * Uses the agent loop with tool calling (cron validation, datetime).
+ * Uses a single-turn CLI call with post-generation cron validation.
  * Retries once automatically on JSON parse failures (malformed LLM output).
  */
 export async function generatePlan(
@@ -40,23 +40,21 @@ export async function generatePlan(
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= JSON_PARSE_MAX_RETRIES; attempt++) {
-    const result = await runAgentLoop({
+    const text = await callLlmViaCli({
       model: "planning",
-      system: PLAN_GENERATION_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
-      tools: PLANNING_TOOLS,
-      maxTokens: 8192,
-      maxIterations: 5,
-      temperature: 0.3,
+      systemPrompt: PLAN_GENERATION_SYSTEM_PROMPT,
+      userMessage,
     });
 
     try {
-      return parsePlanResponse(result.text);
+      const plan = parsePlanResponse(text);
+      validatePlanCronExpressions(plan);
+      return plan;
     } catch (err) {
       lastError = err;
       if (attempt < JSON_PARSE_MAX_RETRIES) {
         console.error(
-          `[planner] plan generation JSON parse failed (attempt ${attempt + 1}), retrying`,
+          `[planner] plan generation failed (attempt ${attempt + 1}), retrying`,
         );
       }
     }
@@ -72,7 +70,17 @@ function buildGenerationMessage(
   goalDescription: string,
   clarificationAnswers?: Record<string, string>,
 ): string {
+  // Inline datetime context (replaces get_current_datetime tool)
+  const now = new Date();
+  const datetimeContext = [
+    `Current datetime: ${now.toISOString()}`,
+    `Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
+    `Day of week: ${now.toLocaleDateString("en-US", { weekday: "long" })}`,
+  ].join("\n");
+
   const parts = [
+    datetimeContext,
+    "",
     `Project: ${projectName}`,
     `Directory: ${directoryPath}`,
     projectDescription ? `Description: ${projectDescription}` : null,
@@ -89,32 +97,47 @@ function buildGenerationMessage(
   return parts.filter(Boolean).join("\n");
 }
 
+/** Validate all cron expressions in a generated plan */
+function validatePlanCronExpressions(plan: GeneratedPlan): void {
+  for (let i = 0; i < plan.jobs.length; i++) {
+    const job = plan.jobs[i];
+    if (job.scheduleType === "cron") {
+      const config = job.scheduleConfig as { expression?: string };
+      if (config.expression) {
+        try {
+          validateCronExpression(config.expression);
+        } catch {
+          throw new Error(
+            `Job at index ${i} has invalid cron expression: ${config.expression}`,
+          );
+        }
+      }
+    }
+  }
+}
+
 function parsePlanResponse(text: string): GeneratedPlan {
   let parsed: unknown;
   try {
-    // Strip potential markdown fences the model might add despite instructions
-    const cleaned = text.replace(/^```json?\s*\n?/m, "").replace(/\n?```\s*$/m, "");
-    parsed = JSON.parse(cleaned.trim());
+    parsed = JSON.parse(extractJson(text));
   } catch {
-    throw new LlmError(
+    throw new Error(
       `Failed to parse plan response as JSON: ${text.slice(0, 300)}`,
-      "unknown",
     );
   }
 
   if (typeof parsed !== "object" || parsed === null) {
-    throw new LlmError("Plan response is not a JSON object", "unknown");
+    throw new Error("Plan response is not a JSON object");
   }
 
   const obj = parsed as Record<string, unknown>;
   if (!Array.isArray(obj.jobs)) {
-    throw new LlmError("Plan response missing jobs array", "unknown");
+    throw new Error("Plan response missing jobs array");
   }
 
   if (obj.jobs.length < MIN_JOBS || obj.jobs.length > MAX_JOBS) {
-    throw new LlmError(
+    throw new Error(
       `Plan must contain ${MIN_JOBS}-${MAX_JOBS} jobs, got ${obj.jobs.length}`,
-      "unknown",
     );
   }
 
@@ -124,7 +147,7 @@ function parsePlanResponse(text: string): GeneratedPlan {
 
 function validatePlannedJob(raw: unknown, index: number): PlannedJob {
   if (typeof raw !== "object" || raw === null) {
-    throw new LlmError(`Job at index ${index} is not an object`, "unknown");
+    throw new Error(`Job at index ${index} is not an object`);
   }
 
   const obj = raw as Record<string, unknown>;
@@ -132,32 +155,31 @@ function validatePlannedJob(raw: unknown, index: number): PlannedJob {
 
   for (const field of required) {
     if (!obj[field] && obj[field] !== 0) {
-      throw new LlmError(`Job at index ${index} missing required field: ${field}`, "unknown");
+      throw new Error(`Job at index ${index} missing required field: ${field}`);
     }
   }
 
   if (typeof obj.name !== "string" || obj.name.trim().length === 0) {
-    throw new LlmError(`Job at index ${index} has empty name`, "unknown");
+    throw new Error(`Job at index ${index} has empty name`);
   }
   if (typeof obj.description !== "string" || obj.description.trim().length === 0) {
-    throw new LlmError(`Job at index ${index} has empty description`, "unknown");
+    throw new Error(`Job at index ${index} has empty description`);
   }
   if (typeof obj.prompt !== "string" || obj.prompt.trim().length === 0) {
-    throw new LlmError(`Job at index ${index} has empty prompt`, "unknown");
+    throw new Error(`Job at index ${index} has empty prompt`);
   }
   if (typeof obj.rationale !== "string" || obj.rationale.trim().length === 0) {
-    throw new LlmError(`Job at index ${index} has empty rationale`, "unknown");
+    throw new Error(`Job at index ${index} has empty rationale`);
   }
 
   if (!VALID_SCHEDULE_TYPES.includes(obj.scheduleType as ScheduleType)) {
-    throw new LlmError(
+    throw new Error(
       `Job at index ${index} has invalid scheduleType: ${obj.scheduleType}`,
-      "unknown",
     );
   }
 
   if (typeof obj.scheduleConfig !== "object" || obj.scheduleConfig === null) {
-    throw new LlmError(`Job at index ${index} has invalid scheduleConfig`, "unknown");
+    throw new Error(`Job at index ${index} has invalid scheduleConfig`);
   }
 
   return {

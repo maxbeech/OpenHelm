@@ -89,6 +89,7 @@ export class Scheduler {
         );
         updateJobNextFireAt(job.id, nextFireAt);
 
+        emit("run.created", { runId: run.id, jobId: job.id });
         emit("run.statusChanged", {
           runId: run.id,
           status: "queued",

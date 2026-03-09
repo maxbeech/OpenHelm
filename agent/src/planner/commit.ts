@@ -65,14 +65,20 @@ export function commitPlan(
   return result;
 }
 
+// Buffer added so computeNextFireAt (called inside createJob) still sees a
+// future timestamp. Without this, fireAt=now is already in the past by the
+// time createJob runs, returning nextFireAt=null and silently skipping the job.
+const ONCE_FIRE_BUFFER_MS = 10_000; // 10 seconds — picked up on next scheduler tick
+
 /**
  * Adjust schedule config to ensure correct nextFireAt behavior:
- * - once-jobs: set fireAt to now so scheduler picks up on next tick
+ * - once-jobs: set fireAt slightly in the future so createJob's
+ *   computeNextFireAt call returns a non-null nextFireAt
  * - interval/cron: leave as-is (computeNextFireAt handles forward calculation)
  */
 function adjustScheduleConfig(planned: PlannedJob): PlannedJob["scheduleConfig"] {
   if (planned.scheduleType === "once") {
-    return { fireAt: new Date().toISOString() } satisfies ScheduleConfigOnce;
+    return { fireAt: new Date(Date.now() + ONCE_FIRE_BUFFER_MS).toISOString() } satisfies ScheduleConfigOnce;
   }
   return planned.scheduleConfig;
 }

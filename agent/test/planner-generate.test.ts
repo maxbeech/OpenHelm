@@ -3,21 +3,11 @@ import { setupTestDb } from "./helpers.js";
 import { createProject } from "../src/db/queries/projects.js";
 import { setSetting } from "../src/db/queries/settings.js";
 
-const createMock = vi.fn();
+const callLlmViaCliMock = vi.fn();
 
-vi.mock("@anthropic-ai/sdk", () => {
-  class MockAnthropic {
-    messages = { create: createMock };
-    constructor() {}
-  }
-  MockAnthropic.AuthenticationError = class extends Error {};
-  MockAnthropic.RateLimitError = class extends Error {};
-  MockAnthropic.BadRequestError = class extends Error {};
-  MockAnthropic.APIConnectionError = class extends Error {};
-  MockAnthropic.APIConnectionTimeoutError = class extends Error {};
-  MockAnthropic.InternalServerError = class extends Error {};
-  return { default: MockAnthropic };
-});
+vi.mock("../src/planner/llm-via-cli.js", () => ({
+  callLlmViaCli: (...args: unknown[]) => callLlmViaCliMock(...args),
+}));
 
 import { generatePlan } from "../src/planner/generate.js";
 
@@ -55,7 +45,7 @@ const VALID_PLAN = {
 
 beforeAll(() => {
   cleanup = setupTestDb();
-  setSetting("anthropic_api_key", "test-key-generate");
+  setSetting("claude_code_path", "/usr/bin/claude");
   const project = createProject({
     name: "Generate Test Project",
     description: "A TypeScript project",
@@ -74,11 +64,7 @@ beforeEach(() => {
 
 describe("generatePlan", () => {
   it("should parse a valid plan response", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: JSON.stringify(VALID_PLAN) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 100, output_tokens: 200 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(VALID_PLAN));
 
     const plan = await generatePlan(projectId, "Improve test coverage");
 
@@ -96,13 +82,8 @@ describe("generatePlan", () => {
       ],
     };
 
-    const badResponse = {
-      content: [{ type: "text", text: JSON.stringify(invalidPlan) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 50 },
-    };
-    createMock.mockResolvedValueOnce(badResponse);
-    createMock.mockResolvedValueOnce(badResponse); // retry also fails
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(invalidPlan));
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(invalidPlan)); // retry also fails
 
     await expect(
       generatePlan(projectId, "Do something"),
@@ -123,13 +104,8 @@ describe("generatePlan", () => {
       ],
     };
 
-    const badResponse = {
-      content: [{ type: "text", text: JSON.stringify(tooFew) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 50 },
-    };
-    createMock.mockResolvedValueOnce(badResponse);
-    createMock.mockResolvedValueOnce(badResponse); // retry also fails
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(tooFew));
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(tooFew)); // retry also fails
 
     await expect(
       generatePlan(projectId, "Simple goal"),
@@ -148,13 +124,8 @@ describe("generatePlan", () => {
       })),
     };
 
-    const badResponse = {
-      content: [{ type: "text", text: JSON.stringify(tooMany) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 50 },
-    };
-    createMock.mockResolvedValueOnce(badResponse);
-    createMock.mockResolvedValueOnce(badResponse); // retry also fails
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(tooMany));
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(tooMany)); // retry also fails
 
     await expect(
       generatePlan(projectId, "Lots of jobs"),
@@ -183,13 +154,8 @@ describe("generatePlan", () => {
       ],
     };
 
-    const badResponse = {
-      content: [{ type: "text", text: JSON.stringify(badSchedule) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 50 },
-    };
-    createMock.mockResolvedValueOnce(badResponse);
-    createMock.mockResolvedValueOnce(badResponse); // retry also fails
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(badSchedule));
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(badSchedule)); // retry also fails
 
     await expect(
       generatePlan(projectId, "Invalid schedule"),
@@ -218,13 +184,8 @@ describe("generatePlan", () => {
       ],
     };
 
-    const badResponse = {
-      content: [{ type: "text", text: JSON.stringify(emptyFields) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 50, output_tokens: 50 },
-    };
-    createMock.mockResolvedValueOnce(badResponse);
-    createMock.mockResolvedValueOnce(badResponse); // retry also fails
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(emptyFields));
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(emptyFields)); // retry also fails
 
     await expect(
       generatePlan(projectId, "Empty fields"),
@@ -234,11 +195,7 @@ describe("generatePlan", () => {
   it("should strip markdown code fences from response", async () => {
     const wrapped = "```json\n" + JSON.stringify(VALID_PLAN) + "\n```";
 
-    createMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: wrapped }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 100, output_tokens: 200 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(wrapped);
 
     const plan = await generatePlan(projectId, "Test coverage");
     expect(plan.jobs).toHaveLength(3);
@@ -251,35 +208,67 @@ describe("generatePlan", () => {
   });
 
   it("should include clarification answers in message", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: JSON.stringify(VALID_PLAN) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 100, output_tokens: 200 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(VALID_PLAN));
 
     await generatePlan(projectId, "Improve code", {
       "What type?": "Performance",
     });
 
-    const callArgs = createMock.mock.calls[0][0];
-    const userMessage = callArgs.messages[0].content;
-    expect(userMessage).toContain("What type?");
-    expect(userMessage).toContain("Performance");
+    const callArgs = callLlmViaCliMock.mock.calls[0][0];
+    expect(callArgs.userMessage).toContain("What type?");
+    expect(callArgs.userMessage).toContain("Performance");
   });
 
   it("should use planning model", async () => {
-    createMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: JSON.stringify(VALID_PLAN) }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 100, output_tokens: 200 },
-    });
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(VALID_PLAN));
 
     await generatePlan(projectId, "Test");
 
-    expect(createMock).toHaveBeenCalledWith(
+    expect(callLlmViaCliMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "claude-sonnet-4-6",
+        model: "planning",
       }),
     );
+  });
+
+  it("should include datetime context in the message", async () => {
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(VALID_PLAN));
+
+    await generatePlan(projectId, "Test");
+
+    const callArgs = callLlmViaCliMock.mock.calls[0][0];
+    expect(callArgs.userMessage).toContain("Current datetime:");
+    expect(callArgs.userMessage).toContain("Timezone:");
+    expect(callArgs.userMessage).toContain("Day of week:");
+  });
+
+  it("should validate cron expressions and reject invalid ones", async () => {
+    const planWithBadCron = {
+      jobs: [
+        {
+          name: "Job 1",
+          description: "d",
+          prompt: "p",
+          rationale: "r",
+          scheduleType: "once",
+          scheduleConfig: { fireAt: new Date().toISOString() },
+        },
+        {
+          name: "Bad cron job",
+          description: "d",
+          prompt: "p",
+          rationale: "r",
+          scheduleType: "cron",
+          scheduleConfig: { expression: "invalid cron" },
+        },
+      ],
+    };
+
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(planWithBadCron));
+    callLlmViaCliMock.mockResolvedValueOnce(JSON.stringify(planWithBadCron)); // retry
+
+    await expect(
+      generatePlan(projectId, "Bad cron"),
+    ).rejects.toThrow("invalid cron expression");
   });
 });

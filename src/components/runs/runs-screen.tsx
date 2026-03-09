@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Play } from "lucide-react";
 import {
   Select,
@@ -10,20 +10,20 @@ import {
 import { useAppStore } from "@/stores/app-store";
 import { useRunStore } from "@/stores/run-store";
 import { useJobStore } from "@/stores/job-store";
-import { useAgentEvent } from "@/hooks/use-agent-event";
 import { RunDetailPanel } from "./run-detail-panel";
 import { RunStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { TableRowSkeleton } from "@/components/shared/loading-skeleton";
 import { formatRelativeTime, formatDuration, getElapsed } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { RunStatus, TriggerSource } from "@openorchestra/shared";
+import type { TriggerSource } from "@openorchestra/shared";
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All statuses" },
   { value: "running", label: "Running" },
   { value: "succeeded", label: "Succeeded" },
   { value: "failed", label: "Failed" },
+  { value: "permanent_failure", label: "Permanent Failure" },
   { value: "queued", label: "Queued" },
   { value: "cancelled", label: "Cancelled" },
 ];
@@ -36,8 +36,7 @@ const TRIGGER_LABELS: Record<TriggerSource, string> = {
 
 export function RunsScreen() {
   const { activeProjectId, filter } = useAppStore();
-  const { runs, loading, fetchRuns, updateRunInStore } =
-    useRunStore();
+  const { runs, loading, fetchRuns } = useRunStore();
   const { jobs, fetchJobs } = useJobStore();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -56,29 +55,6 @@ export function RunsScreen() {
   useEffect(() => {
     if (filter.runId) setSelectedRunId(filter.runId);
   }, [filter.runId]);
-
-  // Listen for live run status changes (may include summary for terminal states)
-  const handleStatusChange = useCallback(
-    (data: { runId: string; status: RunStatus; summary?: string | null }) => {
-      updateRunInStore({
-        id: data.runId,
-        status: data.status,
-        ...(data.summary != null && { summary: data.summary }),
-      });
-    },
-    [updateRunInStore],
-  );
-  useAgentEvent("run.statusChanged", handleStatusChange);
-
-  // Listen for new runs
-  const handleRunCreated = useCallback(
-    (data: unknown) => {
-      if (activeProjectId) fetchRuns(activeProjectId);
-      void data;
-    },
-    [activeProjectId, fetchRuns],
-  );
-  useAgentEvent("run.created", handleRunCreated);
 
   const filteredRuns = useMemo(() => {
     let result = runs;

@@ -5,6 +5,8 @@
 **Target**: macOS (arm64 + x86_64), with cross-platform in mind from day one
 **Estimated duration**: 7–8 weeks solo, 4–5 weeks with two developers
 
+> **Post-plan update**: The Anthropic API key requirement was eliminated in Phase 9. All internal LLM calls (planning, assessment, summarisation) now route through the Claude Code CLI in `--print` mode. Users only need a Claude Code subscription — no separate API key. The `@anthropic-ai/sdk` dependency was removed entirely.
+
 ---
 
 ## How to Use This Document
