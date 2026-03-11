@@ -8,7 +8,6 @@ describe("AppStore", () => {
       selectedGoalId: null,
       selectedJobId: null,
       selectedRunId: null,
-      runsPanelOpen: true,
       collapsedGoalIds: [],
       page: "goals",
       filter: {},
@@ -18,7 +17,6 @@ describe("AppStore", () => {
     });
   });
 
-  // New navigation model tests
   it("selectGoal sets goal-detail view", () => {
     useAppStore.getState().selectGoal("g1");
     const s = useAppStore.getState();
@@ -36,29 +34,31 @@ describe("AppStore", () => {
     expect(s.selectedRunId).toBeNull();
   });
 
-  it("selectRun sets run-detail view and preserves jobId", () => {
+  it("selectRun sets selectedRunId and preserves jobId", () => {
     useAppStore.getState().selectJob("j1");
     useAppStore.getState().selectRun("r1");
     const s = useAppStore.getState();
-    expect(s.contentView).toBe("run-detail");
+    expect(s.contentView).toBe("job-detail");
     expect(s.selectedRunId).toBe("r1");
-    expect(s.selectedJobId).toBe("j1"); // preserved from prior selectJob
+    expect(s.selectedJobId).toBe("j1");
   });
 
-  it("selectRun with explicit jobId sets selectedJobId", () => {
+  it("selectRun with explicit jobId sets selectedJobId and switches to job-detail", () => {
     useAppStore.getState().selectRun("r1", "j2");
     const s = useAppStore.getState();
-    expect(s.contentView).toBe("run-detail");
+    expect(s.contentView).toBe("job-detail");
     expect(s.selectedRunId).toBe("r1");
     expect(s.selectedJobId).toBe("j2");
   });
 
-  it("toggleRunsPanel toggles state", () => {
-    expect(useAppStore.getState().runsPanelOpen).toBe(true);
-    useAppStore.getState().toggleRunsPanel();
-    expect(useAppStore.getState().runsPanelOpen).toBe(false);
-    useAppStore.getState().toggleRunsPanel();
-    expect(useAppStore.getState().runsPanelOpen).toBe(true);
+  it("clearSelectedRun clears the run selection", () => {
+    useAppStore.getState().selectJob("j1");
+    useAppStore.getState().selectRun("r1");
+    useAppStore.getState().clearSelectedRun();
+    const s = useAppStore.getState();
+    expect(s.selectedRunId).toBeNull();
+    expect(s.selectedJobId).toBe("j1");
+    expect(s.contentView).toBe("job-detail");
   });
 
   it("toggleGoalCollapsed adds and removes goal IDs", () => {
@@ -91,11 +91,13 @@ describe("AppStore", () => {
     expect(useAppStore.getState().contentView).toBe("home");
   });
 
-  it("setPage maps runs with runId filter to run-detail", () => {
+  it("setPage maps runs with runId filter and sets selectedRunId", () => {
+    useAppStore.getState().selectJob("j1");
     useAppStore.getState().setPage("runs", { runId: "r1" });
     const s = useAppStore.getState();
-    expect(s.contentView).toBe("run-detail");
     expect(s.selectedRunId).toBe("r1");
+    expect(s.selectedJobId).toBe("j1");
+    expect(s.contentView).toBe("job-detail");
   });
 
   it("setPage maps settings", () => {

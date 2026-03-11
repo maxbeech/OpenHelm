@@ -41,7 +41,7 @@ export default function App() {
   } = useAppStore();
   const { projects, fetchProjects } = useProjectStore();
   const { goals, fetchGoals } = useGoalStore();
-  const { fetchJobs } = useJobStore();
+  const { fetchJobs, updateJobInStore } = useJobStore();
   const { fetchRuns, updateRunInStore } = useRunStore();
   const {
     messages: chatMessages,
@@ -90,6 +90,36 @@ export default function App() {
 
   useAgentEvent("run.created", handleRunCreated);
   useAgentEvent("run.statusChanged", handleRunStatusChanged);
+
+  // Icon update event handlers (background AI icon picks)
+  const handleGoalIconUpdated = useCallback(
+    (data: { id: string; icon: string }) => {
+      const { goals } = useGoalStore.getState();
+      const goal = goals.find((g) => g.id === data.id);
+      if (goal) {
+        useGoalStore.setState({
+          goals: goals.map((g) =>
+            g.id === data.id ? { ...g, icon: data.icon } : g,
+          ),
+        });
+      }
+    },
+    [],
+  );
+
+  const handleJobIconUpdated = useCallback(
+    (data: { id: string; icon: string }) => {
+      const { jobs } = useJobStore.getState();
+      const job = jobs.find((j) => j.id === data.id);
+      if (job) {
+        updateJobInStore({ ...job, icon: data.icon });
+      }
+    },
+    [updateJobInStore],
+  );
+
+  useAgentEvent("goal.iconUpdated", handleGoalIconUpdated);
+  useAgentEvent("job.iconUpdated", handleJobIconUpdated);
 
   // Chat event handlers
   const handleChatMessageCreated = useCallback(
@@ -287,6 +317,9 @@ export default function App() {
       <AppShell
         onNewProject={() => setShowNewProject(true)}
         onNewJobForGoal={handleNewJobForGoal}
+        rightPanel={
+          selectedRunId ? <RunDetailView runId={selectedRunId} /> : undefined
+        }
       >
         {contentView === "home" &&
           (showWelcome && activeProjectId ? (
@@ -306,9 +339,6 @@ export default function App() {
         )}
         {contentView === "job-detail" && selectedJobId && (
           <JobDetailView jobId={selectedJobId} />
-        )}
-        {contentView === "run-detail" && selectedRunId && (
-          <RunDetailView runId={selectedRunId} />
         )}
         {contentView === "settings" && <SettingsScreen />}
       </AppShell>

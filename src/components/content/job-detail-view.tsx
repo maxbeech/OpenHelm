@@ -8,12 +8,15 @@ import {
   AlertTriangle,
   Archive,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { RunStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { JobEditSheet } from "@/components/jobs/job-edit-sheet";
 import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
 import { useAppStore } from "@/stores/app-store";
+import { useProjectStore } from "@/stores/project-store";
 import {
   formatSchedule,
   formatRelativeTime,
@@ -28,14 +31,18 @@ interface JobDetailViewProps {
 export function JobDetailView({ jobId }: JobDetailViewProps) {
   const { jobs, toggleEnabled, archiveJob, deleteJob } = useJobStore();
   const { runs, triggerRun } = useRunStore();
-  const { selectRun, setContentView } = useAppStore();
+  const { selectRun, setContentView, activeProjectId } = useAppStore();
+  const { projects } = useProjectStore();
 
   const [triggering, setTriggering] = useState(false);
   const [showRunWarning, setShowRunWarning] = useState(false);
+  const [showEditSheet, setShowEditSheet] = useState(false);
   const [confirmAction, setConfirmAction] = useState<
     "archive" | "delete" | null
   >(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+
+  const activeProject = projects.find((p) => p.id === activeProjectId);
 
   const job = jobs.find((j) => j.id === jobId);
   const jobRuns = useMemo(
@@ -105,38 +112,64 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
       </div>
 
       {/* Meta row */}
-      <div className="mb-6 flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <Clock className="size-3.5 text-muted-foreground" />
-          <span className="text-sm">
-            {formatSchedule(job.scheduleType, job.scheduleConfig)}
-          </span>
+      <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <Clock className="size-3.5 shrink-0" />
+          <span>{formatSchedule(job.scheduleType, job.scheduleConfig)}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm">Enabled</span>
+        {job.nextFireAt && (
+          <span className="text-xs">
+            · Next: {formatRelativeTime(job.nextFireAt)}
+          </span>
+        )}
+      </div>
+
+      {/* Actions toolbar */}
+      {showRunWarning && (
+        <div className="mb-2 flex items-start gap-2 rounded bg-warning/10 p-2 text-xs text-warning">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          This job is already running. Start another run?
+        </div>
+      )}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Button onClick={handleRunNow} disabled={triggering} size="sm">
+          <Play className="size-3.5" />
+          {triggering ? "Starting..." : "Run now"}
+        </Button>
+        <div className="h-4 w-px bg-border" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowEditSheet(true)}
+        >
+          <Pencil className="size-3.5" />
+          Edit
+        </Button>
+        {!job.isArchived && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmAction("archive")}
+          >
+            <Archive className="size-3.5" />
+            Archive
+          </Button>
+        )}
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setConfirmAction("delete")}
+        >
+          <Trash2 className="size-3.5" />
+          Delete
+        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Enabled</span>
           <Switch
             checked={job.isEnabled}
             onCheckedChange={(checked) => toggleEnabled(job.id, checked)}
           />
         </div>
-      </div>
-
-      {/* Run Now */}
-      <div className="mb-6">
-        {showRunWarning && (
-          <div className="mb-2 flex items-start gap-2 rounded bg-warning/10 p-2 text-xs text-warning">
-            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            This job is already running. Start another run?
-          </div>
-        )}
-        <Button
-          onClick={handleRunNow}
-          disabled={triggering}
-          size="sm"
-        >
-          <Play className="size-3.5" />
-          {triggering ? "Starting..." : "Run now"}
-        </Button>
       </div>
 
       <Separator className="mb-6" />
@@ -150,9 +183,9 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
       ) : (
         <table className="w-full table-fixed text-sm">
           <colgroup>
-            <col className="w-24" />
+            <col className="w-32" />
             <col className="w-28" />
-            <col className="w-24" />
+            <col className="w-20" />
             <col />
           </colgroup>
           <thead>
@@ -194,29 +227,6 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
         </table>
       )}
 
-      <Separator className="my-6" />
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        {!job.isArchived && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirmAction("archive")}
-          >
-            <Archive className="size-3.5" />
-            Archive
-          </Button>
-        )}
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setConfirmAction("delete")}
-        >
-          <Trash2 className="size-3.5" />
-          Delete
-        </Button>
-      </div>
 
       <ConfirmDialog
         open={confirmAction !== null}
@@ -233,6 +243,14 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
         variant={confirmAction === "delete" ? "destructive" : "default"}
         onConfirm={handleConfirm}
         loading={confirmLoading}
+      />
+
+      <JobEditSheet
+        job={job}
+        open={showEditSheet}
+        onOpenChange={setShowEditSheet}
+        projectDirectory={activeProject?.directoryPath ?? ""}
+        onComplete={() => {}}
       />
     </div>
   );

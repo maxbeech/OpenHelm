@@ -25,23 +25,49 @@ describe("computeNextFireAt", () => {
     });
   });
 
-  describe("interval", () => {
+  describe("interval (new format)", () => {
+    it("should return from + hours", () => {
+      const from = new Date("2026-01-15T10:00:00Z");
+      const result = computeNextFireAt("interval", { amount: 2, unit: "hours" }, from);
+      expect(result).toBe("2026-01-15T12:00:00.000Z");
+    });
+
     it("should return from + minutes", () => {
+      const from = new Date("2026-01-15T10:00:00Z");
+      const result = computeNextFireAt("interval", { amount: 30, unit: "minutes" }, from);
+      expect(result).toBe("2026-01-15T10:30:00.000Z");
+    });
+
+    it("should return from + days", () => {
+      const from = new Date("2026-01-15T10:00:00Z");
+      const result = computeNextFireAt("interval", { amount: 1, unit: "days" }, from);
+      expect(result).toBe("2026-01-16T10:00:00.000Z");
+    });
+
+    it("should throw on non-positive amount", () => {
+      expect(() =>
+        computeNextFireAt("interval", { amount: 0, unit: "hours" }),
+      ).toThrow();
+      expect(() =>
+        computeNextFireAt("interval", { amount: -1, unit: "minutes" }),
+      ).toThrow();
+    });
+  });
+
+  describe("interval (legacy format backward compat)", () => {
+    it("should handle legacy { minutes } format", () => {
       const from = new Date("2026-01-15T10:00:00Z");
       const result = computeNextFireAt(
         "interval",
-        { minutes: 30 },
+        { minutes: 30 } as any,
         from,
       );
       expect(result).toBe("2026-01-15T10:30:00.000Z");
     });
 
-    it("should throw on non-positive minutes", () => {
+    it("should throw on non-positive legacy minutes", () => {
       expect(() =>
-        computeNextFireAt("interval", { minutes: 0 }),
-      ).toThrow();
-      expect(() =>
-        computeNextFireAt("interval", { minutes: -1 }),
+        computeNextFireAt("interval", { minutes: 0 } as any),
       ).toThrow();
     });
   });
@@ -54,7 +80,6 @@ describe("computeNextFireAt", () => {
         { expression: "30 10 * * *" },
         from,
       );
-      // Next occurrence: 10:30 on Jan 15 2026
       expect(result).toBe("2026-01-15T10:30:00.000Z");
     });
 
@@ -65,7 +90,6 @@ describe("computeNextFireAt", () => {
         { expression: "30 10 * * *" },
         from,
       );
-      // Next occurrence: 10:30 on Jan 16 2026
       expect(result).toBe("2026-01-16T10:30:00.000Z");
     });
 
@@ -79,6 +103,85 @@ describe("computeNextFireAt", () => {
       expect(() =>
         computeNextFireAt("cron", { expression: "" }),
       ).toThrow("Invalid cron config");
+    });
+  });
+
+  describe("calendar", () => {
+    it("should fire at the next daily time", () => {
+      // 10:00 UTC, asking for next 09:00 — should be next day
+      const from = new Date("2026-01-15T09:30:00Z");
+      const result = computeNextFireAt(
+        "calendar",
+        { frequency: "daily", time: "09:00" },
+        from,
+      );
+      const next = new Date(result!);
+      expect(next.getHours()).toBe(9);
+      expect(next.getMinutes()).toBe(0);
+      // Should be at least 1 day after from
+      expect(next.getTime()).toBeGreaterThan(from.getTime());
+    });
+
+    it("should use today if the daily time is still in the future", () => {
+      // from is 08:00, target is 09:00 — should be same day
+      const from = new Date("2026-01-15T08:00:00Z");
+      const result = computeNextFireAt(
+        "calendar",
+        { frequency: "daily", time: "09:00" },
+        from,
+      );
+      const next = new Date(result!);
+      expect(next.getHours()).toBe(9);
+      expect(next.getDate()).toBe(from.getDate());
+    });
+
+    it("should compute weekly next fire at the correct day", () => {
+      // Thursday 2026-01-15, asking for next Monday (day=1)
+      const from = new Date("2026-01-15T10:00:00Z");
+      const result = computeNextFireAt(
+        "calendar",
+        { frequency: "weekly", time: "09:00", dayOfWeek: 1 },
+        from,
+      );
+      const next = new Date(result!);
+      expect(next.getDay()).toBe(1); // Monday
+      expect(next.getTime()).toBeGreaterThan(from.getTime());
+    });
+
+    it("should compute monthly next fire on the correct date", () => {
+      // Jan 15, asking for day 1 of month — should jump to Feb 1
+      const from = new Date("2026-01-15T10:00:00Z");
+      const result = computeNextFireAt(
+        "calendar",
+        { frequency: "monthly", time: "09:00", dayOfMonth: 1 },
+        from,
+      );
+      const next = new Date(result!);
+      expect(next.getDate()).toBe(1);
+      expect(next.getMonth()).toBe(1); // February
+    });
+
+    it("should never return null (always has a next occurrence)", () => {
+      const from = new Date("2026-01-15T23:59:59Z");
+      const result = computeNextFireAt(
+        "calendar",
+        { frequency: "daily", time: "09:00" },
+        from,
+      );
+      expect(result).not.toBeNull();
+    });
+
+    it("should throw on missing time", () => {
+      expect(() =>
+        computeNextFireAt("calendar", { frequency: "daily", time: "" }),
+      ).toThrow("calendar schedule requires a time field");
+    });
+  });
+
+  describe("manual", () => {
+    it("should return null (never auto-fires)", () => {
+      const result = computeNextFireAt("manual", {});
+      expect(result).toBeNull();
     });
   });
 
@@ -103,16 +206,22 @@ describe("validateScheduleConfig", () => {
     ).toThrow("once schedule requires fireAt");
   });
 
-  it("should validate interval config", () => {
+  it("should validate new interval config", () => {
     expect(() =>
-      validateScheduleConfig("interval", { minutes: 30 }),
+      validateScheduleConfig("interval", { amount: 30, unit: "minutes" }),
     ).not.toThrow();
   });
 
-  it("should reject non-positive interval", () => {
+  it("should validate legacy interval config", () => {
     expect(() =>
-      validateScheduleConfig("interval", { minutes: 0 }),
-    ).toThrow("positive minutes");
+      validateScheduleConfig("interval", { minutes: 30 } as any),
+    ).not.toThrow();
+  });
+
+  it("should reject non-positive interval amount", () => {
+    expect(() =>
+      validateScheduleConfig("interval", { amount: 0, unit: "hours" }),
+    ).toThrow("positive");
   });
 
   it("should validate cron config", () => {
@@ -125,6 +234,24 @@ describe("validateScheduleConfig", () => {
     expect(() =>
       validateScheduleConfig("cron", { expression: "bad" }),
     ).toThrow("Invalid cron expression");
+  });
+
+  it("should validate calendar config", () => {
+    expect(() =>
+      validateScheduleConfig("calendar", { frequency: "daily", time: "09:00" }),
+    ).not.toThrow();
+  });
+
+  it("should reject calendar without time", () => {
+    expect(() =>
+      validateScheduleConfig("calendar", { frequency: "daily", time: "" }),
+    ).toThrow("calendar schedule requires a time field");
+  });
+
+  it("should validate manual config", () => {
+    expect(() =>
+      validateScheduleConfig("manual", {}),
+    ).not.toThrow();
   });
 
   it("should reject unknown schedule type", () => {

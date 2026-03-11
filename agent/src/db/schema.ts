@@ -34,6 +34,7 @@ export const goals = sqliteTable("goals", {
   status: text("status", { enum: ["active", "paused", "archived"] })
     .notNull()
     .default("active"),
+  icon: text("icon"),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -53,13 +54,17 @@ export const jobs = sqliteTable("jobs", {
   description: text("description"),
   prompt: text("prompt").notNull(),
   scheduleType: text("schedule_type", {
-    enum: ["once", "interval", "cron"],
+    enum: ["once", "interval", "cron", "calendar", "manual"],
   }).notNull(),
   scheduleConfig: text("schedule_config").notNull(), // JSON string
   isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
   isArchived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
   workingDirectory: text("working_directory"),
   nextFireAt: text("next_fire_at"),
+  model: text("model").notNull().default("sonnet"),
+  modelEffort: text("model_effort").notNull().default("medium"),
+  permissionMode: text("permission_mode").notNull().default("bypassPermissions"),
+  icon: text("icon"),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

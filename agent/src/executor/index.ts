@@ -26,7 +26,7 @@ import { getSetting } from "../db/queries/settings.js";
 import { computeNextFireAt } from "../scheduler/schedule.js";
 import { emit } from "../ipc/emitter.js";
 import { generateRunSummary } from "../planner/summarize.js";
-import type { RunStatus, ClaudeCodeRunResult } from "@openorchestra/shared";
+import type { RunStatus, ClaudeCodeRunResult, Job } from "@openorchestra/shared";
 
 const DEFAULT_MAX_CONCURRENCY = 1;
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
@@ -174,6 +174,9 @@ export class Executor {
         workingDirectory: job.workingDirectory ?? project.directoryPath,
         prompt: job.prompt,
         timeoutMs,
+        model: job.model ?? undefined,
+        modelEffort: (job.modelEffort as "low" | "medium" | "high") ?? undefined,
+        permissionMode: (job.permissionMode as "default" | "acceptEdits" | "dontAsk" | "bypassPermissions") ?? undefined,
         onLogChunk: (stream, text) => {
           // DB insert BEFORE IPC emit (ordering invariant)
           const log = createRunLog({ runId, stream, text });
@@ -254,7 +257,7 @@ export class Executor {
   /** Handle run completion: determine status, summarise, persist, emit events */
   private async onRunCompleted(
     runId: string,
-    job: { id: string; scheduleType: string; scheduleConfig: unknown },
+    job: Job,
     result: ClaudeCodeRunResult,
   ): Promise<void> {
     const finishedAt = new Date().toISOString();
@@ -309,20 +312,24 @@ export class Executor {
   }
 
   /** Update nextFireAt based on schedule type after run completion */
-  private updateNextFireTime(
-    job: { id: string; scheduleType: string; scheduleConfig: unknown },
-    finishedAt: string,
-  ): void {
+  private updateNextFireTime(job: Job, finishedAt: string): void {
     if (job.scheduleType === "once") {
       disableJob(job.id);
       return;
     }
 
+    if (job.scheduleType === "manual") {
+      // Manual jobs never auto-fire; leave nextFireAt null without disabling
+      updateJobNextFireAt(job.id, null);
+      return;
+    }
+
+    // interval: compute from finish time; all others: from now
     const from =
       job.scheduleType === "interval" ? new Date(finishedAt) : new Date();
     const nextFireAt = computeNextFireAt(
-      job.scheduleType as "interval" | "cron",
-      job.scheduleConfig as { minutes: number } | { expression: string },
+      job.scheduleType,
+      job.scheduleConfig,
       from,
     );
 

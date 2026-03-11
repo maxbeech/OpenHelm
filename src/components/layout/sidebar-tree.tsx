@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { ChevronRight, FileText, Briefcase, Plus } from "lucide-react";
+import { ChevronRight, Flag, Plus } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
 import { cn } from "@/lib/utils";
+import { SidebarJobNode } from "./sidebar-job-node";
 
 interface SidebarTreeProps {
   projectId: string;
@@ -53,12 +54,18 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     [jobsByGoal],
   );
 
-  const runningJobIds = useMemo(() => {
-    const ids = new Set<string>();
+  // Group last 5 runs per job (runs are already newest-first from the store)
+  const recentRunsByJob = useMemo(() => {
+    const map = new Map<string, typeof runs>();
     for (const run of runs) {
-      if (run.status === "running") ids.add(run.jobId);
+      let arr = map.get(run.jobId);
+      if (!arr) {
+        arr = [];
+        map.set(run.jobId, arr);
+      }
+      if (arr.length < 5) arr.push(run);
     }
-    return ids;
+    return map;
   }, [runs]);
 
   const handleCreateGoal = async () => {
@@ -129,7 +136,7 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
           contentView === "goal-detail" && selectedGoalId === goal.id;
 
         return (
-          <div key={goal.id} className="group mb-0.5">
+          <div key={goal.id} className="group mb-1.5">
             <div className="flex items-center">
               <button
                 onClick={() => toggleGoalCollapsed(goal.id)}
@@ -151,7 +158,13 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
                     : "text-sidebar-foreground hover:bg-sidebar-accent/50",
                 )}
               >
-                <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                {goal.icon ? (
+                  <span className="flex size-4 shrink-0 items-center justify-center text-sm leading-none">
+                    {goal.icon}
+                  </span>
+                ) : (
+                  <Flag className="size-3.5 shrink-0 text-muted-foreground" />
+                )}
                 <span className="truncate">{goal.name || goal.description}</span>
               </button>
               <button
@@ -193,14 +206,14 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
             {/* Nested jobs */}
             {!isCollapsed &&
               goalJobs.map((job) => (
-                <JobNode
+                <SidebarJobNode
                   key={job.id}
-                  jobId={job.id}
-                  name={job.name}
+                  job={job}
+                  recentRuns={recentRunsByJob.get(job.id) ?? []}
                   isSelected={
-                    (contentView === "job-detail" || contentView === "run-detail") && selectedJobId === job.id
+                    contentView === "job-detail" &&
+                    selectedJobId === job.id
                   }
-                  isRunning={runningJobIds.has(job.id)}
                   onSelect={() => selectJob(job.id)}
                 />
               ))}
@@ -210,19 +223,19 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
 
       {/* Standalone jobs (no goal) */}
       {standaloneJobs.length > 0 && (
-        <div className="mt-2 border-t border-sidebar-border pt-2">
+        <div className="mt-3 border-t border-sidebar-border pt-3">
           <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Jobs
           </p>
           {standaloneJobs.map((job) => (
-            <JobNode
+            <SidebarJobNode
               key={job.id}
-              jobId={job.id}
-              name={job.name}
+              job={job}
+              recentRuns={recentRunsByJob.get(job.id) ?? []}
               isSelected={
-                (contentView === "job-detail" || contentView === "run-detail") && selectedJobId === job.id
+                contentView === "job-detail" &&
+                selectedJobId === job.id
               }
-              isRunning={runningJobIds.has(job.id)}
               onSelect={() => selectJob(job.id)}
             />
           ))}
@@ -232,35 +245,3 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
   );
 }
 
-function JobNode({
-  name,
-  isSelected,
-  isRunning,
-  onSelect,
-}: {
-  jobId: string;
-  name: string;
-  isSelected: boolean;
-  isRunning: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      onClick={onSelect}
-      className={cn(
-        "flex w-full items-center gap-1.5 rounded-md py-1 pl-7 pr-1.5 text-sm transition-colors",
-        isSelected
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-      )}
-    >
-      <Briefcase className="size-3.5 shrink-0" />
-      <span className={cn("truncate", isSelected && "font-medium")}>
-        {name}
-      </span>
-      {isRunning && (
-        <span className="ml-auto size-2 shrink-0 animate-pulse rounded-full bg-primary" />
-      )}
-    </button>
-  );
-}

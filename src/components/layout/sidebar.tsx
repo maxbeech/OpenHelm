@@ -32,7 +32,7 @@ export function Sidebar({ onNewProject, onNewJobForGoal }: SidebarProps) {
   );
 
   return (
-    <aside className="no-select flex h-full w-56 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside className="no-select flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Project Selector */}
       <div className="border-b border-sidebar-border p-3">
         <DropdownMenu>

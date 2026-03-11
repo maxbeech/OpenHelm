@@ -75,6 +75,7 @@ export function updateGoal(params: UpdateGoalParams): Goal {
       ...(params.name !== undefined && { name: params.name }),
       ...(params.description !== undefined && { description: params.description }),
       ...(params.status !== undefined && { status: params.status }),
+      ...(params.icon !== undefined && { icon: params.icon }),
       updatedAt: now,
     })
     .where(eq(goals.id, params.id))

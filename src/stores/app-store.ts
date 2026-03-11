@@ -1,11 +1,10 @@
 import { create } from "zustand";
 
-// New navigation model
+// Navigation model — run detail is a side panel, not a content view
 export type ContentView =
   | "home"
   | "goal-detail"
   | "job-detail"
-  | "run-detail"
   | "settings";
 
 // Backward-compat alias
@@ -18,12 +17,11 @@ export interface NavigationFilter {
 }
 
 interface AppState {
-  // New navigation
+  // Navigation
   contentView: ContentView;
   selectedGoalId: string | null;
   selectedJobId: string | null;
   selectedRunId: string | null;
-  runsPanelOpen: boolean;
   collapsedGoalIds: string[];
 
   // Legacy
@@ -35,11 +33,11 @@ interface AppState {
   onboardingComplete: boolean;
   agentReady: boolean;
 
-  // New actions
+  // Navigation actions
   selectGoal: (goalId: string) => void;
   selectJob: (jobId: string) => void;
   selectRun: (runId: string, jobId?: string) => void;
-  toggleRunsPanel: () => void;
+  clearSelectedRun: () => void;
   toggleGoalCollapsed: (goalId: string) => void;
   setContentView: (view: ContentView) => void;
 
@@ -57,7 +55,6 @@ export const useAppStore = create<AppState>((set) => ({
   selectedGoalId: null,
   selectedJobId: null,
   selectedRunId: null,
-  runsPanelOpen: false,
   collapsedGoalIds: [],
 
   page: "goals",
@@ -73,7 +70,6 @@ export const useAppStore = create<AppState>((set) => ({
       selectedGoalId: goalId,
       selectedJobId: null,
       selectedRunId: null,
-      runsPanelOpen: true,
     }),
 
   selectJob: (jobId) =>
@@ -81,18 +77,17 @@ export const useAppStore = create<AppState>((set) => ({
       contentView: "job-detail",
       selectedJobId: jobId,
       selectedRunId: null,
-      runsPanelOpen: true,
     }),
 
+  // Run detail is a side panel — don't change contentView
   selectRun: (runId, jobId) =>
     set((s) => ({
-      contentView: "run-detail",
       selectedRunId: runId,
       selectedJobId: jobId ?? s.selectedJobId,
+      contentView: (jobId ?? s.selectedJobId) ? "job-detail" : s.contentView,
     })),
 
-  toggleRunsPanel: () =>
-    set((s) => ({ runsPanelOpen: !s.runsPanelOpen })),
+  clearSelectedRun: () => set({ selectedRunId: null }),
 
   toggleGoalCollapsed: (goalId) =>
     set((s) => ({
@@ -142,12 +137,15 @@ export const useAppStore = create<AppState>((set) => ({
       }
     } else if (page === "runs") {
       if (filter.runId) {
-        set({
-          contentView: "run-detail",
+        set((s) => ({
           selectedRunId: filter.runId,
+          selectedJobId: filter.jobId ?? s.selectedJobId,
+          contentView: (filter.jobId ?? s.selectedJobId)
+            ? "job-detail"
+            : s.contentView,
           page,
           filter,
-        });
+        }));
       } else {
         set({ contentView: "home", page, filter });
       }

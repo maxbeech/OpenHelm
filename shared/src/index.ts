@@ -66,28 +66,52 @@ export interface Goal {
   name: string;
   description: string;
   status: GoalStatus;
+  icon: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export type ScheduleType = "once" | "interval" | "cron";
+export type ScheduleType = "once" | "interval" | "cron" | "calendar" | "manual";
 
 export interface ScheduleConfigOnce {
   fireAt: string; // ISO 8601 datetime
 }
 
 export interface ScheduleConfigInterval {
-  minutes: number;
+  amount: number;
+  unit: "minutes" | "hours" | "days";
 }
 
 export interface ScheduleConfigCron {
   expression: string;
 }
 
+export interface ScheduleConfigCalendar {
+  frequency: "daily" | "weekly" | "monthly";
+  /** Local time as "HH:MM" */
+  time: string;
+  /** 0=Sun … 6=Sat (weekly only; default 1=Mon) */
+  dayOfWeek?: number;
+  /** 1–31 (monthly only; default 1) */
+  dayOfMonth?: number;
+}
+
+export interface ScheduleConfigManual {
+  // No auto-fire — triggered manually only
+}
+
 export type ScheduleConfig =
   | ScheduleConfigOnce
   | ScheduleConfigInterval
-  | ScheduleConfigCron;
+  | ScheduleConfigCron
+  | ScheduleConfigCalendar
+  | ScheduleConfigManual;
+
+export type PermissionMode =
+  | "default"
+  | "acceptEdits"
+  | "dontAsk"
+  | "bypassPermissions";
 
 export interface Job {
   id: string;
@@ -102,6 +126,10 @@ export interface Job {
   isArchived: boolean;
   workingDirectory: string | null;
   nextFireAt: string | null;
+  model: string;
+  modelEffort: "low" | "medium" | "high";
+  permissionMode: PermissionMode;
+  icon: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -183,6 +211,7 @@ export interface UpdateGoalParams {
   name?: string;
   description?: string;
   status?: GoalStatus;
+  icon?: string;
 }
 
 // Jobs
@@ -196,6 +225,9 @@ export interface CreateJobParams {
   scheduleConfig: ScheduleConfig;
   isEnabled?: boolean;
   workingDirectory?: string;
+  model?: string;
+  modelEffort?: "low" | "medium" | "high";
+  permissionMode?: PermissionMode;
 }
 
 export interface UpdateJobParams {
@@ -203,11 +235,16 @@ export interface UpdateJobParams {
   name?: string;
   description?: string;
   prompt?: string;
+  goalId?: string | null;
   scheduleType?: ScheduleType;
   scheduleConfig?: ScheduleConfig;
   isEnabled?: boolean;
   isArchived?: boolean;
   workingDirectory?: string | null;
+  model?: string;
+  modelEffort?: "low" | "medium" | "high";
+  permissionMode?: PermissionMode;
+  icon?: string;
 }
 
 // Runs

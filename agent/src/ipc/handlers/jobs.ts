@@ -1,5 +1,7 @@
 import { registerHandler } from "../handler.js";
+import { emit } from "../emitter.js";
 import * as jobQueries from "../../db/queries/jobs.js";
+import { pickIcon } from "../../planner/icon-picker.js";
 import type {
   CreateJobParams,
   UpdateJobParams,
@@ -14,7 +16,17 @@ export function registerJobHandlers() {
     if (!p?.prompt) throw new Error("prompt is required");
     if (!p?.scheduleType) throw new Error("scheduleType is required");
     if (!p?.scheduleConfig) throw new Error("scheduleConfig is required");
-    return jobQueries.createJob(p);
+    const job = jobQueries.createJob(p);
+
+    // Fire-and-forget: pick an icon in the background
+    pickIcon(p.name, p.description).then((icon) => {
+      if (icon) {
+        jobQueries.updateJob({ id: job.id, icon });
+        emit("job.iconUpdated", { id: job.id, icon });
+      }
+    });
+
+    return job;
   });
 
   registerHandler("jobs.get", (params) => {

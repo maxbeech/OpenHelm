@@ -29,10 +29,14 @@ export interface RunnerConfig {
   prompt: string;
   /** Timeout in milliseconds (default: 30 minutes) */
   timeoutMs?: number;
-  /** Permission mode for Claude Code (default: "auto") */
-  permissionMode?: string;
+  /** Permission mode for Claude Code (default: "bypassPermissions") */
+  permissionMode?: "default" | "acceptEdits" | "dontAsk" | "bypassPermissions";
   /** Maximum USD budget for the run */
   maxBudgetUsd?: number;
+  /** Model to use, e.g. "sonnet", "opus", "haiku" */
+  model?: string;
+  /** Effort level passed via --effort flag (low/medium/high) */
+  modelEffort?: "low" | "medium" | "high";
   /** Called for each log chunk (stream, text) */
   onLogChunk: (stream: "stdout" | "stderr", text: string) => void;
   /** Called when interactive input is detected */
@@ -165,12 +169,22 @@ function buildArgs(config: RunnerConfig): string[] {
   ];
 
   // Permission mode (default: auto — allows Claude Code to run without prompts)
-  const permissionMode = config.permissionMode ?? "auto";
+  const permissionMode = config.permissionMode ?? "bypassPermissions";
   args.push("--permission-mode", permissionMode);
 
   // Budget limit
   if (config.maxBudgetUsd !== undefined) {
     args.push("--max-budget-usd", String(config.maxBudgetUsd));
+  }
+
+  // Model selection
+  if (config.model) {
+    args.push("--model", config.model);
+  }
+
+  // Effort level
+  if (config.modelEffort) {
+    args.push("--effort", config.modelEffort);
   }
 
   // The prompt itself (positional argument)

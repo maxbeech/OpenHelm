@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Goal, GoalStatus, CreateGoalParams } from "@openorchestra/shared";
+import type { Goal, GoalStatus, CreateGoalParams, UpdateGoalParams } from "@openorchestra/shared";
 import * as api from "@/lib/api";
 import { friendlyError } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ interface GoalState {
 
   fetchGoals: (projectId: string) => Promise<void>;
   createGoal: (params: CreateGoalParams) => Promise<Goal>;
+  updateGoal: (params: UpdateGoalParams) => Promise<Goal>;
   updateGoalStatus: (id: string, status: GoalStatus) => Promise<void>;
   archiveGoal: (id: string) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
@@ -41,6 +42,19 @@ export const useGoalStore = create<GoalState>((set) => ({
         error: friendlyError(err, "Failed to load goals"),
         loading: false,
       });
+    }
+  },
+
+  updateGoal: async (params) => {
+    try {
+      const updated = await api.updateGoal(params);
+      set((s) => ({
+        goals: s.goals.map((g) => (g.id === params.id ? updated : g)),
+      }));
+      return updated;
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to update goal") });
+      throw err;
     }
   },
 

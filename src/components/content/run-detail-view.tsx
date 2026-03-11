@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Ban } from "lucide-react";
+import { Ban, X } from "lucide-react";
 import { useRunStore } from "@/stores/run-store";
 import { useJobStore } from "@/stores/job-store";
+import { useAppStore } from "@/stores/app-store";
 import { RunStatusBanner } from "@/components/runs/run-status-banner";
 import { LogViewer } from "@/components/runs/log-viewer";
 import { useRunLogs } from "@/hooks/use-run-logs";
@@ -14,6 +15,7 @@ interface RunDetailViewProps {
 export function RunDetailView({ runId }: RunDetailViewProps) {
   const { runs, cancelRun } = useRunStore();
   const { jobs } = useJobStore();
+  const { clearSelectedRun } = useAppStore();
   const run = runs.find((r) => r.id === runId);
   const { logs, loading: logsLoading } = useRunLogs(runId);
   const [cancelling, setCancelling] = useState(false);
@@ -47,11 +49,20 @@ export function RunDetailView({ runId }: RunDetailViewProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-border p-4">
-        <h3 className="font-semibold">{jobName}</h3>
-        <p className="text-xs text-muted-foreground">
-          Run {run.id.slice(0, 8)}
-        </p>
+      <div className="flex items-start justify-between border-b border-border p-4">
+        <div>
+          <h3 className="font-semibold">{jobName}</h3>
+          <p className="text-xs text-muted-foreground">
+            Run {run.id.slice(0, 8)}
+          </p>
+        </div>
+        <button
+          onClick={clearSelectedRun}
+          className="rounded p-1 text-muted-foreground hover:text-foreground"
+          title="Close run detail"
+        >
+          <X className="size-4" />
+        </button>
       </div>
 
       {/* Status Banner */}

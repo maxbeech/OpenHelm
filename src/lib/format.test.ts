@@ -10,7 +10,7 @@ describe("formatSchedule", () => {
   it("formats once schedule", () => {
     expect(
       formatSchedule("once", { fireAt: "2026-01-01T00:00:00Z" }),
-    ).toBe("Runs once immediately");
+    ).toBe("Runs once");
   });
 
   it("formats interval in minutes", () => {

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Job, CreateJobParams } from "@openorchestra/shared";
+import type { Job, CreateJobParams, UpdateJobParams } from "@openorchestra/shared";
 import * as api from "@/lib/api";
 import { friendlyError } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ interface JobState {
 
   fetchJobs: (projectId: string) => Promise<void>;
   createJob: (params: CreateJobParams) => Promise<Job>;
+  updateJob: (params: UpdateJobParams) => Promise<Job>;
   toggleEnabled: (id: string, isEnabled: boolean) => Promise<void>;
   archiveJob: (id: string) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
@@ -42,6 +43,19 @@ export const useJobStore = create<JobState>((set) => ({
         error: friendlyError(err, "Failed to load jobs"),
         loading: false,
       });
+    }
+  },
+
+  updateJob: async (params) => {
+    try {
+      const updated = await api.updateJob(params);
+      set((s) => ({
+        jobs: s.jobs.map((j) => (j.id === params.id ? updated : j)),
+      }));
+      return updated;
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to update job") });
+      throw err;
     }
   },
 

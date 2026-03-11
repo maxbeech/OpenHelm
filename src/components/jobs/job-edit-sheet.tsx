@@ -10,34 +10,15 @@ import { Button } from "@/components/ui/button";
 import { useJobStore } from "@/stores/job-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { JobCreationForm, type JobFormState, type JobFormErrors } from "./job-creation-form";
-import type { ScheduleConfig } from "@openorchestra/shared";
+import type { Job, ScheduleConfig, ScheduleConfigCalendar } from "@openorchestra/shared";
 
-interface JobCreationSheetProps {
+interface JobEditSheetProps {
+  job: Job;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projectId: string;
   projectDirectory: string;
   onComplete: () => void;
-  initialName?: string;
-  initialGoalId?: string;
 }
-
-const INITIAL_FORM: JobFormState = {
-  name: "",
-  prompt: "",
-  goalId: "none",
-  scheduleType: "once",
-  intervalAmount: 1,
-  intervalUnit: "hours",
-  calendarFrequency: "daily",
-  calendarTime: "09:00",
-  calendarDayOfWeek: 1,
-  calendarDayOfMonth: 1,
-  model: "sonnet",
-  modelEffort: "medium",
-  permissionMode: "bypassPermissions",
-  workingDirectory: "",
-};
 
 function getScheduleConfig(form: JobFormState): ScheduleConfig {
   if (form.scheduleType === "interval") {
@@ -51,40 +32,81 @@ function getScheduleConfig(form: JobFormState): ScheduleConfig {
       dayOfMonth: form.calendarDayOfMonth,
     };
   }
-  if (form.scheduleType === "manual") {
-    return {};
-  }
+  if (form.scheduleType === "manual") return {};
   // "once" — fire 10 seconds from now
   return { fireAt: new Date(Date.now() + 10_000).toISOString() };
 }
 
-export function JobCreationSheet({
+function jobToFormState(job: Job): JobFormState {
+  let intervalAmount = 1;
+  let intervalUnit: "minutes" | "hours" | "days" = "hours";
+  let calendarFrequency: "daily" | "weekly" | "monthly" = "daily";
+  let calendarTime = "09:00";
+  let calendarDayOfWeek = 1;
+  let calendarDayOfMonth = 1;
+
+  if (job.scheduleType === "interval") {
+    const cfg = job.scheduleConfig as Record<string, unknown>;
+    if (typeof cfg.amount === "number") {
+      intervalAmount = cfg.amount;
+      intervalUnit = (cfg.unit as "minutes" | "hours" | "days") ?? "hours";
+    } else if (typeof cfg.minutes === "number") {
+      // Legacy format: { minutes: N }
+      intervalAmount = cfg.minutes;
+      intervalUnit = "minutes";
+    }
+  }
+
+  if (job.scheduleType === "calendar") {
+    const cfg = job.scheduleConfig as ScheduleConfigCalendar;
+    calendarFrequency = cfg.frequency ?? "daily";
+    calendarTime = cfg.time ?? "09:00";
+    calendarDayOfWeek = cfg.dayOfWeek ?? 1;
+    calendarDayOfMonth = cfg.dayOfMonth ?? 1;
+  }
+
+  return {
+    name: job.name,
+    prompt: job.prompt,
+    goalId: job.goalId ?? "none",
+    scheduleType: job.scheduleType,
+    intervalAmount,
+    intervalUnit,
+    calendarFrequency,
+    calendarTime,
+    calendarDayOfWeek,
+    calendarDayOfMonth,
+    model: job.model ?? "sonnet",
+    modelEffort: job.modelEffort ?? "medium",
+    permissionMode: job.permissionMode ?? "bypassPermissions",
+    workingDirectory: job.workingDirectory ?? "",
+  };
+}
+
+export function JobEditSheet({
+  job,
   open,
   onOpenChange,
-  projectId,
   projectDirectory,
   onComplete,
-  initialName,
-  initialGoalId,
-}: JobCreationSheetProps) {
-  const { createJob } = useJobStore();
+}: JobEditSheetProps) {
+  const { updateJob } = useJobStore();
   const { goals } = useGoalStore();
 
-  const [form, setForm] = useState<JobFormState>(INITIAL_FORM);
+  const [form, setForm] = useState<JobFormState>(() => jobToFormState(job));
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Re-initialise form whenever the sheet opens (or initial values change)
   useEffect(() => {
     if (open) {
-      setForm({ ...INITIAL_FORM, name: initialName ?? "", goalId: initialGoalId ?? "none" });
+      setForm(jobToFormState(job));
       setTouched({});
       setError(null);
-      setCreating(false);
+      setSaving(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const activeGoals = useMemo(
     () => goals.filter((g) => g.status === "active"),
@@ -110,11 +132,11 @@ export function JobCreationSheet({
     !errors.calendar;
 
   const handleReset = useCallback(() => {
-    setForm(INITIAL_FORM);
+    setForm(jobToFormState(job));
     setTouched({});
-    setCreating(false);
+    setSaving(false);
     setError(null);
-  }, []);
+  }, [job]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) handleReset();
@@ -125,14 +147,14 @@ export function JobCreationSheet({
     setTouched({ name: true, prompt: true });
     if (!isValid) return;
 
-    setCreating(true);
+    setSaving(true);
     setError(null);
     try {
-      await createJob({
-        projectId,
-        goalId: form.goalId !== "none" ? form.goalId : undefined,
+      await updateJob({
+        id: job.id,
         name: form.name.trim(),
         prompt: form.prompt.trim(),
+        goalId: form.goalId !== "none" ? form.goalId : null,
         scheduleType: form.scheduleType,
         scheduleConfig: getScheduleConfig(form),
         workingDirectory: form.workingDirectory.trim() || undefined,
@@ -143,9 +165,9 @@ export function JobCreationSheet({
       handleOpenChange(false);
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create job");
+      setError(err instanceof Error ? err.message : "Failed to save changes");
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
   };
 
@@ -153,9 +175,9 @@ export function JobCreationSheet({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
         <SheetHeader className="border-b border-border pb-4">
-          <SheetTitle>Create a Job</SheetTitle>
+          <SheetTitle>Edit Job</SheetTitle>
           <p className="text-sm text-muted-foreground">
-            Define a task for Claude Code to run.
+            Update the job configuration.
           </p>
         </SheetHeader>
 
@@ -174,13 +196,13 @@ export function JobCreationSheet({
             variant="outline"
             className="flex-1"
             onClick={() => handleOpenChange(false)}
-            disabled={creating}
+            disabled={saving}
           >
             Cancel
           </Button>
-          <Button className="flex-1" onClick={handleSubmit} disabled={creating || !isValid}>
-            {creating && <Loader2 className="mr-2 size-4 animate-spin" />}
-            {creating ? "Creating..." : "Create Job"}
+          <Button className="flex-1" onClick={handleSubmit} disabled={saving || !isValid}>
+            {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </SheetContent>

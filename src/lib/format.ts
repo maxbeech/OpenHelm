@@ -7,19 +7,51 @@ export function formatSchedule(
 ): string {
   switch (type) {
     case "once":
-      return "Runs once immediately";
+      return "Runs once";
+    case "manual":
+      return "Manual only";
     case "interval": {
-      const c = config as { minutes: number };
-      if (c.minutes < 60) return `Every ${c.minutes} minutes`;
-      if (c.minutes === 60) return "Every hour";
-      if (c.minutes % 60 === 0) return `Every ${c.minutes / 60} hours`;
-      const h = Math.floor(c.minutes / 60);
-      const m = c.minutes % 60;
+      // Support both legacy { minutes } and new { amount, unit }
+      const c = config as { minutes?: number; amount?: number; unit?: string };
+      const minutes =
+        c.minutes !== undefined
+          ? c.minutes
+          : c.unit === "hours"
+            ? (c.amount ?? 1) * 60
+            : c.unit === "days"
+              ? (c.amount ?? 1) * 1440
+              : (c.amount ?? 0);
+      if (minutes < 60) return `Every ${minutes} minutes`;
+      if (minutes === 60) return "Every hour";
+      if (minutes % 60 === 0) return `Every ${minutes / 60} hours`;
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
       return `Every ${h}h ${m}m`;
     }
     case "cron": {
       const c = config as { expression: string };
       return describeCron(c.expression);
+    }
+    case "calendar": {
+      const c = config as {
+        frequency: string;
+        time: string;
+        dayOfWeek?: number;
+        dayOfMonth?: number;
+      };
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      if (c.frequency === "daily") return `Daily at ${c.time}`;
+      if (c.frequency === "weekly") {
+        const day = days[c.dayOfWeek ?? 1] ?? "Mon";
+        return `Every ${day} at ${c.time}`;
+      }
+      if (c.frequency === "monthly") {
+        const d = c.dayOfMonth ?? 1;
+        const suffix =
+          d === 1 ? "st" : d === 2 ? "nd" : d === 3 ? "rd" : "th";
+        return `Monthly on ${d}${suffix} at ${c.time}`;
+      }
+      return `Scheduled at ${c.time}`;
     }
     default:
       return String(type);

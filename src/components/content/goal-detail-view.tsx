@@ -5,7 +5,7 @@ import {
   Plus,
   Archive,
   Trash2,
-  Briefcase,
+  Pencil,
   Play,
   Pause,
   Target,
@@ -15,6 +15,7 @@ import {
   RunStatusBadge,
 } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { GoalEditSheet } from "@/components/goals/goal-edit-sheet";
 import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
@@ -37,6 +38,7 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
     "archive" | "delete" | null
   >(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [showEditSheet, setShowEditSheet] = useState(false);
 
   const goal = goals.find((g) => g.id === goalId);
   const goalJobs = useMemo(
@@ -173,6 +175,14 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
 
       {/* Actions */}
       <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowEditSheet(true)}
+        >
+          <Pencil className="size-3.5" />
+          Edit
+        </Button>
         {goal.status !== "archived" && (
           <Button
             variant="outline"
@@ -208,6 +218,13 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
         variant={confirmAction === "delete" ? "destructive" : "default"}
         onConfirm={handleConfirm}
         loading={confirmLoading}
+      />
+
+      <GoalEditSheet
+        goal={goal}
+        open={showEditSheet}
+        onOpenChange={setShowEditSheet}
+        onComplete={() => {}}
       />
     </div>
   );

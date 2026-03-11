@@ -21,6 +21,7 @@ const baseGoal = {
   projectId: "p1",
   name: "Test goal",
   description: "Test goal description",
+  icon: null,
   status: "active" as const,
   createdAt: "2025-01-01",
   updatedAt: "2025-01-01",

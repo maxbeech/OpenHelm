@@ -1,3 +1,4 @@
+import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -8,22 +9,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Goal, ScheduleType } from "@openorchestra/shared";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { Goal, ScheduleType, PermissionMode } from "@openorchestra/shared";
+import { ScheduleConfigForm } from "./schedule-config-form";
 
 export interface JobFormState {
   name: string;
   prompt: string;
   goalId: string;
   scheduleType: ScheduleType;
-  intervalMinutes: number;
-  cronExpression: string;
+  // Interval
+  intervalAmount: number;
+  intervalUnit: "minutes" | "hours" | "days";
+  // Calendar
+  calendarFrequency: "daily" | "weekly" | "monthly";
+  calendarTime: string;
+  calendarDayOfWeek: number;
+  calendarDayOfMonth: number;
+  // Model
+  model: string;
+  modelEffort: "low" | "medium" | "high";
+  // Permissions
+  permissionMode: PermissionMode;
   workingDirectory: string;
+  // Legacy cron (kept for existing jobs)
+  cronExpression?: string;
 }
 
 export interface JobFormErrors {
   name: string | null;
   prompt: string | null;
   interval: string | null;
+  calendar: string | null;
 }
 
 interface JobCreationFormProps {
@@ -123,35 +145,17 @@ export function JobCreationForm({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="once">Once (immediately)</SelectItem>
-            <SelectItem value="interval">Interval</SelectItem>
-            <SelectItem value="cron">Cron</SelectItem>
+            <SelectItem value="interval">Interval (repeating)</SelectItem>
+            <SelectItem value="calendar">Calendar (scheduled)</SelectItem>
+            <SelectItem value="manual">Manual only</SelectItem>
           </SelectContent>
         </Select>
-        {form.scheduleType === "interval" && (
-          <div className="space-y-1">
-            <Input
-              type="number"
-              value={form.intervalMinutes}
-              onChange={(e) =>
-                onFieldChange("intervalMinutes", Number(e.target.value))
-              }
-              min={1}
-              className="mt-1.5 h-9 text-sm"
-              placeholder="Minutes between runs"
-            />
-            {errors.interval && (
-              <p className="text-xs text-destructive">{errors.interval}</p>
-            )}
-          </div>
-        )}
-        {form.scheduleType === "cron" && (
-          <Input
-            value={form.cronExpression}
-            onChange={(e) => onFieldChange("cronExpression", e.target.value)}
-            className="mt-1.5 h-9 text-sm"
-            placeholder="0 9 * * 1 (Mon 9am)"
-          />
-        )}
+        <ScheduleConfigForm
+          form={form}
+          intervalError={errors.interval}
+          calendarError={errors.calendar}
+          onFieldChange={onFieldChange}
+        />
       </div>
 
       {/* Working directory */}
@@ -167,6 +171,87 @@ export function JobCreationForm({
         <p className="text-xs text-muted-foreground">
           Defaults to the project directory. Override for a subdirectory.
         </p>
+      </div>
+
+      {/* Model */}
+      <div className="space-y-1.5">
+        <Label>Model</Label>
+        <Select
+          value={form.model}
+          onValueChange={(v) => onFieldChange("model", v)}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sonnet">Sonnet (recommended)</SelectItem>
+            <SelectItem value="haiku">Haiku (faster)</SelectItem>
+            <SelectItem value="opus">Opus (most capable)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Effort */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <Label>Effort</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="size-3.5 cursor-help text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">
+                High effort enables extended thinking, giving Claude more time
+                to reason through complex problems. Increases cost and runtime.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <Select
+          value={form.modelEffort}
+          onValueChange={(v) => onFieldChange("modelEffort", v)}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium (default)</SelectItem>
+            <SelectItem value="high">High (extended thinking)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Permissions */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <Label>Permissions</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="size-3.5 cursor-help text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">
+                Controls what Claude Code is allowed to do without asking.
+                bypassPermissions is recommended for automated background jobs.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <Select
+          value={form.permissionMode}
+          onValueChange={(v) => onFieldChange("permissionMode", v)}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bypassPermissions">Bypass permissions (recommended)</SelectItem>
+            <SelectItem value="acceptEdits">Accept edits automatically</SelectItem>
+            <SelectItem value="default">Default (prompt on first use)</SelectItem>
+            <SelectItem value="dontAsk">Don't ask (deny unless pre-approved)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Error */}

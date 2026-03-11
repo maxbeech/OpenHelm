@@ -12,12 +12,15 @@ vi.mock("@/lib/api", () => ({
     projectId: "p1",
     name: "Test",
     description: null,
+    icon: null,
     prompt: "Run tests",
     scheduleType: "once",
     scheduleConfig: { fireAt: "2026-01-01T00:00:00Z" },
     isEnabled: true,
     workingDirectory: null,
     nextFireAt: "2026-01-01T00:00:00Z",
+    model: "sonnet",
+    modelEffort: "medium",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
   }),
@@ -84,6 +87,12 @@ describe("JobCreationSheet", () => {
     expect(workdirInput).toHaveAttribute("placeholder", "/tmp/my-project");
   });
 
+  it("shows Model and Effort selectors", () => {
+    render(<JobCreationSheet {...defaultProps} />);
+    expect(screen.getByText("Model")).toBeInTheDocument();
+    expect(screen.getByText("Effort")).toBeInTheDocument();
+  });
+
   it("displays active goals in the dropdown", () => {
     useGoalStore.setState({
       goals: [
@@ -92,6 +101,7 @@ describe("JobCreationSheet", () => {
           projectId: "p1",
           name: "Improve test coverage",
           description: "",
+          icon: null,
           status: "active",
           createdAt: "2026-01-01T00:00:00Z",
           updatedAt: "2026-01-01T00:00:00Z",
@@ -101,6 +111,7 @@ describe("JobCreationSheet", () => {
           projectId: "p1",
           name: "Archived goal",
           description: "",
+          icon: null,
           status: "archived",
           createdAt: "2026-01-01T00:00:00Z",
           updatedAt: "2026-01-01T00:00:00Z",

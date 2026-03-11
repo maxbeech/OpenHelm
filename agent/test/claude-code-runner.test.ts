@@ -140,6 +140,58 @@ describe("runClaudeCode", () => {
     const output = stdoutCalls.map(([, text]: [string, string]) => text).join(" ");
     expect(output).toContain("1.5");
   });
+
+  it("passes --model flag when model is set", async () => {
+    const onLogChunk = vi.fn();
+    const config = mockConfig({
+      binaryPath: "/bin/echo",
+      prompt: "test",
+      model: "opus",
+      onLogChunk,
+    });
+
+    await runClaudeCode(config);
+    const stdoutCalls = onLogChunk.mock.calls.filter(
+      ([stream]: [string]) => stream === "stdout",
+    );
+    const output = stdoutCalls.map(([, text]: [string, string]) => text).join(" ");
+    expect(output).toContain("--model");
+    expect(output).toContain("opus");
+  });
+
+  it("passes --effort flag when modelEffort is set", async () => {
+    const onLogChunk = vi.fn();
+    const config = mockConfig({
+      binaryPath: "/bin/echo",
+      prompt: "test",
+      modelEffort: "high",
+      onLogChunk,
+    });
+
+    await runClaudeCode(config);
+    const stdoutCalls = onLogChunk.mock.calls.filter(
+      ([stream]: [string]) => stream === "stdout",
+    );
+    const output = stdoutCalls.map(([, text]: [string, string]) => text).join(" ");
+    expect(output).toContain("--effort");
+    expect(output).toContain("high");
+  });
+
+  it("does not pass --effort flag when modelEffort is undefined", async () => {
+    const onLogChunk = vi.fn();
+    const config = mockConfig({
+      binaryPath: "/bin/echo",
+      prompt: "test",
+      onLogChunk,
+    });
+
+    await runClaudeCode(config);
+    const stdoutCalls = onLogChunk.mock.calls.filter(
+      ([stream]: [string]) => stream === "stdout",
+    );
+    const output = stdoutCalls.map(([, text]: [string, string]) => text).join(" ");
+    expect(output).not.toContain("--effort");
+  });
 });
 
 describe("runClaudeCode integration", () => {

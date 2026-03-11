@@ -19,6 +19,10 @@ function rowToJob(row: typeof jobs.$inferSelect): Job {
     isEnabled: Boolean(row.isEnabled),
     isArchived: Boolean(row.isArchived),
     scheduleConfig: JSON.parse(row.scheduleConfig) as ScheduleConfig,
+    model: row.model ?? "sonnet",
+    modelEffort: (row.modelEffort ?? "medium") as "low" | "medium" | "high",
+    permissionMode: (row.permissionMode ?? "bypassPermissions") as Job["permissionMode"],
+    icon: row.icon ?? null,
   } as Job;
 }
 
@@ -49,6 +53,9 @@ export function createJob(params: CreateJobParams): Job {
       isEnabled,
       workingDirectory: params.workingDirectory ?? null,
       nextFireAt,
+      model: params.model ?? "sonnet",
+      modelEffort: params.modelEffort ?? "medium",
+      permissionMode: params.permissionMode ?? "bypassPermissions",
       createdAt: now,
       updatedAt: now,
     })
@@ -129,6 +136,7 @@ export function updateJob(params: UpdateJobParams): Job {
         description: params.description,
       }),
       ...(params.prompt !== undefined && { prompt: params.prompt }),
+      ...(params.goalId !== undefined && { goalId: params.goalId }),
       ...(params.workingDirectory !== undefined && {
         workingDirectory: params.workingDirectory,
       }),
@@ -140,6 +148,10 @@ export function updateJob(params: UpdateJobParams): Job {
       }),
       ...(params.isEnabled !== undefined && { isEnabled }),
       ...(params.isArchived !== undefined && { isArchived: params.isArchived }),
+      ...(params.model !== undefined && { model: params.model }),
+      ...(params.modelEffort !== undefined && { modelEffort: params.modelEffort }),
+      ...(params.permissionMode !== undefined && { permissionMode: params.permissionMode }),
+      ...(params.icon !== undefined && { icon: params.icon }),
       nextFireAt,
       updatedAt: now,
     })

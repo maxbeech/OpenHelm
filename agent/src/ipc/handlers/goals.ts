@@ -1,5 +1,7 @@
 import { registerHandler } from "../handler.js";
+import { emit } from "../emitter.js";
 import * as goalQueries from "../../db/queries/goals.js";
+import { pickIcon } from "../../planner/icon-picker.js";
 import type {
   CreateGoalParams,
   UpdateGoalParams,
@@ -11,7 +13,17 @@ export function registerGoalHandlers() {
     const p = params as CreateGoalParams;
     if (!p?.projectId) throw new Error("projectId is required");
     if (!p?.name) throw new Error("name is required");
-    return goalQueries.createGoal(p);
+    const goal = goalQueries.createGoal(p);
+
+    // Fire-and-forget: pick an icon in the background
+    pickIcon(p.name, p.description).then((icon) => {
+      if (icon) {
+        goalQueries.updateGoal({ id: goal.id, icon });
+        emit("goal.iconUpdated", { id: goal.id, icon });
+      }
+    });
+
+    return goal;
   });
 
   registerHandler("goals.get", (params) => {

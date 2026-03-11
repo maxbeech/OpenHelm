@@ -5,7 +5,13 @@ import type {
   ScheduleConfigOnce,
   ScheduleConfigInterval,
   ScheduleConfigCron,
+  ScheduleConfigCalendar,
 } from "@openorchestra/shared";
+
+/** Legacy interval config — kept for backward compat with existing DB rows */
+interface LegacyIntervalConfig {
+  minutes: number;
+}
 
 /**
  * Compute the next fire time for a given schedule.
@@ -20,9 +26,13 @@ export function computeNextFireAt(
     case "once":
       return computeOnce(config as ScheduleConfigOnce, from);
     case "interval":
-      return computeInterval(config as ScheduleConfigInterval, from);
+      return computeInterval(config as ScheduleConfigInterval | LegacyIntervalConfig, from);
     case "cron":
       return computeCron(config as ScheduleConfigCron, from);
+    case "calendar":
+      return computeCalendar(config as ScheduleConfigCalendar, from);
+    case "manual":
+      return null;
     default:
       throw new Error(`Unknown schedule type: ${scheduleType}`);
   }
@@ -38,15 +48,34 @@ function computeOnce(config: ScheduleConfigOnce, from: Date): string | null {
 }
 
 function computeInterval(
-  config: ScheduleConfigInterval,
+  config: ScheduleConfigInterval | LegacyIntervalConfig,
   from: Date,
 ): string {
-  if (typeof config.minutes !== "number" || config.minutes <= 0) {
+  // Backward compat: legacy { minutes } format
+  if ("minutes" in config && !("unit" in config)) {
+    const legacy = config as LegacyIntervalConfig;
+    if (typeof legacy.minutes !== "number" || legacy.minutes <= 0) {
+      throw new Error(
+        `Invalid interval: minutes must be a positive number, got ${legacy.minutes}`,
+      );
+    }
+    const next = new Date(from.getTime() + legacy.minutes * 60_000);
+    return next.toISOString();
+  }
+
+  // New format: { amount, unit }
+  const c = config as ScheduleConfigInterval;
+  if (typeof c.amount !== "number" || c.amount <= 0) {
     throw new Error(
-      `Invalid interval: minutes must be a positive number, got ${config.minutes}`,
+      `Invalid interval: amount must be a positive number, got ${c.amount}`,
     );
   }
-  const next = new Date(from.getTime() + config.minutes * 60_000);
+  const multipliers: Record<string, number> = {
+    minutes: 60_000,
+    hours: 3_600_000,
+    days: 86_400_000,
+  };
+  const next = new Date(from.getTime() + c.amount * multipliers[c.unit]);
   return next.toISOString();
 }
 
@@ -67,6 +96,56 @@ function computeCron(config: ScheduleConfigCron, from: Date): string | null {
   }
 }
 
+function computeCalendar(config: ScheduleConfigCalendar, from: Date): string {
+  if (!config.time || typeof config.time !== "string") {
+    throw new Error("calendar schedule requires a time field");
+  }
+  const parts = config.time.split(":");
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (isNaN(hours) || isNaN(minutes)) {
+    throw new Error(`Invalid calendar time: ${config.time}`);
+  }
+
+  // Build candidate at the specified time on the same local day as `from`
+  const candidate = new Date(from);
+  candidate.setHours(hours, minutes, 0, 0);
+
+  switch (config.frequency) {
+    case "daily":
+      if (candidate <= from) {
+        candidate.setDate(candidate.getDate() + 1);
+      }
+      break;
+
+    case "weekly": {
+      const targetDay = config.dayOfWeek ?? 1; // default Monday
+      const currentDay = candidate.getDay();
+      let daysToAdd = (targetDay - currentDay + 7) % 7;
+      if (daysToAdd === 0 && candidate <= from) {
+        daysToAdd = 7;
+      }
+      candidate.setDate(candidate.getDate() + daysToAdd);
+      break;
+    }
+
+    case "monthly": {
+      const targetDate = config.dayOfMonth ?? 1;
+      candidate.setDate(targetDate);
+      if (candidate <= from) {
+        // Advance one month
+        candidate.setMonth(candidate.getMonth() + 1);
+      }
+      break;
+    }
+
+    default:
+      throw new Error(`Unknown calendar frequency: ${(config as ScheduleConfigCalendar).frequency}`);
+  }
+
+  return candidate.toISOString();
+}
+
 /**
  * Validate a schedule config. Throws with a descriptive message on failure.
  */
@@ -84,9 +163,21 @@ export function validateScheduleConfig(
       break;
     }
     case "interval": {
-      const c = config as ScheduleConfigInterval;
-      if (typeof c.minutes !== "number" || c.minutes <= 0) {
-        throw new Error("interval schedule requires a positive minutes value");
+      // Support legacy { minutes } and new { amount, unit }
+      const c = config as ScheduleConfigInterval | LegacyIntervalConfig;
+      if ("minutes" in c && !("unit" in c)) {
+        const legacy = c as LegacyIntervalConfig;
+        if (typeof legacy.minutes !== "number" || legacy.minutes <= 0) {
+          throw new Error("interval schedule requires a positive minutes value");
+        }
+      } else {
+        const nc = c as ScheduleConfigInterval;
+        if (typeof nc.amount !== "number" || nc.amount <= 0) {
+          throw new Error("interval schedule requires a positive amount");
+        }
+        if (!["minutes", "hours", "days"].includes(nc.unit)) {
+          throw new Error("interval schedule unit must be minutes, hours, or days");
+        }
       }
       break;
     }
@@ -104,6 +195,17 @@ export function validateScheduleConfig(
       }
       break;
     }
+    case "calendar": {
+      const c = config as ScheduleConfigCalendar;
+      if (!c.time) throw new Error("calendar schedule requires a time field");
+      if (!["daily", "weekly", "monthly"].includes(c.frequency)) {
+        throw new Error("calendar frequency must be daily, weekly, or monthly");
+      }
+      break;
+    }
+    case "manual":
+      // No config fields required
+      break;
     default:
       throw new Error(`Unknown schedule type: ${scheduleType}`);
   }

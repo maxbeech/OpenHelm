@@ -21,7 +21,8 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     clearChat,
   } = useChatStore();
 
-  const { selectedGoalId, selectedJobId, selectedRunId, contentView } = useAppStore();
+  const { selectedGoalId, selectedJobId, selectedRunId, contentView } =
+    useAppStore();
   const { width, dragHandleProps } = useResizePanel({
     minWidth: 280,
     maxWidth: 600,
@@ -37,8 +38,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         contentView === "goal-detail" ? selectedGoalId ?? undefined : undefined,
       viewingJobId:
         contentView === "job-detail" ? selectedJobId ?? undefined : undefined,
-      viewingRunId:
-        contentView === "run-detail" ? selectedRunId ?? undefined : undefined,
+      viewingRunId: selectedRunId ?? undefined,
     };
     sendMessage(projectId, content, context).catch(() => {});
   };

@@ -36,6 +36,27 @@
       "when": 1773379200000,
       "tag": "0004_add_goal_name_and_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1773465600000,
+      "tag": "0005_add_model_and_calendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1773552000000,
+      "tag": "0006_add_permission_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1773638400000,
+      "tag": "0007_add_icon",
+      "breakpoints": true
     }
   ]
 }
