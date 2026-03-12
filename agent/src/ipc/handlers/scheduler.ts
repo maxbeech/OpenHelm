@@ -14,8 +14,10 @@ import type {
 export function registerSchedulerHandlers() {
   /**
    * Manually trigger a job run.
-   * Creates a run with triggerSource="manual" and enqueues with priority 0
-   * (highest priority — starts before scheduled runs).
+   * If fireAt is provided and in the future, creates a deferred run that the
+   * scheduler will promote to "queued" when the time arrives.
+   * Otherwise, creates a run with triggerSource="manual" and enqueues immediately
+   * with priority 0 (highest priority — starts before scheduled runs).
    */
   registerHandler("runs.trigger", (params) => {
     const p = params as TriggerRunParams;
@@ -24,6 +26,26 @@ export function registerSchedulerHandlers() {
     const job = getJob(p.jobId);
     if (!job) throw new Error(`Job not found: ${p.jobId}`);
 
+    // Deferred path: fireAt is set and is in the future
+    if (p.fireAt && new Date(p.fireAt) > new Date()) {
+      const run = createRun({
+        jobId: p.jobId,
+        triggerSource: "manual",
+        status: "deferred",
+        scheduledFor: p.fireAt,
+      });
+
+      emit("run.created", { runId: run.id, jobId: p.jobId });
+      emit("run.statusChanged", {
+        runId: run.id,
+        status: "deferred",
+        jobId: p.jobId,
+      });
+
+      return run;
+    }
+
+    // Immediate path: fire now
     const run = createRun({ jobId: p.jobId, triggerSource: "manual" });
 
     jobQueue.enqueue({
@@ -48,7 +70,7 @@ export function registerSchedulerHandlers() {
 
   /**
    * Cancel a run.
-   * If queued: removes from queue and marks cancelled.
+   * If queued or deferred: removes from queue and marks cancelled.
    * If running: aborts the Claude Code process and marks cancelled.
    */
   registerHandler("runs.cancel", (params) => {

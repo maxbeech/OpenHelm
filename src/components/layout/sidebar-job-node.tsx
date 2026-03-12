@@ -52,10 +52,11 @@ function formatScheduleLabel(job: Job): string {
 }
 
 const dotColor: Record<RunStatus, string> = {
+  deferred: "bg-blue-400",
   succeeded: "bg-emerald-500",
   failed: "bg-red-500",
   permanent_failure: "bg-red-500",
-  running: "bg-blue-500",
+  running: "bg-orange-500",
   queued: "bg-zinc-400",
   cancelled: "bg-zinc-500",
 };
@@ -64,8 +65,8 @@ function RunDot({ status }: { status: RunStatus }) {
   if (status === "running") {
     return (
       <span className="relative flex size-2" title="Running">
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-400 opacity-75" />
-        <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-75" />
+        <span className="relative inline-flex size-2 rounded-full bg-orange-500" />
       </span>
     );
   }

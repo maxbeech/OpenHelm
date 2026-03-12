@@ -118,8 +118,17 @@ export default function App() {
     [updateJobInStore],
   );
 
+  // Job updated event (e.g. correction context changes)
+  const handleJobUpdated = useCallback(
+    (data: { jobId: string }) => {
+      if (activeProjectId) fetchJobs(activeProjectId);
+    },
+    [activeProjectId, fetchJobs],
+  );
+
   useAgentEvent("goal.iconUpdated", handleGoalIconUpdated);
   useAgentEvent("job.iconUpdated", handleJobIconUpdated);
+  useAgentEvent("job.updated", handleJobUpdated);
 
   // Chat event handlers
   const handleChatMessageCreated = useCallback(

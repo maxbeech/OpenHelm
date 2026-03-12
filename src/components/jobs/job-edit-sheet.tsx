@@ -7,6 +7,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { EmojiPicker } from "@/components/shared/emoji-picker";
 import { useJobStore } from "@/stores/job-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { JobCreationForm, type JobFormState, type JobFormErrors } from "./job-creation-form";
@@ -94,6 +96,7 @@ export function JobEditSheet({
   const { goals } = useGoalStore();
 
   const [form, setForm] = useState<JobFormState>(() => jobToFormState(job));
+  const [icon, setIcon] = useState<string | null>(job.icon);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +104,7 @@ export function JobEditSheet({
   useEffect(() => {
     if (open) {
       setForm(jobToFormState(job));
+      setIcon(job.icon);
       setTouched({});
       setError(null);
       setSaving(false);
@@ -161,6 +165,7 @@ export function JobEditSheet({
         model: form.model,
         modelEffort: form.modelEffort,
         permissionMode: form.permissionMode,
+        ...(icon !== job.icon && { icon: icon ?? undefined }),
       });
       handleOpenChange(false);
       onComplete();
@@ -175,10 +180,19 @@ export function JobEditSheet({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
         <SheetHeader className="border-b border-border pb-4">
-          <SheetTitle>Edit Job</SheetTitle>
-          <p className="text-sm text-muted-foreground">
-            Update the job configuration.
-          </p>
+          <div className="flex items-center gap-3">
+            <EmojiPicker
+              value={icon}
+              onChange={setIcon}
+              variant="job"
+            />
+            <div>
+              <SheetTitle>Edit Job</SheetTitle>
+              <p className="text-sm text-muted-foreground">
+                Update the job configuration.
+              </p>
+            </div>
+          </div>
         </SheetHeader>
 
         <JobCreationForm

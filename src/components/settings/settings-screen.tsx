@@ -125,14 +125,17 @@ function ClaudeCodeSection() {
 function ExecutionSection() {
   const [maxConcurrent, setMaxConcurrent] = useState("1");
   const [timeout, setTimeout_] = useState("30");
+  const [autoCorrect, setAutoCorrect] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.getSetting("max_concurrent_runs"),
       api.getSetting("run_timeout_minutes"),
-    ]).then(([concurrent, to]) => {
+      api.getSetting("auto_correction_enabled"),
+    ]).then(([concurrent, to, correction]) => {
       if (concurrent?.value) setMaxConcurrent(concurrent.value);
       if (to?.value) setTimeout_(to.value);
+      if (correction?.value) setAutoCorrect(correction.value !== "false");
     });
   }, []);
 
@@ -186,6 +189,25 @@ function ExecutionSection() {
               <SelectItem value="120">120 minutes</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm">Auto-correct failed runs</Label>
+            <p className="text-xs text-muted-foreground">
+              When a run fails, analyze the error and automatically retry with
+              correction context.
+            </p>
+          </div>
+          <Switch
+            checked={autoCorrect}
+            onCheckedChange={(checked) => {
+              setAutoCorrect(checked);
+              api.setSetting({
+                key: "auto_correction_enabled",
+                value: String(checked),
+              });
+            }}
+          />
         </div>
       </div>
     </div>

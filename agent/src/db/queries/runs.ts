@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, lte } from "drizzle-orm";
 import { getDb } from "../init.js";
 import { runs, jobs } from "../schema.js";
 import type {
@@ -9,11 +9,20 @@ import type {
   ListRunsParams,
 } from "@openorchestra/shared";
 
+function rowToRun(row: typeof runs.$inferSelect): Run {
+  return {
+    ...row,
+    parentRunId: row.parentRunId ?? null,
+    correctionContext: row.correctionContext ?? null,
+  } as Run;
+}
+
 /**
  * Valid status transitions for the run state machine.
  * Terminal states (succeeded, failed, permanent_failure, cancelled) have no outgoing edges.
  */
 const VALID_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
+  deferred: ["queued", "cancelled"],
   queued: ["running", "cancelled", "permanent_failure"],
   running: ["succeeded", "failed", "permanent_failure", "cancelled"],
   succeeded: [],
@@ -32,20 +41,23 @@ export function createRun(params: CreateRunParams): Run {
     .values({
       id,
       jobId: params.jobId,
-      status: "queued",
+      status: params.status ?? "queued",
       triggerSource: params.triggerSource,
+      parentRunId: params.parentRunId ?? null,
+      correctionContext: params.correctionContext ?? null,
+      scheduledFor: params.scheduledFor ?? null,
       createdAt: now,
     })
     .returning()
     .get();
 
-  return row as Run;
+  return rowToRun(row);
 }
 
 export function getRun(id: string): Run | null {
   const db = getDb();
   const row = db.select().from(runs).where(eq(runs.id, id)).get();
-  return (row as Run) ?? null;
+  return row ? rowToRun(row) : null;
 }
 
 export function listRuns(params?: ListRunsParams): Run[] {
@@ -81,7 +93,20 @@ export function listRuns(params?: ListRunsParams): Run[] {
     .orderBy(desc(runs.createdAt))
     .limit(limit)
     .offset(offset)
-    .all() as Run[];
+    .all()
+    .map(rowToRun);
+}
+
+/** Returns deferred runs whose scheduledFor time has passed and are ready to be enqueued. */
+export function listDeferredDueRuns(): Run[] {
+  const db = getDb();
+  const now = new Date().toISOString();
+  return db
+    .select()
+    .from(runs)
+    .where(and(eq(runs.status, "deferred"), lte(runs.scheduledFor, now)))
+    .all()
+    .map(rowToRun);
 }
 
 export function updateRun(params: UpdateRunParams): Run {
@@ -116,11 +141,28 @@ export function updateRun(params: UpdateRunParams): Run {
     .returning()
     .get();
 
-  return row as Run;
+  return rowToRun(row);
 }
 
 export function deleteRun(id: string): boolean {
   const db = getDb();
   const result = db.delete(runs).where(eq(runs.id, id)).run();
   return result.changes > 0;
+}
+
+/** Check if a corrective run already exists for a given parent run */
+export function hasCorrectiveRun(parentRunId: string): boolean {
+  const db = getDb();
+  const row = db
+    .select()
+    .from(runs)
+    .where(eq(runs.parentRunId, parentRunId))
+    .get();
+  return !!row;
+}
+
+export function clearRunsByJob(jobId: string): number {
+  const db = getDb();
+  const result = db.delete(runs).where(eq(runs.jobId, jobId)).run();
+  return result.changes;
 }

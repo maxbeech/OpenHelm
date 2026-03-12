@@ -65,6 +65,7 @@ export const jobs = sqliteTable("jobs", {
   modelEffort: text("model_effort").notNull().default("medium"),
   permissionMode: text("permission_mode").notNull().default("bypassPermissions"),
   icon: text("icon"),
+  correctionContext: text("correction_context"),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -81,6 +82,7 @@ export const runs = sqliteTable("runs", {
     .references(() => jobs.id, { onDelete: "cascade" }),
   status: text("status", {
     enum: [
+      "deferred",
       "queued",
       "running",
       "succeeded",
@@ -94,6 +96,9 @@ export const runs = sqliteTable("runs", {
   triggerSource: text("trigger_source", {
     enum: ["scheduled", "manual", "corrective"],
   }).notNull(),
+  parentRunId: text("parent_run_id").references(() => runs.id, { onDelete: "set null" }),
+  correctionContext: text("correction_context"),
+  scheduledFor: text("scheduled_for"),
   startedAt: text("started_at"),
   finishedAt: text("finished_at"),
   exitCode: integer("exit_code"),

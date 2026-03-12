@@ -5,6 +5,7 @@ import type { RunStatus, GoalStatus } from "@openorchestra/shared";
 
 describe("RunStatusBadge", () => {
   const statuses: RunStatus[] = [
+    "deferred",
     "queued",
     "running",
     "succeeded",
@@ -13,15 +14,23 @@ describe("RunStatusBadge", () => {
     "cancelled",
   ];
 
+  const labelFor = (status: RunStatus): string => {
+    if (status === "permanent_failure") return "Permanent Failure";
+    if (status === "deferred") return "Scheduled";
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
   statuses.forEach((status) => {
     it(`renders ${status} badge`, () => {
       render(<RunStatusBadge status={status} />);
-      // Badge should be in the document
-      const badge = screen.getByText(
-        status === "permanent_failure" ? "Permanent Failure" : status.charAt(0).toUpperCase() + status.slice(1),
-      );
+      const badge = screen.getByText(labelFor(status));
       expect(badge).toBeInTheDocument();
     });
+  });
+
+  it("renders deferred status with 'Scheduled' label", () => {
+    render(<RunStatusBadge status="deferred" />);
+    expect(screen.getByText("Scheduled")).toBeInTheDocument();
   });
 });
 

@@ -18,8 +18,10 @@ import { updateRun, getRun, listRuns } from "../db/queries/runs.js";
 import {
   getJob,
   updateJobNextFireAt,
+  updateJobCorrectionContext,
   disableJob,
 } from "../db/queries/jobs.js";
+import { attemptSelfCorrection } from "./self-correction.js";
 import { getProject } from "../db/queries/projects.js";
 import { createRunLog } from "../db/queries/run-logs.js";
 import { getSetting } from "../db/queries/settings.js";
@@ -167,12 +169,18 @@ export class Executor {
     const controller = new AbortController();
     this.activeRuns.set(runId, controller);
 
+    // Build effective prompt (inject correction context for corrective runs)
+    const run = getRun(runId);
+    const effectivePrompt = run?.correctionContext
+      ? `${job.prompt}\n\n---\n\nIMPORTANT — Correction Context (from a previous failed attempt):\n${run.correctionContext}\n\nPlease address the issues described above while completing the original task.`
+      : job.prompt;
+
     // Execute via ClaudeCodeRunner
     const result = await this.runnerFn(
       {
         binaryPath: claudePath,
         workingDirectory: job.workingDirectory ?? project.directoryPath,
-        prompt: job.prompt,
+        prompt: effectivePrompt,
         timeoutMs,
         model: job.model ?? undefined,
         modelEffort: (job.modelEffort as "low" | "medium" | "high") ?? undefined,
@@ -306,6 +314,31 @@ export class Executor {
       exitCode: result.exitCode,
       timedOut: result.timedOut,
     });
+
+    // Self-correction: attempt auto-retry for failed runs
+    if (finalStatus === "failed") {
+      attemptSelfCorrection(runId, job, (item) => {
+        jobQueue.enqueue(item);
+        this.processNext();
+      }).then((result) => {
+        if (result.attempted) {
+          console.error(`[executor] self-correction: corrective run ${result.correctiveRunId} created (${result.reason})`);
+        } else {
+          console.error(`[executor] self-correction skipped: ${result.reason}`);
+        }
+      }).catch((err) =>
+        console.error(`[executor] self-correction error:`, err),
+      );
+    }
+
+    // Clear correction context when a corrective run succeeds
+    if (finalStatus === "succeeded") {
+      const completedRun = getRun(runId);
+      if (completedRun?.triggerSource === "corrective" && job.correctionContext) {
+        updateJobCorrectionContext(job.id, null);
+        emit("job.updated", { jobId: job.id });
+      }
+    }
 
     // Update job's nextFireAt (regardless of outcome)
     this.updateNextFireTime(job, finishedAt);

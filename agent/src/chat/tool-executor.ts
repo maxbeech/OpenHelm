@@ -128,8 +128,24 @@ export function executeWriteTool(call: ChatToolCall, projectId: string): ToolExe
 
       case "trigger_run": {
         const jobId = a.jobId as string;
+        const fireAt = a.fire_at as string | undefined;
         const job = getJob(jobId);
         if (!job) return fail(call, `Job not found: ${jobId}`);
+
+        // Deferred path: fire_at is set and in the future
+        if (fireAt && new Date(fireAt) > new Date()) {
+          const run = createRun({
+            jobId,
+            triggerSource: "manual",
+            status: "deferred",
+            scheduledFor: fireAt,
+          });
+          emit("run.created", { runId: run.id, jobId });
+          emit("run.statusChanged", { runId: run.id, status: "deferred", jobId });
+          return ok(call, run);
+        }
+
+        // Immediate path
         const run = createRun({ jobId, triggerSource: "manual" });
         jobQueue.enqueue({ runId: run.id, jobId, priority: 0, enqueuedAt: Date.now() });
         emit("run.created", { runId: run.id, jobId });

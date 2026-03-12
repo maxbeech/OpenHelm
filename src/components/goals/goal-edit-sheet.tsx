@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { EmojiPicker } from "@/components/shared/emoji-picker";
 import { useGoalStore } from "@/stores/goal-store";
 import type { Goal } from "@openorchestra/shared";
 
@@ -30,6 +31,7 @@ export function GoalEditSheet({
 
   const [name, setName] = useState(goal.name);
   const [description, setDescription] = useState(goal.description ?? "");
+  const [icon, setIcon] = useState<string | null>(goal.icon);
   const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export function GoalEditSheet({
     if (open) {
       setName(goal.name);
       setDescription(goal.description ?? "");
+      setIcon(goal.icon);
       setNameTouched(false);
       setError(null);
       setSaving(false);
@@ -57,6 +60,7 @@ export function GoalEditSheet({
         id: goal.id,
         name: name.trim(),
         description: description.trim() || undefined,
+        ...(icon !== goal.icon && { icon: icon ?? undefined }),
       });
       onOpenChange(false);
       onComplete();
@@ -79,15 +83,22 @@ export function GoalEditSheet({
             <Label htmlFor="goal-edit-name">
               Name <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="goal-edit-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={() => setNameTouched(true)}
-              placeholder="e.g. Improve test coverage"
-              className="h-9"
-              autoFocus
-            />
+            <div className="flex gap-2">
+              <EmojiPicker
+                value={icon}
+                onChange={setIcon}
+                variant="goal"
+              />
+              <Input
+                id="goal-edit-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => setNameTouched(true)}
+                placeholder="e.g. Improve test coverage"
+                className="h-9 flex-1"
+                autoFocus
+              />
+            </div>
             {nameTouched && !name.trim() && (
               <p className="text-xs text-destructive">Name is required</p>
             )}

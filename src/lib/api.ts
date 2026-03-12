@@ -26,6 +26,7 @@ import type {
   VerifyClaudeCodeParams,
   TriggerRunParams,
   CancelRunParams,
+  ClearRunsByJobParams,
   SchedulerStatus,
   ChatMessage,
   SendChatMessageParams,
@@ -197,6 +198,10 @@ export function triggerRun(params: TriggerRunParams): Promise<Run> {
 
 export function cancelRun(params: CancelRunParams): Promise<{ cancelled: boolean }> {
   return agentClient.request<{ cancelled: boolean }>("runs.cancel", params);
+}
+
+export function clearRunsByJob(params: ClearRunsByJobParams): Promise<{ cleared: number }> {
+  return agentClient.request<{ cleared: number }>("runs.clearByJob", params);
 }
 
 export function getSchedulerStatus(): Promise<SchedulerStatus> {

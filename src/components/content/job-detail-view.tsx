@@ -9,9 +9,11 @@ import {
   Archive,
   Trash2,
   Pencil,
+  RotateCcw,
 } from "lucide-react";
 import { RunStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { EmojiPicker } from "@/components/shared/emoji-picker";
 import { JobEditSheet } from "@/components/jobs/job-edit-sheet";
 import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
@@ -29,7 +31,7 @@ interface JobDetailViewProps {
 }
 
 export function JobDetailView({ jobId }: JobDetailViewProps) {
-  const { jobs, toggleEnabled, archiveJob, deleteJob } = useJobStore();
+  const { jobs, updateJob, toggleEnabled, archiveJob, deleteJob } = useJobStore();
   const { runs, triggerRun } = useRunStore();
   const { selectRun, setContentView, activeProjectId } = useAppStore();
   const { projects } = useProjectStore();
@@ -93,7 +95,15 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-semibold">{job.name}</h2>
+        <div className="flex items-center gap-3">
+          <EmojiPicker
+            value={job.icon}
+            onChange={(emoji) => updateJob({ id: job.id, icon: emoji })}
+            variant="job"
+            className="size-10 text-xl"
+          />
+          <h2 className="text-xl font-semibold">{job.name}</h2>
+        </div>
         {job.description && (
           <p className="mt-1 text-sm text-muted-foreground">
             {job.description}
@@ -110,6 +120,32 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
           {job.prompt}
         </div>
       </div>
+
+      {/* Correction Context — only shown when AI has added one */}
+      {job.correctionContext && (
+        <div className="mb-6">
+          <h4 className="mb-1 text-xs font-medium text-amber-400">
+            Correction Context
+          </h4>
+          <p className="mb-1 text-xs text-muted-foreground">
+            Auto-generated from a failed run. Appended to the prompt on retry.
+          </p>
+          <div className="max-h-32 overflow-auto rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 font-mono text-xs">
+            {job.correctionContext}
+          </div>
+          <div className="mt-1.5 flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                updateJob({ id: job.id, correctionContext: null })
+              }
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Meta row */}
       <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
@@ -204,7 +240,14 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
                 className="cursor-pointer border-b border-border transition-colors hover:bg-accent/50"
               >
                 <td className="px-3 py-2.5">
-                  <RunStatusBadge status={run.status} />
+                  <div className="flex items-center gap-1.5">
+                    <RunStatusBadge status={run.status} />
+                    {run.triggerSource === "corrective" && (
+                      <span title="Auto-retry">
+                        <RotateCcw className="size-3 text-amber-400" />
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">
                   {run.startedAt

@@ -30,6 +30,7 @@ export function RunDetailView({ runId }: RunDetailViewProps) {
 
   const jobName = jobs.find((j) => j.id === run.jobId)?.name ?? "Unknown job";
   const isRunning = run.status === "running";
+  const isCancellable = run.status === "running" || run.status === "queued";
   const isTerminal = [
     "succeeded",
     "failed",
@@ -69,7 +70,7 @@ export function RunDetailView({ runId }: RunDetailViewProps) {
       <RunStatusBanner run={run} />
 
       {/* Cancel Button */}
-      {isRunning && (
+      {isCancellable && (
         <div className="border-b border-border px-4 py-2">
           <Button
             variant="destructive"
@@ -95,6 +96,25 @@ export function RunDetailView({ runId }: RunDetailViewProps) {
               ? "Summary will appear when the run completes."
               : (run.summary ?? "Summary unavailable.")}
           </p>
+        </div>
+      )}
+
+      {/* Correction Context */}
+      {run.correctionContext && (
+        <div className="border-b border-border px-4 py-3">
+          <h4 className="mb-1 text-xs font-medium text-amber-400">
+            Correction Context
+          </h4>
+          <p className="font-mono text-xs text-muted-foreground">
+            {run.correctionContext}
+          </p>
+        </div>
+      )}
+
+      {/* Parent Run Link */}
+      {run.parentRunId && (
+        <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+          Triggered by run {run.parentRunId.slice(0, 8)}
         </div>
       )}
 

@@ -10,6 +10,7 @@ import {
   Target,
   Pause,
   Archive,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,11 @@ const runStatusConfig: Record<
   RunStatus,
   { label: string; icon: React.ElementType; className: string }
 > = {
+  deferred: {
+    label: "Scheduled",
+    icon: CalendarClock,
+    className: "bg-blue-500/20 text-blue-500",
+  },
   queued: {
     label: "Queued",
     icon: Clock,

@@ -65,7 +65,7 @@ export function runClaudeCode(
     const args = buildArgs(config);
 
     console.error(
-      `[runner] spawning: ${config.binaryPath} ${args.join(" ")}`,
+      `[runner] spawning: ${config.binaryPath} (${args.length} args, prompt ${config.prompt.length} chars)`,
     );
     console.error(`[runner] cwd: ${config.workingDirectory}`);
 
@@ -124,7 +124,9 @@ export function runClaudeCode(
       config.onLogChunk("stderr", line);
     });
 
-    // -- Close stdin immediately (no interactive input) --
+    // -- Write prompt to stdin (avoids ARG_MAX limits and argument-parsing
+    //    ambiguity for long prompts, matching print.ts approach) --
+    child.stdin?.write(config.prompt);
     child.stdin?.end();
 
     // -- Timeout --
@@ -187,8 +189,8 @@ function buildArgs(config: RunnerConfig): string[] {
     args.push("--effort", config.modelEffort);
   }
 
-  // The prompt itself (positional argument)
-  args.push(config.prompt);
+  // Prompt is written to stdin (not as a positional arg) to avoid
+  // OS ARG_MAX limits and CLI argument-parsing issues with long prompts.
 
   return args;
 }

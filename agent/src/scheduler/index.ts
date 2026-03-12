@@ -4,12 +4,15 @@
  * The scheduler has one job: query the database for enabled jobs whose
  * nextFireAt is in the past, create run records, enqueue them, and update
  * nextFireAt. It does NOT execute jobs or manage processes.
+ *
+ * Additionally, the scheduler promotes deferred runs whose scheduledFor
+ * time has passed to "queued" and enqueues them.
  */
 
 import { jobQueue } from "./queue.js";
 import { computeNextFireAt } from "./schedule.js";
 import { listDueJobs, updateJobNextFireAt } from "../db/queries/jobs.js";
-import { createRun } from "../db/queries/runs.js";
+import { createRun, listDeferredDueRuns, updateRun } from "../db/queries/runs.js";
 import { emit } from "../ipc/emitter.js";
 
 const TICK_INTERVAL_MS = 60_000; // 1 minute
@@ -60,20 +63,16 @@ export class Scheduler {
    */
   tick(): void {
     try {
-      const dueJobs = listDueJobs();
-      if (dueJobs.length === 0) return;
-
-      console.error(`[scheduler] found ${dueJobs.length} due job(s)`);
       let enqueued = 0;
 
+      // ── 1. Enqueue due jobs (scheduled runs) ──
+      const dueJobs = listDueJobs();
       for (const job of dueJobs) {
-        // Create a run record
         const run = createRun({
           jobId: job.id,
           triggerSource: "scheduled",
         });
 
-        // Enqueue with scheduled priority
         jobQueue.enqueue({
           runId: run.id,
           jobId: job.id,
@@ -81,7 +80,6 @@ export class Scheduler {
           enqueuedAt: Date.now(),
         });
 
-        // Compute and update nextFireAt
         const nextFireAt = computeNextFireAt(
           job.scheduleType,
           job.scheduleConfig,
@@ -99,8 +97,36 @@ export class Scheduler {
         enqueued++;
       }
 
+      if (dueJobs.length > 0) {
+        console.error(`[scheduler] found ${dueJobs.length} due job(s)`);
+      }
+
+      // ── 2. Promote deferred runs whose time has come ──
+      const deferredDue = listDeferredDueRuns();
+      for (const run of deferredDue) {
+        updateRun({ id: run.id, status: "queued" });
+
+        jobQueue.enqueue({
+          runId: run.id,
+          jobId: run.jobId,
+          priority: 0, // Manual priority (same as immediate trigger)
+          enqueuedAt: Date.now(),
+        });
+
+        emit("run.statusChanged", {
+          runId: run.id,
+          status: "queued",
+          jobId: run.jobId,
+        });
+
+        enqueued++;
+      }
+
+      if (deferredDue.length > 0) {
+        console.error(`[scheduler] promoted ${deferredDue.length} deferred run(s) to queued`);
+      }
+
       if (enqueued > 0) {
-        console.error(`[scheduler] enqueued ${enqueued} run(s)`);
         this.onWorkEnqueued?.();
       }
     } catch (err) {

@@ -9,12 +9,14 @@ import {
   Play,
   Pause,
   Target,
+  Flag,
 } from "lucide-react";
 import {
   GoalStatusBadge,
   RunStatusBadge,
 } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { EmojiPicker } from "@/components/shared/emoji-picker";
 import { GoalEditSheet } from "@/components/goals/goal-edit-sheet";
 import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
@@ -29,7 +31,7 @@ interface GoalDetailViewProps {
 }
 
 export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
-  const { goals, updateGoalStatus, archiveGoal, deleteGoal } = useGoalStore();
+  const { goals, updateGoal, updateGoalStatus, archiveGoal, deleteGoal } = useGoalStore();
   const { jobs, fetchJobs } = useJobStore();
   const { runs } = useRunStore();
   const { selectJob, setContentView, activeProjectId } = useAppStore();
@@ -82,7 +84,15 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-semibold">{goal.name || goal.description}</h2>
+        <div className="flex items-center gap-3">
+          <EmojiPicker
+            value={goal.icon}
+            onChange={(emoji) => updateGoal({ id: goal.id, icon: emoji })}
+            variant="goal"
+            className="size-10 text-xl"
+          />
+          <h2 className="text-xl font-semibold">{goal.name || goal.description}</h2>
+        </div>
         {goal.name && goal.description && (
           <p className="mt-1 text-sm text-muted-foreground">{goal.description}</p>
         )}

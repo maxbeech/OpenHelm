@@ -1,12 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useRunStore } from "./run-store";
+import * as api from "@/lib/api";
 import type { Run } from "@openorchestra/shared";
+
+vi.mock("@/lib/api");
 
 const mockRun: Run = {
   id: "r1",
   jobId: "j1",
   status: "running",
   triggerSource: "manual",
+  scheduledFor: null,
   startedAt: "2026-01-01T00:00:00Z",
   finishedAt: null,
   exitCode: null,
@@ -54,5 +58,43 @@ describe("RunStore", () => {
     useRunStore.getState().updateRunStatus("nonexistent", "failed");
     expect(useRunStore.getState().runs).toHaveLength(1);
     expect(useRunStore.getState().runs[0].status).toBe("running");
+  });
+
+  it("deleteRun removes the run from the store", async () => {
+    vi.mocked(api.deleteRun).mockResolvedValueOnce({ deleted: true });
+    await useRunStore.getState().deleteRun("r1");
+    expect(api.deleteRun).toHaveBeenCalledWith("r1");
+    expect(useRunStore.getState().runs).toHaveLength(0);
+  });
+
+  it("clearRunsByJob removes all runs for the job", async () => {
+    const run2: Run = { ...mockRun, id: "r2", jobId: "j2" };
+    useRunStore.setState({ runs: [mockRun, run2] });
+    vi.mocked(api.clearRunsByJob).mockResolvedValueOnce({ cleared: 1 });
+    await useRunStore.getState().clearRunsByJob("j1");
+    expect(api.clearRunsByJob).toHaveBeenCalledWith({ jobId: "j1" });
+    const remaining = useRunStore.getState().runs;
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe("r2");
+  });
+
+  it("triggerDeferredRun calls api.triggerRun with jobId and fireAt", async () => {
+    const fireAt = "2026-06-01T10:00:00Z";
+    const deferredRun: Run = {
+      ...mockRun,
+      id: "r-deferred",
+      status: "deferred",
+      scheduledFor: fireAt,
+    };
+    vi.mocked(api.triggerRun).mockResolvedValueOnce(deferredRun);
+
+    const result = await useRunStore.getState().triggerDeferredRun("j1", fireAt);
+
+    expect(api.triggerRun).toHaveBeenCalledWith({ jobId: "j1", fireAt });
+    expect(result.status).toBe("deferred");
+    expect(result.scheduledFor).toBe(fireAt);
+
+    const stored = useRunStore.getState().runs.find((r) => r.id === "r-deferred");
+    expect(stored).toBeDefined();
   });
 });

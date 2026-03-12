@@ -6,6 +6,8 @@ import {
   Loader2,
   Ban,
   AlertTriangle,
+  CalendarClock,
+  RotateCcw,
 } from "lucide-react";
 import { formatDuration, getElapsed } from "@/lib/format";
 import type { Run, RunStatus } from "@openorchestra/shared";
@@ -15,6 +17,7 @@ const bannerConfig: Record<
   RunStatus,
   { bg: string; icon: React.ElementType; label: string }
 > = {
+  deferred: { bg: "bg-blue-500/10", icon: CalendarClock, label: "Scheduled" },
   queued: { bg: "bg-muted", icon: Clock, label: "Queued" },
   running: { bg: "bg-primary/15", icon: Loader2, label: "Running" },
   succeeded: { bg: "bg-success/15", icon: CheckCircle2, label: "Succeeded" },
@@ -59,6 +62,12 @@ export function RunStatusBanner({ run }: { run: Run }) {
       />
       <div className="flex-1">
         <span className="font-medium">{config.label}</span>
+        {run.triggerSource === "corrective" && (
+          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-400">
+            <RotateCcw className="size-3" />
+            Auto-retry
+          </span>
+        )}
         {run.exitCode !== null && run.exitCode !== 0 && (
           <span className="ml-2 text-xs text-muted-foreground">
             Exit code {run.exitCode}

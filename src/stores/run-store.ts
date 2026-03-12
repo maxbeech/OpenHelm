@@ -11,7 +11,10 @@ interface RunState {
   fetchRuns: (projectId: string) => Promise<void>;
   fetchRunsByJob: (jobId: string) => Promise<Run[]>;
   triggerRun: (jobId: string) => Promise<Run>;
+  triggerDeferredRun: (jobId: string, fireAt: string) => Promise<Run>;
   cancelRun: (runId: string) => Promise<void>;
+  deleteRun: (runId: string) => Promise<void>;
+  clearRunsByJob: (jobId: string) => Promise<void>;
   updateRunStatus: (runId: string, status: RunStatus) => void;
   updateRunInStore: (run: Partial<Run> & { id: string }) => void;
 }
@@ -49,6 +52,17 @@ export const useRunStore = create<RunState>((set) => ({
     }
   },
 
+  triggerDeferredRun: async (jobId, fireAt) => {
+    try {
+      const run = await api.triggerRun({ jobId, fireAt });
+      set((s) => ({ runs: [run, ...s.runs] }));
+      return run;
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to schedule deferred run") });
+      throw err;
+    }
+  },
+
   cancelRun: async (runId) => {
     try {
       await api.cancelRun({ runId });
@@ -59,6 +73,26 @@ export const useRunStore = create<RunState>((set) => ({
       }));
     } catch (err) {
       set({ error: friendlyError(err, "Failed to cancel run") });
+      throw err;
+    }
+  },
+
+  deleteRun: async (runId) => {
+    try {
+      await api.deleteRun(runId);
+      set((s) => ({ runs: s.runs.filter((r) => r.id !== runId) }));
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to delete run") });
+      throw err;
+    }
+  },
+
+  clearRunsByJob: async (jobId) => {
+    try {
+      await api.clearRunsByJob({ jobId });
+      set((s) => ({ runs: s.runs.filter((r) => r.jobId !== jobId) }));
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to clear run history") });
       throw err;
     }
   },

@@ -130,11 +130,13 @@ export interface Job {
   modelEffort: "low" | "medium" | "high";
   permissionMode: PermissionMode;
   icon: string | null;
+  correctionContext: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export type RunStatus =
+  | "deferred"
   | "queued"
   | "running"
   | "succeeded"
@@ -149,6 +151,9 @@ export interface Run {
   jobId: string;
   status: RunStatus;
   triggerSource: TriggerSource;
+  parentRunId: string | null;
+  correctionContext: string | null;
+  scheduledFor: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   exitCode: number | null;
@@ -175,7 +180,8 @@ export type SettingKey =
   | "run_timeout_minutes"
   | "notification_permission_requested"
   | "active_project"
-  | "theme";
+  | "theme"
+  | "auto_correction_enabled";
 
 export interface Setting {
   key: SettingKey;
@@ -245,12 +251,17 @@ export interface UpdateJobParams {
   modelEffort?: "low" | "medium" | "high";
   permissionMode?: PermissionMode;
   icon?: string;
+  correctionContext?: string | null;
 }
 
 // Runs
 export interface CreateRunParams {
   jobId: string;
   triggerSource: TriggerSource;
+  status?: RunStatus;
+  scheduledFor?: string;
+  parentRunId?: string;
+  correctionContext?: string;
 }
 
 export interface UpdateRunParams {
@@ -432,11 +443,18 @@ export interface ClaudeCodeRunResult {
 /** Params for manually triggering a job run */
 export interface TriggerRunParams {
   jobId: string;
+  /** Optional ISO 8601 datetime; if future, creates a deferred run instead of firing immediately */
+  fireAt?: string;
 }
 
 /** Params for cancelling a run */
 export interface CancelRunParams {
   runId: string;
+}
+
+/** Params for clearing all run history for a job */
+export interface ClearRunsByJobParams {
+  jobId: string;
 }
 
 /** Current status of the scheduler and executor */

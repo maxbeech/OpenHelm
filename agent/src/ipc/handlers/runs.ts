@@ -43,6 +43,12 @@ export function registerRunHandlers() {
     return { deleted: runQueries.deleteRun(id) };
   });
 
+  registerHandler("runs.clearByJob", (params) => {
+    const { jobId } = params as { jobId: string };
+    if (!jobId) throw new Error("jobId is required");
+    return { cleared: runQueries.clearRunsByJob(jobId) };
+  });
+
   // -- Run Logs --
 
   registerHandler("runLogs.create", (params) => {

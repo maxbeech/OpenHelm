@@ -33,6 +33,7 @@ function makeRun(overrides: Partial<Run> = {}): Run {
     jobId: "job-1",
     status: "succeeded",
     triggerSource: "scheduled",
+    scheduledFor: null,
     startedAt: "2026-01-01T00:00:00Z",
     finishedAt: "2026-01-01T00:01:00Z",
     exitCode: 0,

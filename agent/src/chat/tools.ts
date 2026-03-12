@@ -133,10 +133,11 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     name: "trigger_run",
-    description: "Manually trigger a job to run immediately.",
+    description: "Manually trigger a job run immediately, or schedule a one-off run for a future time.",
     isWrite: true,
     parameters: {
       jobId: { type: "string", description: "Job ID", required: true },
+      fire_at: { type: "string", description: "ISO 8601 datetime to fire at (optional; fires immediately if omitted)" },
     },
   },
 ];
@@ -158,7 +159,10 @@ export function describeAction(tool: string, args: Record<string, unknown>): str
     case "update_job": return `Update job ${args.jobId}`;
     case "archive_goal": return `Archive goal ${args.goalId}`;
     case "archive_job": return `Archive job ${args.jobId}`;
-    case "trigger_run": return `Trigger run for job ${args.jobId}`;
+    case "trigger_run":
+      return args.fire_at
+        ? `Trigger run for job ${args.jobId} at ${args.fire_at}`
+        : `Trigger run for job ${args.jobId}`;
     default: return tool;
   }
 }

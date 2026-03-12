@@ -23,6 +23,7 @@ function rowToJob(row: typeof jobs.$inferSelect): Job {
     modelEffort: (row.modelEffort ?? "medium") as "low" | "medium" | "high",
     permissionMode: (row.permissionMode ?? "bypassPermissions") as Job["permissionMode"],
     icon: row.icon ?? null,
+    correctionContext: row.correctionContext ?? null,
   } as Job;
 }
 
@@ -152,6 +153,7 @@ export function updateJob(params: UpdateJobParams): Job {
       ...(params.modelEffort !== undefined && { modelEffort: params.modelEffort }),
       ...(params.permissionMode !== undefined && { permissionMode: params.permissionMode }),
       ...(params.icon !== undefined && { icon: params.icon }),
+      ...(params.correctionContext !== undefined && { correctionContext: params.correctionContext }),
       nextFireAt,
       updatedAt: now,
     })
@@ -228,6 +230,18 @@ export function archiveJob(id: string): Job {
     .returning()
     .get();
   return rowToJob(row);
+}
+
+/** Lightweight atomic update for correction context only */
+export function updateJobCorrectionContext(
+  id: string,
+  correctionContext: string | null,
+): void {
+  const db = getDb();
+  db.update(jobs)
+    .set({ correctionContext, updatedAt: new Date().toISOString() })
+    .where(eq(jobs.id, id))
+    .run();
 }
 
 export function deleteJob(id: string): boolean {

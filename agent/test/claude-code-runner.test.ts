@@ -1,6 +1,11 @@
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { runClaudeCode, type RunnerConfig } from "../src/claude-code/runner.js";
 import { setupTestDb } from "./helpers.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const STDIN_TO_STDOUT = resolve(__dirname, "fixtures/stdin-to-stdout.sh");
 
 let cleanup: () => void;
 
@@ -109,14 +114,14 @@ describe("runClaudeCode", () => {
     const onInteractiveDetected = vi.fn();
     const onLogChunk = vi.fn();
     const config = mockConfig({
-      binaryPath: "/bin/echo",
+      binaryPath: STDIN_TO_STDOUT,
       prompt: "Continue? (y/n)",
       onLogChunk,
       onInteractiveDetected,
     });
 
     await runClaudeCode(config);
-    // /bin/echo outputs args including "(y/n)" which triggers detection
+    // stdin-to-stdout.sh reads stdin and outputs it — "(y/n)" triggers detection
     expect(onInteractiveDetected).toHaveBeenCalledOnce();
     expect(onInteractiveDetected.mock.calls[0][0]).toContain(
       "Interactive prompt detected",

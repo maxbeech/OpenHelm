@@ -71,6 +71,16 @@ export const ASSESS_AND_GENERATE_SCHEMA = {
   required: ["needsClarification"],
 } as const;
 
+export const FAILURE_ANALYSIS_SCHEMA = {
+  type: "object",
+  properties: {
+    fixable: { type: "boolean" },
+    correction: { type: ["string", "null"] },
+    reason: { type: "string" },
+  },
+  required: ["fixable", "reason"],
+} as const;
+
 export const PROMPT_ASSESSMENT_SCHEMA = {
   type: "object",
   properties: {
