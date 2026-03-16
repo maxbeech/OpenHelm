@@ -12,7 +12,7 @@
 import { jobQueue } from "./queue.js";
 import { computeNextFireAt } from "./schedule.js";
 import { listDueJobs, updateJobNextFireAt } from "../db/queries/jobs.js";
-import { createRun, listDeferredDueRuns, updateRun } from "../db/queries/runs.js";
+import { createRun, listDeferredDueRuns, listRuns, updateRun } from "../db/queries/runs.js";
 import { emit } from "../ipc/emitter.js";
 
 const TICK_INTERVAL_MS = 60_000; // 1 minute
@@ -124,6 +124,23 @@ export class Scheduler {
 
       if (deferredDue.length > 0) {
         console.error(`[scheduler] promoted ${deferredDue.length} deferred run(s) to queued`);
+      }
+
+      // ── 3. Safety net: re-enqueue orphaned "queued" runs ──
+      const queuedRuns = listRuns({ status: "queued", limit: 100 });
+      for (const run of queuedRuns) {
+        if (!jobQueue.has(run.id)) {
+          const priority = run.triggerSource === "manual" ? 0
+            : run.triggerSource === "corrective" ? 2 : 1;
+          jobQueue.enqueue({
+            runId: run.id,
+            jobId: run.jobId,
+            priority,
+            enqueuedAt: Date.now(),
+          });
+          enqueued++;
+          console.error(`[scheduler] re-enqueued orphaned queued run ${run.id}`);
+        }
       }
 
       if (enqueued > 0) {

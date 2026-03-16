@@ -18,7 +18,7 @@ import { updateRun, getRun, listRuns } from "../db/queries/runs.js";
 import {
   getJob,
   updateJobNextFireAt,
-  updateJobCorrectionContext,
+  updateJobPostPrompt,
   disableJob,
 } from "../db/queries/jobs.js";
 import { attemptSelfCorrection, type FailureSignal } from "./self-correction.js";
@@ -35,7 +35,7 @@ import type { InteractiveDetectionType } from "../claude-code/interactive-detect
 import type { RunStatus, ClaudeCodeRunResult, Job } from "@openorchestra/shared";
 
 const DEFAULT_MAX_CONCURRENCY = 1;
-const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_TIMEOUT_MS = 0; // No limit (silence timeout catches stuck processes)
 
 /** Function signature matching runClaudeCode (for dependency injection in tests) */
 type RunnerFn = (
@@ -133,7 +133,8 @@ export class Executor {
     const queuedRuns = listRuns({ status: "queued", limit: 100 });
     for (const run of queuedRuns) {
       console.error(`[executor] re-enqueuing run ${run.id}`);
-      const priority = run.triggerSource === "manual" ? 0 : 1;
+      const priority = run.triggerSource === "manual" ? 0
+        : run.triggerSource === "corrective" ? 2 : 1;
       jobQueue.enqueue({
         runId: run.id,
         jobId: run.jobId,
@@ -174,11 +175,15 @@ export class Executor {
     const controller = new AbortController();
     this.activeRuns.set(runId, controller);
 
-    // Build effective prompt (inject correction context for corrective runs)
+    // Build effective prompt: append postPrompt (persistent) + correctionContext (per-run)
     const run = getRun(runId);
-    const effectivePrompt = run?.correctionContext
-      ? `${job.prompt}\n\n---\n\nIMPORTANT — Correction Context (from a previous failed attempt):\n${run.correctionContext}\n\nPlease address the issues described above while completing the original task.`
-      : job.prompt;
+    let effectivePrompt = job.prompt;
+    if (job.postPrompt) {
+      effectivePrompt += `\n\n---\n\n${job.postPrompt}`;
+    }
+    if (run?.correctionContext) {
+      effectivePrompt += `\n\n---\n\nIMPORTANT — Correction Context (from a previous failed attempt):\n${run.correctionContext}\n\nPlease address the issues described above while completing the original task.`;
+    }
 
     // Execute via ClaudeCodeRunner
     const result = await this.runnerFn(
@@ -396,8 +401,8 @@ export class Executor {
     // Clear correction context when a corrective run succeeds
     if (finalStatus === "succeeded") {
       const completedRun = getRun(runId);
-      if (completedRun?.triggerSource === "corrective" && job.correctionContext) {
-        updateJobCorrectionContext(job.id, null);
+      if (completedRun?.triggerSource === "corrective" && job.postPrompt) {
+        updateJobPostPrompt(job.id, null);
         emit("job.updated", { jobId: job.id });
       }
     }

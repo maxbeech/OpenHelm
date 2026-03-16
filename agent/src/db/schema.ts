@@ -65,7 +65,7 @@ export const jobs = sqliteTable("jobs", {
   modelEffort: text("model_effort").notNull().default("medium"),
   permissionMode: text("permission_mode").notNull().default("bypassPermissions"),
   icon: text("icon"),
-  correctionContext: text("correction_context"),
+  postPrompt: text("post_prompt"),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

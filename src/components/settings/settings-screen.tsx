@@ -124,7 +124,7 @@ function ClaudeCodeSection() {
 
 function ExecutionSection() {
   const [maxConcurrent, setMaxConcurrent] = useState("1");
-  const [timeout, setTimeout_] = useState("30");
+  const [timeout, setTimeout_] = useState("0");
   const [autoCorrect, setAutoCorrect] = useState(true);
 
   useEffect(() => {
@@ -182,6 +182,7 @@ function ExecutionSection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="0">No limit</SelectItem>
               <SelectItem value="10">10 minutes</SelectItem>
               <SelectItem value="20">20 minutes</SelectItem>
               <SelectItem value="30">30 minutes</SelectItem>
@@ -189,6 +190,9 @@ function ExecutionSection() {
               <SelectItem value="120">120 minutes</SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            The silence timeout (10 min) catches stuck processes independently.
+          </p>
         </div>
         <div className="flex items-center justify-between">
           <div>

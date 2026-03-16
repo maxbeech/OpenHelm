@@ -37,6 +37,8 @@ export interface JobFormState {
   // Permissions
   permissionMode: PermissionMode;
   workingDirectory: string;
+  // Post prompt (appended to every run)
+  postPrompt: string;
   // Legacy cron (kept for existing jobs)
   cronExpression?: string;
 }
@@ -109,6 +111,19 @@ export function JobCreationForm({
         {errors.prompt && (
           <p className="text-xs text-destructive">{errors.prompt}</p>
         )}
+      </div>
+
+      {/* Post Prompt */}
+      <div className="space-y-1.5">
+        <Label htmlFor="job-post-prompt">Post Prompt (optional)</Label>
+        <Textarea
+          id="job-post-prompt"
+          value={form.postPrompt}
+          onChange={(e) => onFieldChange("postPrompt", e.target.value)}
+          placeholder="Appended to every run. Use for persistent instructions or context."
+          rows={3}
+          className="text-sm"
+        />
       </div>
 
       {/* Goal association */}

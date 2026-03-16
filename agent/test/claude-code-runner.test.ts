@@ -63,6 +63,20 @@ describe("runClaudeCode", () => {
     expect(stderrCalls.length).toBeGreaterThan(0);
   });
 
+  it("does not time out when timeoutMs is 0", async () => {
+    const onLogChunk = vi.fn();
+    const config = mockConfig({
+      binaryPath: "/bin/echo",
+      prompt: "no timeout",
+      timeoutMs: 0,
+      onLogChunk,
+    });
+
+    const result = await runClaudeCode(config);
+    expect(result.exitCode).toBe(0);
+    expect(result.timedOut).toBe(false);
+  });
+
   it("kills process on timeout", async () => {
     // /usr/bin/yes runs forever outputting "y", ignoring extra args
     const config = mockConfig({

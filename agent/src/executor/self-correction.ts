@@ -12,7 +12,7 @@
  */
 
 import { getRun, createRun, hasCorrectiveRun } from "../db/queries/runs.js";
-import { getJob, updateJobCorrectionContext } from "../db/queries/jobs.js";
+import { getJob, updateJobPostPrompt } from "../db/queries/jobs.js";
 import { getSetting } from "../db/queries/settings.js";
 import { analyzeFailure } from "../planner/failure-analyzer.js";
 import { emit } from "../ipc/emitter.js";
@@ -106,8 +106,8 @@ export async function attemptSelfCorrection(
     correctionText = analysis.correction;
   }
 
-  // 6. Update job correction context
-  updateJobCorrectionContext(job.id, correctionText);
+  // 6. Update job post prompt with correction text
+  updateJobPostPrompt(job.id, correctionText);
   emit("job.updated", { jobId: job.id });
 
   // 7. Create corrective run

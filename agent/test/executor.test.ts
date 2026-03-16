@@ -36,6 +36,15 @@ vi.mock("../src/ipc/emitter.js", () => ({
   send: vi.fn(),
 }));
 
+// Mock LLM-dependent modules (avoid real Claude Code CLI calls)
+vi.mock("../src/planner/failure-analyzer.js", () => ({
+  analyzeFailure: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("../src/planner/summarize.js", () => ({
+  generateRunSummary: vi.fn().mockResolvedValue(null),
+}));
+
 beforeAll(() => {
   cleanup = setupTestDb();
   const project = createProject({
@@ -476,6 +485,30 @@ describe("Executor crash recovery", () => {
     expect(found).toBeDefined();
   });
 
+  it("re-enqueues corrective runs with priority 2", () => {
+    const job = createJob({
+      projectId,
+      name: "Corrective Re-enqueue",
+      prompt: "corrective",
+      scheduleType: "interval",
+      scheduleConfig: { minutes: 10 },
+    });
+    const parentRun = createRun({ jobId: job.id, triggerSource: "scheduled" });
+    const run = createRun({
+      jobId: job.id,
+      triggerSource: "corrective",
+      parentRunId: parentRun.id,
+    });
+
+    const executor = new Executor(mockRunner());
+    executor.recoverFromCrash();
+
+    const items = queue.getAll();
+    const found = items.find((i) => i.runId === run.id);
+    expect(found).toBeDefined();
+    expect(found!.priority).toBe(2);
+  });
+
   it("re-enqueues manual runs with priority 0", () => {
     const job = createJob({
       projectId,
@@ -493,6 +526,125 @@ describe("Executor crash recovery", () => {
     const found = items.find((i) => i.runId === run.id);
     expect(found).toBeDefined();
     expect(found!.priority).toBe(0);
+  });
+});
+
+describe("Executor timeout default", () => {
+  it("passes timeoutMs=0 when no setting exists", async () => {
+    // Ensure no timeout setting
+    const { deleteSetting } = await import("../src/db/queries/settings.js");
+    deleteSetting("run_timeout_minutes");
+
+    let capturedTimeout: number | undefined;
+    const captureRunner = async (config: RunnerConfig) => {
+      capturedTimeout = config.timeoutMs;
+      config.onLogChunk("stdout", "done");
+      return { exitCode: 0, timedOut: false, killed: false, sessionId: null };
+    };
+
+    const job = createJob({
+      projectId,
+      name: "No Timeout Job",
+      prompt: "test timeout",
+      scheduleType: "once",
+      scheduleConfig: { fireAt: new Date().toISOString() },
+    });
+    const run = createRun({ jobId: job.id, triggerSource: "manual" });
+
+    queue.enqueue({
+      runId: run.id,
+      jobId: job.id,
+      priority: 0,
+      enqueuedAt: Date.now(),
+    });
+
+    const executor = new Executor(captureRunner);
+    executor.processNext();
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(capturedTimeout).toBe(0);
+
+    // Restore for other tests
+    setSetting("claude_code_path", "/usr/bin/true");
+  });
+});
+
+describe("Executor postPrompt + correctionContext prompt building", () => {
+  it("appends postPrompt to effective prompt", async () => {
+    let capturedPrompt = "";
+    const captureRunner = async (config: RunnerConfig) => {
+      capturedPrompt = config.prompt;
+      config.onLogChunk("stdout", "done");
+      return { exitCode: 0, timedOut: false, killed: false, sessionId: null };
+    };
+
+    const job = createJob({
+      projectId,
+      name: "PostPrompt Job",
+      prompt: "do the thing",
+      scheduleType: "once",
+      scheduleConfig: { fireAt: new Date().toISOString() },
+      postPrompt: "Always run tests after changes",
+    });
+    const run = createRun({ jobId: job.id, triggerSource: "manual" });
+
+    queue.enqueue({
+      runId: run.id,
+      jobId: job.id,
+      priority: 0,
+      enqueuedAt: Date.now(),
+    });
+
+    const executor = new Executor(captureRunner);
+    executor.processNext();
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(capturedPrompt).toContain("do the thing");
+    expect(capturedPrompt).toContain("Always run tests after changes");
+  });
+
+  it("appends both postPrompt and correctionContext", async () => {
+    let capturedPrompt = "";
+    const captureRunner = async (config: RunnerConfig) => {
+      capturedPrompt = config.prompt;
+      config.onLogChunk("stdout", "done");
+      return { exitCode: 0, timedOut: false, killed: false, sessionId: null };
+    };
+
+    const job = createJob({
+      projectId,
+      name: "Both Prompts Job",
+      prompt: "do the thing",
+      scheduleType: "once",
+      scheduleConfig: { fireAt: new Date().toISOString() },
+      postPrompt: "Always lint",
+    });
+    const parentRun = createRun({ jobId: job.id, triggerSource: "scheduled" });
+    const run = createRun({
+      jobId: job.id,
+      triggerSource: "corrective",
+      parentRunId: parentRun.id,
+      correctionContext: "Fix the path to /src/bar.ts",
+    });
+
+    queue.enqueue({
+      runId: run.id,
+      jobId: job.id,
+      priority: 2,
+      enqueuedAt: Date.now(),
+    });
+
+    const executor = new Executor(captureRunner);
+    executor.processNext();
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(capturedPrompt).toContain("do the thing");
+    expect(capturedPrompt).toContain("Always lint");
+    expect(capturedPrompt).toContain("Fix the path to /src/bar.ts");
+    // postPrompt should come before correctionContext
+    const postPromptIdx = capturedPrompt.indexOf("Always lint");
+    const correctionIdx = capturedPrompt.indexOf("Fix the path");
+    expect(postPromptIdx).toBeLessThan(correctionIdx);
   });
 });
 

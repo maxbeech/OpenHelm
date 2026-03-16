@@ -7,7 +7,7 @@ import {
   updateJob,
   updateJobNextFireAt,
 } from "../src/db/queries/jobs.js";
-import { listRuns } from "../src/db/queries/runs.js";
+import { createRun, listRuns } from "../src/db/queries/runs.js";
 import { JobQueue } from "../src/scheduler/queue.js";
 import { Scheduler } from "../src/scheduler/index.js";
 import type { Job } from "@openorchestra/shared";
@@ -87,12 +87,21 @@ describe("Scheduler tick", () => {
   });
 
   it("does not enqueue future jobs", () => {
+    // Pre-populate queue with orphaned queued runs from prior tests
+    // so the safety net doesn't re-enqueue them as new work
+    const existingQueued = listRuns({ status: "queued", limit: 100 });
+    for (const r of existingQueued) {
+      queue.enqueue({ runId: r.id, jobId: r.jobId, priority: 1, enqueuedAt: Date.now() });
+    }
+    const sizeBefore = queue.size();
+
     createFutureJob("future-job", 30);
 
     const scheduler = new Scheduler();
     scheduler.tick();
 
-    expect(queue.size()).toBe(0);
+    // No NEW items should have been enqueued
+    expect(queue.size()).toBe(sizeBefore);
   });
 
   it("does not enqueue disabled jobs", () => {
@@ -153,15 +162,120 @@ describe("Scheduler tick", () => {
     expect(onWorkEnqueued).toHaveBeenCalledOnce();
   });
 
-  it("does not call onWorkEnqueued when no jobs are due", () => {
+  it("does not call onWorkEnqueued when no jobs are due and no orphaned runs", () => {
+    // Note: previous tests may leave orphaned queued runs in the DB.
+    // Create a fresh scheduler with a fresh queue; if the queue re-enqueues
+    // orphaned runs from prior tests, the callback WILL fire. Pre-enqueue
+    // all existing queued runs so the safety net sees them as already queued.
+    const existingQueued = listRuns({ status: "queued", limit: 100 });
+    for (const r of existingQueued) {
+      queue.enqueue({ runId: r.id, jobId: r.jobId, priority: 1, enqueuedAt: Date.now() });
+    }
+
     createFutureJob("no-callback", 60);
+
+    const sizeBefore = queue.size();
+    const onWorkEnqueued = vi.fn();
+    const scheduler = new Scheduler();
+    scheduler.setOnWorkEnqueued(onWorkEnqueued);
+    scheduler.tick();
+
+    // No NEW work should have been enqueued (queue size unchanged)
+    expect(queue.size()).toBe(sizeBefore);
+    expect(onWorkEnqueued).not.toHaveBeenCalled();
+  });
+});
+
+describe("Scheduler tick — orphaned queued runs", () => {
+  it("re-enqueues orphaned queued runs not in the in-memory queue", () => {
+    const job = createJob({
+      projectId,
+      name: "orphan-job",
+      prompt: "test",
+      scheduleType: "manual",
+      scheduleConfig: {},
+    });
+    // Create a queued run that is NOT in the in-memory queue (orphaned)
+    const run = createRun({ jobId: job.id, triggerSource: "scheduled" });
+
+    const scheduler = new Scheduler();
+    scheduler.tick();
+
+    // The orphaned run should now be in the queue
+    expect(queue.has(run.id)).toBe(true);
+    const items = queue.getAll();
+    const found = items.find((i) => i.runId === run.id);
+    expect(found).toBeDefined();
+    expect(found!.priority).toBe(1); // scheduled
+  });
+
+  it("assigns priority 2 to orphaned corrective runs", () => {
+    const job = createJob({
+      projectId,
+      name: "orphan-corrective-job",
+      prompt: "test",
+      scheduleType: "manual",
+      scheduleConfig: {},
+    });
+    const parentRun = createRun({ jobId: job.id, triggerSource: "scheduled" });
+    const correctiveRun = createRun({
+      jobId: job.id,
+      triggerSource: "corrective",
+      parentRunId: parentRun.id,
+    });
+
+    const scheduler = new Scheduler();
+    scheduler.tick();
+
+    const items = queue.getAll();
+    const found = items.find((i) => i.runId === correctiveRun.id);
+    expect(found).toBeDefined();
+    expect(found!.priority).toBe(2); // corrective
+  });
+
+  it("does not duplicate runs already in the queue", () => {
+    const job = createJob({
+      projectId,
+      name: "no-dup-job",
+      prompt: "test",
+      scheduleType: "manual",
+      scheduleConfig: {},
+    });
+    const run = createRun({ jobId: job.id, triggerSource: "manual" });
+
+    // Pre-enqueue the run (it's NOT orphaned)
+    queue.enqueue({
+      runId: run.id,
+      jobId: job.id,
+      priority: 0,
+      enqueuedAt: Date.now(),
+    });
+
+    const scheduler = new Scheduler();
+    scheduler.tick();
+
+    // Should still have exactly 1 entry for this run
+    const items = queue.getAll();
+    const matches = items.filter((i) => i.runId === run.id);
+    expect(matches.length).toBe(1);
+  });
+
+  it("calls onWorkEnqueued when orphaned runs are re-enqueued", () => {
+    const job = createJob({
+      projectId,
+      name: "orphan-callback-job",
+      prompt: "test",
+      scheduleType: "manual",
+      scheduleConfig: {},
+    });
+    createRun({ jobId: job.id, triggerSource: "scheduled" });
 
     const onWorkEnqueued = vi.fn();
     const scheduler = new Scheduler();
     scheduler.setOnWorkEnqueued(onWorkEnqueued);
     scheduler.tick();
 
-    expect(onWorkEnqueued).not.toHaveBeenCalled();
+    expect(onWorkEnqueued).toHaveBeenCalled();
   });
 });
 

@@ -27,7 +27,7 @@ export interface RunnerConfig {
   workingDirectory: string;
   /** The prompt to send to Claude Code */
   prompt: string;
-  /** Timeout in milliseconds (default: 30 minutes) */
+  /** Timeout in milliseconds (default: 0 = no limit) */
   timeoutMs?: number;
   /** Permission mode for Claude Code (default: "bypassPermissions") */
   permissionMode?: "default" | "acceptEdits" | "dontAsk" | "bypassPermissions";
@@ -45,7 +45,7 @@ export interface RunnerConfig {
   onInteractiveDetected?: (reason: string, type: InteractiveDetectionType) => void;
 }
 
-const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_TIMEOUT_MS = 0; // No limit (silence timeout catches stuck processes)
 const DEFAULT_SILENCE_TIMEOUT_MS = 600_000; // 10 minutes
 const SIGKILL_DELAY_MS = 5000; // 5 seconds after SIGTERM
 
@@ -89,7 +89,7 @@ export function runClaudeCode(
     let capturedSessionId: string | null = null;
 
     const cleanup = () => {
-      clearTimeout(timeoutTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
       interactiveDetector.stop();
       if (abortHandler) signal?.removeEventListener("abort", abortHandler);
     };
@@ -138,12 +138,14 @@ export function runClaudeCode(
     child.stdin?.write(config.prompt);
     child.stdin?.end();
 
-    // -- Timeout --
-    const timeoutTimer = setTimeout(() => {
-      timedOut = true;
-      console.error(`[runner] timeout after ${timeoutMs}ms, sending SIGTERM`);
-      killProcess(child);
-    }, timeoutMs);
+    // -- Timeout (only if timeoutMs > 0; 0 means no limit) --
+    const timeoutTimer = timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          console.error(`[runner] timeout after ${timeoutMs}ms, sending SIGTERM`);
+          killProcess(child);
+        }, timeoutMs)
+      : null;
 
     // -- Cancellation via AbortSignal --
     let abortHandler: (() => void) | null = null;

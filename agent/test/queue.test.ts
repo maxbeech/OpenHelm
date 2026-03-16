@@ -92,6 +92,30 @@ describe("JobQueue", () => {
     expect(queue.dequeue()).toBeNull();
   });
 
+  it("has() returns true for enqueued items", () => {
+    queue.enqueue({ runId: "x", jobId: "j1", priority: 1, enqueuedAt: 100 });
+    queue.enqueue({ runId: "y", jobId: "j2", priority: 1, enqueuedAt: 200 });
+
+    expect(queue.has("x")).toBe(true);
+    expect(queue.has("y")).toBe(true);
+    expect(queue.has("z")).toBe(false);
+  });
+
+  it("has() returns false after item is dequeued", () => {
+    queue.enqueue({ runId: "a", jobId: "j1", priority: 1, enqueuedAt: 100 });
+
+    expect(queue.has("a")).toBe(true);
+    queue.dequeue();
+    expect(queue.has("a")).toBe(false);
+  });
+
+  it("has() returns false after item is removed", () => {
+    queue.enqueue({ runId: "a", jobId: "j1", priority: 1, enqueuedAt: 100 });
+
+    queue.remove("a");
+    expect(queue.has("a")).toBe(false);
+  });
+
   it("manual trigger takes priority over scheduled runs", () => {
     // Simulate: 3 scheduled runs already in queue
     queue.enqueue({ runId: "s1", jobId: "j1", priority: 1, enqueuedAt: 100 });

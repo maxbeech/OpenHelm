@@ -130,7 +130,7 @@ export interface Job {
   modelEffort: "low" | "medium" | "high";
   permissionMode: PermissionMode;
   icon: string | null;
-  correctionContext: string | null;
+  postPrompt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -235,6 +235,7 @@ export interface CreateJobParams {
   model?: string;
   modelEffort?: "low" | "medium" | "high";
   permissionMode?: PermissionMode;
+  postPrompt?: string;
 }
 
 export interface UpdateJobParams {
@@ -252,7 +253,7 @@ export interface UpdateJobParams {
   modelEffort?: "low" | "medium" | "high";
   permissionMode?: PermissionMode;
   icon?: string;
-  correctionContext?: string | null;
+  postPrompt?: string | null;
 }
 
 // Runs

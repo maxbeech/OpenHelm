@@ -82,6 +82,7 @@ function jobToFormState(job: Job): JobFormState {
     modelEffort: job.modelEffort ?? "medium",
     permissionMode: job.permissionMode ?? "bypassPermissions",
     workingDirectory: job.workingDirectory ?? "",
+    postPrompt: job.postPrompt ?? "",
   };
 }
 
@@ -165,6 +166,7 @@ export function JobEditSheet({
         model: form.model,
         modelEffort: form.modelEffort,
         permissionMode: form.permissionMode,
+        postPrompt: form.postPrompt.trim() || null,
         ...(icon !== job.icon && { icon: icon ?? undefined }),
       });
       handleOpenChange(false);

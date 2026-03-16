@@ -2,6 +2,12 @@
 
 ## [0.1.0] - Unreleased
 
+### Robustness Improvements
+- **Timeout default changed to unlimited**: Hard wall-clock timeout now defaults to 0 (no limit). The silence timeout (10 min) independently catches stuck processes. Users can still opt in to a hard cap via Settings > Execution. Dropdown now includes "No limit" as the first option.
+- **Orphaned queued runs safety net**: Scheduler tick now checks for DB runs stuck in "queued" status that aren't in the in-memory queue, and re-enqueues them. This prevents corrective runs (or any run) from being permanently stuck after an agent hiccup.
+- **Crash recovery priority fix**: Corrective runs re-enqueued during crash recovery now get priority 2 (was incorrectly 1), matching their original enqueue priority.
+- **Renamed correctionContext → postPrompt on jobs**: The job-level `correctionContext` field is now `postPrompt` — a user-facing, editable field. It's auto-populated by self-correction on failure, but users can also set it manually via the job creation/edit forms. Both `postPrompt` (persistent on jobs) and `correctionContext` (per-run snapshot) are appended to the effective prompt, with postPrompt first. DB migration 0012 renames the column.
+
 ### Fixed (End-to-End Verification)
 - **runner.ts**: Added missing `--verbose` flag required by Claude Code CLI v2.1.71 when using `--print --output-format=stream-json`. Without it all jobs failed immediately with exit code 1.
 - **job-creation-sheet.tsx**: Once-type manual jobs set `fireAt: new Date()` which was already past by the time `createJob` ran, causing `nextFireAt = null` and the job never firing. Fixed with `+10_000ms` buffer (same pattern as `commit.ts`).

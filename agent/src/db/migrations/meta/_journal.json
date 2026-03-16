@@ -85,6 +85,13 @@
       "when": 1773984000000,
       "tag": "0011_add_session_id",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1774070400000,
+      "tag": "0012_rename_correction_to_post_prompt",
+      "breakpoints": true
     }
   ]
 }

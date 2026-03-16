@@ -5,6 +5,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { NodeIcon } from "@/components/shared/node-icon";
+import { ICON_MAP } from "@/lib/icon-map";
 import { cn } from "@/lib/utils";
 
 const EMOJI_GRID = [
@@ -67,7 +69,9 @@ export function EmojiPicker({
           )}
           title="Change icon"
         >
-          {value ? (
+          {value && ICON_MAP[value] ? (
+            <NodeIcon icon={value} defaultIcon={variant === "goal" ? "flag" : "briefcase"} className="size-5" />
+          ) : value ? (
             <span className="leading-none">{value}</span>
           ) : variant === "goal" ? (
             <Flag className="size-4 text-muted-foreground" />

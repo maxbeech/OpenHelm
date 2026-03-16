@@ -45,6 +45,11 @@ export class JobQueue {
     return false;
   }
 
+  /** Check if a run is already in the queue */
+  has(runId: string): boolean {
+    return this.items.some((i) => i.runId === runId);
+  }
+
   /** Number of items in the queue */
   size(): number {
     return this.items.length;

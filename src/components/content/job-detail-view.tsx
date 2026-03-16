@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNow } from "@/hooks/use-now";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -35,6 +36,9 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
   const { runs, triggerRun } = useRunStore();
   const { selectRun, setContentView, activeProjectId } = useAppStore();
   const { projects } = useProjectStore();
+
+  // Tick every minute so relative timestamps (e.g. "Next: in 4h") stay current
+  useNow();
 
   const [triggering, setTriggering] = useState(false);
   const [showRunWarning, setShowRunWarning] = useState(false);
@@ -121,24 +125,24 @@ export function JobDetailView({ jobId }: JobDetailViewProps) {
         </div>
       </div>
 
-      {/* Correction Context — only shown when AI has added one */}
-      {job.correctionContext && (
+      {/* Post Prompt — persistent instructions appended to every run */}
+      {job.postPrompt && (
         <div className="mb-6">
           <h4 className="mb-1 text-xs font-medium text-amber-400">
-            Correction Context
+            Post Prompt
           </h4>
           <p className="mb-1 text-xs text-muted-foreground">
-            Auto-generated from a failed run. Appended to the prompt on retry.
+            Appended to the prompt on every run. May be auto-generated from a failed run.
           </p>
           <div className="max-h-32 overflow-auto rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 font-mono text-xs">
-            {job.correctionContext}
+            {job.postPrompt}
           </div>
           <div className="mt-1.5 flex gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() =>
-                updateJob({ id: job.id, correctionContext: null })
+                updateJob({ id: job.id, postPrompt: null })
               }
             >
               Clear

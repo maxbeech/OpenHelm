@@ -127,6 +127,18 @@ export function JobDetailPanel({ job, runs, onClose }: JobDetailPanelProps) {
           </div>
         </div>
 
+        {/* Post Prompt */}
+        {job.postPrompt && (
+          <div className="mb-4">
+            <h4 className="mb-1 text-xs font-medium text-amber-400">
+              Post Prompt
+            </h4>
+            <div className="max-h-32 overflow-auto rounded bg-background p-2 font-mono text-xs">
+              {job.postPrompt}
+            </div>
+          </div>
+        )}
+
         {/* Schedule */}
         <div className="mb-4 flex items-center gap-2">
           <Clock className="size-3.5 text-muted-foreground" />

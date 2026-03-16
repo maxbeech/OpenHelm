@@ -165,9 +165,9 @@ describe("attemptSelfCorrection", () => {
     expect(corrRun!.parentRunId).toBe(failedRun.id);
     expect(corrRun!.correctionContext).toContain("/src/bar.ts");
 
-    // Verify job correction context was updated
+    // Verify job post prompt was updated with correction
     const updatedJob = getJob(job.id);
-    expect(updatedJob!.correctionContext).toContain("/src/bar.ts");
+    expect(updatedJob!.postPrompt).toContain("/src/bar.ts");
 
     // Verify enqueued at priority 2
     expect(items).toHaveLength(1);

@@ -37,6 +37,7 @@ const INITIAL_FORM: JobFormState = {
   modelEffort: "medium",
   permissionMode: "bypassPermissions",
   workingDirectory: "",
+  postPrompt: "",
 };
 
 function getScheduleConfig(form: JobFormState): ScheduleConfig {
@@ -139,6 +140,7 @@ export function JobCreationSheet({
         model: form.model,
         modelEffort: form.modelEffort,
         permissionMode: form.permissionMode,
+        postPrompt: form.postPrompt.trim() || undefined,
       });
       handleOpenChange(false);
       onComplete();

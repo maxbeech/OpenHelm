@@ -23,7 +23,7 @@ function rowToJob(row: typeof jobs.$inferSelect): Job {
     modelEffort: (row.modelEffort ?? "medium") as "low" | "medium" | "high",
     permissionMode: (row.permissionMode ?? "bypassPermissions") as Job["permissionMode"],
     icon: row.icon ?? null,
-    correctionContext: row.correctionContext ?? null,
+    postPrompt: row.postPrompt ?? null,
   } as Job;
 }
 
@@ -57,6 +57,7 @@ export function createJob(params: CreateJobParams): Job {
       model: params.model ?? "sonnet",
       modelEffort: params.modelEffort ?? "medium",
       permissionMode: params.permissionMode ?? "bypassPermissions",
+      postPrompt: params.postPrompt ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -153,7 +154,7 @@ export function updateJob(params: UpdateJobParams): Job {
       ...(params.modelEffort !== undefined && { modelEffort: params.modelEffort }),
       ...(params.permissionMode !== undefined && { permissionMode: params.permissionMode }),
       ...(params.icon !== undefined && { icon: params.icon }),
-      ...(params.correctionContext !== undefined && { correctionContext: params.correctionContext }),
+      ...(params.postPrompt !== undefined && { postPrompt: params.postPrompt }),
       nextFireAt,
       updatedAt: now,
     })
@@ -232,14 +233,14 @@ export function archiveJob(id: string): Job {
   return rowToJob(row);
 }
 
-/** Lightweight atomic update for correction context only */
-export function updateJobCorrectionContext(
+/** Lightweight atomic update for post prompt only */
+export function updateJobPostPrompt(
   id: string,
-  correctionContext: string | null,
+  postPrompt: string | null,
 ): void {
   const db = getDb();
   db.update(jobs)
-    .set({ correctionContext, updatedAt: new Date().toISOString() })
+    .set({ postPrompt, updatedAt: new Date().toISOString() })
     .where(eq(jobs.id, id))
     .run();
 }

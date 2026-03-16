@@ -49,7 +49,7 @@ describe("JobCreationSheet", () => {
     render(<JobCreationSheet {...defaultProps} />);
     expect(screen.getByText("Create a Job")).toBeInTheDocument();
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Prompt/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Prompt/)).toBeInTheDocument();
   });
 
   it("shows validation errors when submitting empty form", async () => {
@@ -63,7 +63,7 @@ describe("JobCreationSheet", () => {
     render(<JobCreationSheet {...defaultProps} />);
 
     const nameInput = screen.getByLabelText(/Name/);
-    const promptInput = screen.getByLabelText(/Prompt/);
+    const promptInput = screen.getByLabelText(/^Prompt/);
 
     fireEvent.change(nameInput, { target: { value: "My test job" } });
     fireEvent.change(promptInput, { target: { value: "Run npm test" } });
@@ -76,7 +76,7 @@ describe("JobCreationSheet", () => {
     render(<JobCreationSheet {...defaultProps} />);
     expect(screen.getByText("0 chars")).toBeInTheDocument();
 
-    const promptInput = screen.getByLabelText(/Prompt/);
+    const promptInput = screen.getByLabelText(/^Prompt/);
     fireEvent.change(promptInput, { target: { value: "Hello" } });
     expect(screen.getByText("5 chars")).toBeInTheDocument();
   });
