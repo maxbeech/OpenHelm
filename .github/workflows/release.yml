@@ -12,17 +12,15 @@ concurrency:
 
 jobs:
   build-macos:
+    # Both targets build on macos-latest (arm64); x86_64 cross-compiles via Rust.
+    # macos-13 (Intel) runners are retired by GitHub.
     strategy:
       matrix:
-        include:
-          - target: aarch64-apple-darwin
-            runner: macos-latest
-          - target: x86_64-apple-darwin
-            runner: macos-13
-    runs-on: ${{ matrix.runner }}
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    runs-on: macos-latest
     permissions:
       contents: write
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -55,22 +53,21 @@ jobs:
           TARGET: ${{ matrix.target }}
 
       - name: Import Apple certificate
-        if: ${{ env.APPLE_CERTIFICATE != '' }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-          security create-keychain -p "" build.keychain
+          security create-keychain -p "ci-keychain" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
+          security unlock-keychain -p "ci-keychain" build.keychain
           security import certificate.p12 \
             -k build.keychain \
             -P "$APPLE_CERTIFICATE_PASSWORD" \
             -T /usr/bin/codesign
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: \
-            -s -k "" build.keychain
+            -s -k "ci-keychain" build.keychain
           rm certificate.p12
 
       - name: Build Tauri app
@@ -84,7 +81,6 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          BUILD_TARGET: ${{ matrix.target }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'OpenHelm ${{ github.ref_name }}'
