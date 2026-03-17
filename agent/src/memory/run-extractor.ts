@@ -7,7 +7,7 @@ import { getRun } from "../db/queries/runs.js";
 import { getJob } from "../db/queries/jobs.js";
 import { collectRunLogs, truncateLogsForAnalysis } from "../planner/summarize.js";
 import { extractMemories } from "./extractor.js";
-import type { Job } from "@openorchestra/shared";
+import type { Job } from "@openhelm/shared";
 
 /**
  * Extract memories from a completed run.

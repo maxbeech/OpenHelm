@@ -7,8 +7,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useProjectStore } from "@/stores/project-store";
-import type { MemoryType } from "@openorchestra/shared";
-import { DEFAULT_MEMORY_TAGS } from "@openorchestra/shared";
+import type { MemoryType } from "@openhelm/shared";
+import { DEFAULT_MEMORY_TAGS } from "@openhelm/shared";
 
 interface MemoryCreateDialogProps {
   open: boolean;

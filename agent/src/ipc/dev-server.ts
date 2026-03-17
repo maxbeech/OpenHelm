@@ -9,7 +9,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { handleRequest } from "./handler.js";
-import type { IpcRequest } from "@openorchestra/shared";
+import type { IpcRequest } from "@openhelm/shared";
 
 export const DEV_SERVER_PORT = 1421;
 

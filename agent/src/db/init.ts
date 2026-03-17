@@ -6,8 +6,8 @@ import { join } from "path";
 import { homedir } from "os";
 import * as schema from "./schema.js";
 
-const DATA_DIR = join(homedir(), ".openorchestra");
-const DB_PATH = join(DATA_DIR, "openorchestra.db");
+const DATA_DIR = join(homedir(), ".openhelm");
+const DB_PATH = join(DATA_DIR, "openhelm.db");
 
 let dbInstance: BetterSQLite3Database<typeof schema> | null = null;
 
@@ -58,7 +58,7 @@ export function initDatabase(dbPath?: string) {
       (err as { code: string }).code === "SQLITE_FULL"
     ) {
       throw new Error(
-        "OpenOrchestra couldn't save data. Your disk may be full.",
+        "OpenHelm couldn't save data. Your disk may be full.",
       );
     }
 

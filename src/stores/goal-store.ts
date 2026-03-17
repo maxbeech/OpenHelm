@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { Goal, GoalStatus, CreateGoalParams, UpdateGoalParams } from "@openorchestra/shared";
+import type { Goal, GoalStatus, CreateGoalParams, UpdateGoalParams } from "@openhelm/shared";
 import * as api from "@/lib/api";
 import { friendlyError } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ interface GoalState {
   updateGoal: (params: UpdateGoalParams) => Promise<Goal>;
   updateGoalStatus: (id: string, status: GoalStatus) => Promise<void>;
   archiveGoal: (id: string) => Promise<void>;
+  unarchiveGoal: (id: string, projectId: string) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
 }
 
@@ -83,6 +84,18 @@ export const useGoalStore = create<GoalState>((set) => ({
     }
   },
 
+  unarchiveGoal: async (id, _projectId) => {
+    try {
+      const updated = await api.unarchiveGoal(id);
+      set((s) => ({
+        goals: s.goals.map((g) => (g.id === id ? updated : g)),
+      }));
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to unarchive goal") });
+      throw err;
+    }
+  },
+
   deleteGoal: async (id) => {
     try {
       await api.deleteGoal(id);
@@ -105,6 +118,7 @@ export const useGoalActions = () =>
       updateGoal: s.updateGoal,
       updateGoalStatus: s.updateGoalStatus,
       archiveGoal: s.archiveGoal,
+      unarchiveGoal: s.unarchiveGoal,
       deleteGoal: s.deleteGoal,
     })),
   );

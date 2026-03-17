@@ -50,6 +50,22 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // Create the main window programmatically so we can set traffic_light_position.
+            // The header row is h-10 (40px); traffic lights at y=14 puts button centres at ~20px,
+            // matching the logo/chat button centre in that row.
+            tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("/".into()),
+            )
+            .title("")
+            .inner_size(1200.0, 800.0)
+            .min_inner_size(960.0, 600.0)
+            .resizable(true)
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .traffic_light_position(tauri::LogicalPosition::new(16.0_f64, 24.0_f64))
+            .build()?;
+
             let shell = app.shell();
             let (mut rx, child) = shell
                 .sidecar("agent")

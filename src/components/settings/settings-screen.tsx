@@ -2,6 +2,7 @@ import { Separator } from "@/components/ui/separator";
 import { ClaudeCodeSection } from "./claude-code-section";
 import { ExecutionSection } from "./execution-section";
 import { ApplicationSection } from "./application-section";
+import { DataSection } from "./data-section";
 
 export function SettingsScreen() {
   return (
@@ -13,6 +14,8 @@ export function SettingsScreen() {
         <ExecutionSection />
         <Separator />
         <ApplicationSection />
+        <Separator />
+        <DataSection />
       </div>
     </div>
   );

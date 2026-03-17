@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowDown } from "lucide-react";
-import type { RunLog } from "@openorchestra/shared";
+import type { RunLog } from "@openhelm/shared";
 import { cn } from "@/lib/utils";
 
 const LINE_HEIGHT = 20;

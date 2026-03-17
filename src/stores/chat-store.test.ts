@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useChatStore } from "./chat-store";
-import type { ChatMessage } from "@openorchestra/shared";
+import type { ChatMessage } from "@openhelm/shared";
 
 vi.mock("@/lib/api", () => ({
   listChatMessages: vi.fn(),
@@ -85,6 +85,8 @@ describe("sendMessage", () => {
       projectId: "project-1",
       content: "Hello",
       context: undefined,
+      model: "sonnet",
+      modelEffort: "medium",
     });
     expect(useChatStore.getState().sending).toBe(false);
   });

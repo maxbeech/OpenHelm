@@ -9,7 +9,7 @@ import { LogViewer } from "./log-viewer";
 import { useRunLogs } from "@/hooks/use-run-logs";
 import { openRunInTerminal, listMemoriesForRun } from "@/lib/api";
 import { MemoryTypeBadge } from "@/components/memory/memory-type-badge";
-import type { Run, Memory } from "@openorchestra/shared";
+import type { Run, Memory } from "@openhelm/shared";
 
 interface RunDetailPanelProps {
   run: Run;

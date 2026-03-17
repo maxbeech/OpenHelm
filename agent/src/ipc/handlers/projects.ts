@@ -1,6 +1,6 @@
 import { registerHandler } from "../handler.js";
 import * as projectQueries from "../../db/queries/projects.js";
-import type { CreateProjectParams, UpdateProjectParams } from "@openorchestra/shared";
+import type { CreateProjectParams, UpdateProjectParams } from "@openhelm/shared";
 
 export function registerProjectHandlers() {
   registerHandler("projects.create", (params) => {

@@ -1,6 +1,6 @@
-# OpenOrchestra v1 — Implementation Plan
+# OpenHelm v1 — Implementation Plan
 
-**Domain**: OpenOrchestra.ai
+**Domain**: OpenHelm.ai
 **Stack**: Tauri 2 + React 18 + TypeScript + SQLite
 **Target**: macOS (arm64 + x86_64), with cross-platform in mind from day one
 **Estimated duration**: 7–8 weeks solo, 4–5 weeks with two developers
@@ -42,7 +42,7 @@ These decisions are locked for v1. Changing any of them mid-build is expensive b
 
 This is the most important architectural distinction in the entire codebase and must never be blurred.
 
-**Claude Code CLI** is Anthropic's agentic coding tool that users subscribe to. It is invoked as a child process, runs inside the user's project directory, has access to the file system, can run shell commands, and produces rich output. In OpenOrchestra, this is used exclusively for executing jobs — it is the worker. It is never used for planning, summarisation, or any internal system operation.
+**Claude Code CLI** is Anthropic's agentic coding tool that users subscribe to. It is invoked as a child process, runs inside the user's project directory, has access to the file system, can run shell commands, and produces rich output. In OpenHelm, this is used exclusively for executing jobs — it is the worker. It is never used for planning, summarisation, or any internal system operation.
 
 **Anthropic API** (claude-sonnet-4-5 for planning, claude-haiku-4-5 for summarisation) is used for all internal AI operations: turning a goal into a job plan, generating clarifying questions, and summarising run output into plain English. This requires a separate API key from the user. It is never used to execute jobs.
 
@@ -61,7 +61,7 @@ The layer has a narrow responsibility: format a message to send to the Anthropic
 Understanding the repository structure upfront prevents the instinct to add code in the wrong layer. The core rule: Rust is a thin launcher, the Node agent owns all logic, React owns all presentation.
 
 ```
-openorchestra/
+openhelm/
 ├── src-tauri/               # Tauri Rust shell — keep as thin as possible
 │   ├── src/
 │   │   ├── main.rs          # Window setup, sidecar launch, nothing else
@@ -148,7 +148,7 @@ Also confirm that Claude Code CLI is installed on the development machine. Phase
 
 Use the official Tauri CLI to scaffold the project with the React TypeScript template. Do not create a custom project structure from scratch — the Tauri scaffold sets up important build tool integrations (Vite, the Tauri Vite plugin, and the Rust build system) that are fiddly to replicate correctly.
 
-Once scaffolded, immediately configure the window in `tauri.conf.json`. The app identifier (`ai.openorchestra.app`) must be set from the start — it affects where macOS stores the app's data (`~/Library/Application Support/ai.openorchestra.app/`). Changing the identifier later means all existing users lose their data on upgrade, which is unacceptable. Set the minimum window dimensions to 960×600 immediately and test at this size throughout development. Building to a large screen and testing constraints only at the end leads to expensive UI rework.
+Once scaffolded, immediately configure the window in `tauri.conf.json`. The app identifier (`ai.openhelm.app`) must be set from the start — it affects where macOS stores the app's data (`~/Library/Application Support/ai.openhelm.app/`). Changing the identifier later means all existing users lose their data on upgrade, which is unacceptable. Set the minimum window dimensions to 960×600 immediately and test at this size throughout development. Building to a large screen and testing constraints only at the end leads to expensive UI rework.
 
 Set up the npm workspace in the root `package.json` so that `src/`, `agent/`, and `shared/` can import from each other with clean paths. This is foundational — without it, `shared/types.ts` cannot be imported cleanly from both the frontend and the agent, and the type-safe boundary between layers breaks down.
 
@@ -172,7 +172,7 @@ Verify sidecar launch by having the agent write a startup message to stderr (whi
 
 ### 0.4 Database initialisation and location
 
-The database lives at `~/.openorchestra/openorchestra.db`. This location is chosen deliberately: outside the app bundle (which gets replaced on every update), in a predictable location the user can find and back up, and persisting across app reinstalls. The directory is created by the agent on startup if it doesn't exist.
+The database lives at `~/.openhelm/openhelm.db`. This location is chosen deliberately: outside the app bundle (which gets replaced on every update), in a predictable location the user can find and back up, and persisting across app reinstalls. The directory is created by the agent on startup if it doesn't exist.
 
 Database initialisation happens in the agent on every startup. Drizzle runs any pending migrations before the IPC server starts accepting connections. This ordering is critical — it ensures the schema is always current before any requests can be made, eliminating race conditions where the UI requests data before migrations have run.
 
@@ -196,7 +196,7 @@ Implement and verify a single test IPC call (ping → pong) before Phase 1 begin
 - [ ] `npm run tauri dev` opens a window on both arm64 and x86_64 Macs
 - [ ] Hot reload works from `src/` without restarting Tauri
 - [ ] The Node.js sidecar launches automatically and logs its startup message to the Tauri console
-- [ ] The SQLite database file is created at `~/.openorchestra/openorchestra.db` on first launch
+- [ ] The SQLite database file is created at `~/.openhelm/openhelm.db` on first launch
 - [ ] Schema tables are created correctly
 - [ ] A test IPC ping/pong round-trip works and resolves the promise correctly
 - [ ] The workspace allows importing from `shared/` in both `src/` and `agent/` with no TypeScript errors
@@ -466,7 +466,7 @@ The 24-hour stability test at the end of this phase is critical and should not b
 
 The LLM layer in `agent/src/llm/` is the only code that calls the Anthropic SDK directly. It has three components with clearly separated concerns.
 
-`client.ts` is a thin wrapper around the Anthropic SDK that enforces OpenOrchestra's conventions: it reads the API key from the settings table (not environment variables, since this is a user-configured value not a deployment secret), uses consistent model names, sets appropriate timeouts, and converts SDK errors into the application's own typed error hierarchy. Nothing outside `client.ts` imports from `@anthropic-ai/sdk` directly. This means if the SDK's interface changes, there is exactly one file to update — the same principle as `ClaudeCodeRunner` for the CLI.
+`client.ts` is a thin wrapper around the Anthropic SDK that enforces OpenHelm's conventions: it reads the API key from the settings table (not environment variables, since this is a user-configured value not a deployment secret), uses consistent model names, sets appropriate timeouts, and converts SDK errors into the application's own typed error hierarchy. Nothing outside `client.ts` imports from `@anthropic-ai/sdk` directly. This means if the SDK's interface changes, there is exactly one file to update — the same principle as `ClaudeCodeRunner` for the CLI.
 
 Before hardcoding any model strings, verify the current model names via the Anthropic documentation or API. Model names change, and using a deprecated model name silently falls back to a different model or fails outright.
 
@@ -545,7 +545,7 @@ This is the longest phase in terms of files created, but it builds on a solid fo
 
 ### 5.1 Design system and visual language
 
-OpenOrchestra is a tool for technical founders who are trusting it to run autonomous tasks on their codebases. The visual language must communicate reliability, precision, and professional calm. Every design decision should reinforce that the user is in control and that the system is behaving predictably.
+OpenHelm is a tool for technical founders who are trusting it to run autonomous tasks on their codebases. The visual language must communicate reliability, precision, and professional calm. Every design decision should reinforce that the user is in control and that the system is behaving predictably.
 
 Dark mode is the default and primary mode. The colour palette is built on deep navy as the dominant surface colour, with warm amber as the single accent. Amber is used purposefully and sparingly: primary call-to-action buttons, active and running state indicators, decorative header elements. Green signals success exclusively, red signals failure exclusively, amber signals running or attention-needed. No colour in the palette should be used decoratively in a way that could be confused with a status signal — this would erode the user's ability to scan status quickly.
 
@@ -573,7 +573,7 @@ The navigation is intentionally flat. There is no nested navigation in v1. Every
 
 The onboarding wizard gates the entire application — the main shell is not shown until onboarding is complete. A user who skips setup and lands on an empty dashboard is more disoriented than one who is guided through setup before seeing anything. The gate is the right call.
 
-**Step 1: Welcome.** Full screen, centred, minimal. The OpenOrchestra wordmark, one sentence describing the product, and a single "Let's get started" button. No bullet points, no feature lists, no screenshots. The purpose of this step is to create a calm, trustworthy first impression before asking anything of the user.
+**Step 1: Welcome.** Full screen, centred, minimal. The OpenHelm wordmark, one sentence describing the product, and a single "Let's get started" button. No bullet points, no feature lists, no screenshots. The purpose of this step is to create a calm, trustworthy first impression before asking anything of the user.
 
 **Step 2: Claude Code detection.** Auto-detection runs in the background as this step loads. In most cases, detection completes before the user has finished reading the screen. If found: show the detected path and version with a green checkmark. If not found: show the current installation instructions (check the actual Claude Code documentation for the install command before writing this screen — it changes), a "I've installed it — check again" button, and a "Set path manually" option that reveals a text input. Never show a generic "Claude Code not found" error with no guidance.
 
@@ -669,7 +669,7 @@ The Settings screen is accessible from the bottom of the sidebar and contains fo
 
 **Execution**: max concurrent runs (slider, 1–3, with a recommendation note), default run timeout (dropdown: 10, 20, 30, 60, 120 minutes). Changes take effect for new runs immediately.
 
-**Application**: launch at login toggle (Tauri autostart plugin), application version, links to OpenOrchestra.ai and the GitHub repository.
+**Application**: launch at login toggle (Tauri autostart plugin), application version, links to OpenHelm.ai and the GitHub repository.
 
 ---
 
@@ -759,7 +759,7 @@ Manually created jobs are data-model-identical to planned jobs. The only differe
 
 ## Phase 8 — Polish, Hardening & Distribution
 **Duration**: 3–4 days
-**Goal**: The application is robust enough for real users. Every error is handled gracefully with actionable guidance. The app builds, packages, installs, and updates cleanly on a Mac that has never had OpenOrchestra installed before.
+**Goal**: The application is robust enough for real users. Every error is handled gracefully with actionable guidance. The app builds, packages, installs, and updates cleanly on a Mac that has never had OpenHelm installed before.
 
 ---
 
@@ -771,7 +771,7 @@ Walk through every user-initiated action and every background operation and veri
 
 **Claude Code binary missing after setup**: the next scheduled run will fail to start. The run should be marked `permanent_failure` and the run detail should explain clearly that Claude Code can't be found and link to the Settings screen to update the path.
 
-**Disk full**: SQLite writes fail silently without careful error handling. Catch storage exceptions and surface: "OpenOrchestra couldn't save data. Your disk may be full." This is a severe condition that requires user action and must not be swallowed.
+**Disk full**: SQLite writes fail silently without careful error handling. Catch storage exceptions and surface: "OpenHelm couldn't save data. Your disk may be full." This is a severe condition that requires user action and must not be swallowed.
 
 **Agent IPC timeout**: if a request takes longer than 30 seconds without a response, surface "The background agent is not responding." with a Restart button that terminates and re-launches the sidecar via Tauri's process management API.
 
@@ -871,7 +871,7 @@ The auto-update system is important to configure from the first release. Users w
 - [x] Notification permission requested on first launch
 
 **Distribution:** *(CI/release workflows created; end-to-end signing verification requires Apple Developer credentials)*
-- [ ] DMG installs cleanly on a machine with no prior OpenOrchestra installation
+- [ ] DMG installs cleanly on a machine with no prior OpenHelm installation
 - [ ] App opens without Gatekeeper warning (correctly signed and notarised)
 - [ ] Agent sidecar launches correctly from the installed app, not just dev mode
 - [x] GitHub Actions workflow produces a release on tag push

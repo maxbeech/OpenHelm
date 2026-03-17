@@ -9,7 +9,7 @@ import { MEMORY_EXTRACTION_SCHEMA } from "../planner/schemas.js";
 import { createMemory, updateMemory, listMemories } from "../db/queries/memories.js";
 import { generateEmbedding } from "./embeddings.js";
 import { emit } from "../ipc/emitter.js";
-import type { Memory, MemoryType, MemorySourceType } from "@openorchestra/shared";
+import type { Memory, MemoryType, MemorySourceType } from "@openhelm/shared";
 
 interface ExtractedMemory {
   type: MemoryType;
@@ -20,7 +20,7 @@ interface ExtractedMemory {
   mergeTargetId?: string | null;
 }
 
-const EXTRACTION_SYSTEM_PROMPT = `You extract atomic memories from text for a project management system called OpenOrchestra.
+const EXTRACTION_SYSTEM_PROMPT = `You extract atomic memories from text for a project management system called OpenHelm.
 
 Given content (run output, goal description, job prompt), extract memories that would be useful for future LLM operations on this project.
 

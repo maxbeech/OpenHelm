@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ScheduleType } from "@openorchestra/shared";
+import type { ScheduleType } from "@openhelm/shared";
 
 export interface InlineJob {
   name: string;

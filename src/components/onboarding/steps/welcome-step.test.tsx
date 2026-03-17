@@ -4,12 +4,18 @@ import { WelcomeStep } from "./welcome-step";
 
 vi.mock("@/lib/api", () => ({
   setSetting: vi.fn().mockResolvedValue({}),
+  getSetting: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/lib/notifications", () => ({
+  ensureNotificationPermission: vi.fn().mockResolvedValue(undefined),
 }));
 
 // @/lib/sentry is globally mocked in test-setup.ts
 
 import * as api from "@/lib/api";
 import { setAnalyticsEnabled } from "@/lib/sentry";
+import { ensureNotificationPermission } from "@/lib/notifications";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -18,7 +24,7 @@ beforeEach(() => {
 describe("WelcomeStep", () => {
   it("renders with analytics checkbox checked by default", () => {
     render(<WelcomeStep onNext={() => {}} />);
-    const checkbox = screen.getByRole("checkbox", { name: /help improve openorchestra/i });
+    const checkbox = screen.getByRole("checkbox", { name: /help improve openhelm/i });
     expect(checkbox).toBeChecked();
   });
 
@@ -58,5 +64,35 @@ describe("WelcomeStep", () => {
     render(<WelcomeStep onNext={onNext} />);
     fireEvent.click(screen.getByRole("button", { name: /let's get started/i }));
     expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders notification radio group with 'alerts_only' selected by default", () => {
+    render(<WelcomeStep onNext={() => {}} />);
+    const alertsRadio = screen.getByRole("radio", { name: /alerts only/i });
+    expect(alertsRadio).toBeChecked();
+  });
+
+  it("persists notification_level when radio changes", () => {
+    render(<WelcomeStep onNext={() => {}} />);
+    const neverRadio = screen.getByRole("radio", { name: /never/i });
+    fireEvent.click(neverRadio);
+    expect(api.setSetting).toHaveBeenCalledWith({
+      key: "notification_level",
+      value: "never",
+    });
+  });
+
+  it("calls ensureNotificationPermission when selecting a non-never level", () => {
+    render(<WelcomeStep onNext={() => {}} />);
+    const finishRadio = screen.getByRole("radio", { name: /all job completions/i });
+    fireEvent.click(finishRadio);
+    expect(ensureNotificationPermission).toHaveBeenCalled();
+  });
+
+  it("does not call ensureNotificationPermission when selecting 'never'", () => {
+    render(<WelcomeStep onNext={() => {}} />);
+    const neverRadio = screen.getByRole("radio", { name: /never/i });
+    fireEvent.click(neverRadio);
+    expect(ensureNotificationPermission).not.toHaveBeenCalled();
   });
 });

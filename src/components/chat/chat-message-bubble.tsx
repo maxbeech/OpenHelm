@@ -2,7 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { ActionGroup } from "./action-group";
-import type { ChatMessage } from "@openorchestra/shared";
+import type { ChatMessage } from "@openhelm/shared";
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;

@@ -9,7 +9,7 @@ import type {
   TriggerRunParams,
   CancelRunParams,
   SchedulerStatus,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerSchedulerHandlers() {
   /**

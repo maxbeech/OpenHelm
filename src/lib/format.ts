@@ -1,4 +1,4 @@
-import type { ScheduleType, ScheduleConfig } from "@openorchestra/shared";
+import type { ScheduleType, ScheduleConfig } from "@openhelm/shared";
 
 /** Format a schedule into human-readable text */
 export function formatSchedule(

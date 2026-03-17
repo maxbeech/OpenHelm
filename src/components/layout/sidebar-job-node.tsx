@@ -6,7 +6,7 @@ import type {
   RunStatus,
   ScheduleConfigCalendar,
   ScheduleConfigInterval,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 import { cn } from "@/lib/utils";
 
 interface SidebarJobNodeProps {

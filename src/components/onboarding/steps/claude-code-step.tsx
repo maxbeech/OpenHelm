@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import * as api from "@/lib/api";
-import type { ClaudeCodeDetectionResult } from "@openorchestra/shared";
+import type { ClaudeCodeDetectionResult } from "@openhelm/shared";
 
 export function ClaudeCodeStep({ onNext }: { onNext: () => void }) {
   const [detecting, setDetecting] = useState(true);
@@ -45,7 +45,7 @@ export function ClaudeCodeStep({ onNext }: { onNext: () => void }) {
     <div className="flex flex-col">
       <h2 className="text-2xl font-semibold">Claude Code CLI</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        OpenOrchestra uses Claude Code to execute jobs in your projects.
+        OpenHelm uses Claude Code to execute jobs in your projects.
       </p>
 
       <div className="mt-6 rounded-lg border border-border bg-card p-4">

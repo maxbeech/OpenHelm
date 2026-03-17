@@ -43,7 +43,7 @@ import type {
   RejectAllChatActionsParams,
   ListChatMessagesParams,
   ClearChatParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 // ─── Projects ───
 
@@ -89,6 +89,10 @@ export function archiveGoal(id: string): Promise<Goal> {
   return agentClient.request<Goal>("goals.archive", { id });
 }
 
+export function unarchiveGoal(id: string): Promise<Goal> {
+  return agentClient.request<Goal>("goals.unarchive", { id });
+}
+
 export function deleteGoal(id: string): Promise<{ deleted: boolean }> {
   return agentClient.request<{ deleted: boolean }>("goals.delete", { id });
 }
@@ -113,6 +117,10 @@ export function updateJob(params: UpdateJobParams): Promise<Job> {
 
 export function archiveJob(id: string): Promise<Job> {
   return agentClient.request<Job>("jobs.archive", { id });
+}
+
+export function unarchiveJob(id: string): Promise<Job> {
+  return agentClient.request<Job>("jobs.unarchive", { id });
 }
 
 export function deleteJob(id: string): Promise<{ deleted: boolean }> {
@@ -323,6 +331,28 @@ export function countMemories(projectId: string): Promise<{ count: number }> {
 
 export function listMemoriesForRun(runId: string): Promise<Memory[]> {
   return agentClient.request<Memory[]>("memories.listForRun", { runId });
+}
+
+// ─── Data Import/Export ───
+
+export function getExportStats(): Promise<import("@openhelm/shared").ExportStatsResult> {
+  return agentClient.request("data.exportStats");
+}
+
+export function exportData(params: import("@openhelm/shared").ExportParams): Promise<import("@openhelm/shared").ExportResult> {
+  return agentClient.request("data.export", params);
+}
+
+export function previewImport(params: import("@openhelm/shared").ImportParams): Promise<import("@openhelm/shared").ImportPreviewResult> {
+  return agentClient.request("data.importPreview", params);
+}
+
+export function executeImport(params: import("@openhelm/shared").ImportExecuteParams): Promise<import("@openhelm/shared").ImportResult> {
+  return agentClient.request("data.importExecute", params);
+}
+
+export function fixProjectPath(params: import("@openhelm/shared").FixProjectPathParams): Promise<Project> {
+  return agentClient.request("data.fixProjectPath", params);
 }
 
 /** Cross-project memory queries (All Projects mode) */

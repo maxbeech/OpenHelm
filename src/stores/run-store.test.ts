@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useRunStore } from "./run-store";
 import * as api from "@/lib/api";
-import type { Run } from "@openorchestra/shared";
+import type { Run } from "@openhelm/shared";
 
 vi.mock("@/lib/api");
 

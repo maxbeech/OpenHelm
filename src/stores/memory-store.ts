@@ -5,7 +5,7 @@ import type {
   MemoryType,
   CreateMemoryParams,
   UpdateMemoryParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 interface MemoryState {
   memories: Memory[];
@@ -161,9 +161,14 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
   },
 
   updateMemoryInStore: (memory) => {
-    set((s) => ({
-      memories: s.memories.map((m) => (m.id === memory.id ? memory : m)),
-    }));
+    set((s) => {
+      const existing = s.memories.find((m) => m.id === memory.id);
+      const justArchived = memory.isArchived && existing && !existing.isArchived;
+      return {
+        memories: s.memories.map((m) => (m.id === memory.id ? memory : m)),
+        memoryCount: justArchived ? Math.max(0, s.memoryCount - 1) : s.memoryCount,
+      };
+    });
   },
 
   removeMemoryFromStore: (id) => {

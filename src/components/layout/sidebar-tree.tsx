@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Archive } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
@@ -27,6 +27,7 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
   const { jobs } = useJobStore();
   const { runs } = useRunStore();
 
+  const [showArchived, setShowArchived] = useState(false);
   const [addingGoal, setAddingGoal] = useState(false);
   const [newGoalInput, setNewGoalInput] = useState("");
   const [addingJobForGoalId, setAddingJobForGoalId] = useState<string | null>(
@@ -54,6 +55,29 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     () => jobsByGoal.get(null) ?? [],
     [jobsByGoal],
   );
+
+  const archivedGoals = useMemo(
+    () => goals.filter((g) => g.status === "archived"),
+    [goals],
+  );
+
+  const archivedStandaloneJobs = useMemo(
+    () => jobs.filter((j) => j.isArchived && !j.goalId),
+    [jobs],
+  );
+
+  const archivedJobsByGoal = useMemo(() => {
+    const map = new Map<string, typeof jobs>();
+    for (const job of jobs) {
+      if (!job.isArchived || !job.goalId) continue;
+      if (!map.has(job.goalId)) map.set(job.goalId, []);
+      map.get(job.goalId)!.push(job);
+    }
+    return map;
+  }, [jobs]);
+
+  const hasArchived = archivedGoals.length > 0 || archivedStandaloneJobs.length > 0;
+  const archivedCount = archivedGoals.length + archivedStandaloneJobs.length;
 
   const recentRunsByJob = useMemo(() => {
     const map = new Map<string, typeof runs>();
@@ -239,6 +263,74 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
                 onSelect={() => selectJob(job.id)}
               />
             ))}
+          </div>
+        )}
+
+        {/* Archived section */}
+        {hasArchived && (
+          <div className="mt-3 border-t border-sidebar-border pt-3">
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className="flex w-full items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-sidebar-foreground"
+            >
+              <ChevronRight
+                className={cn(
+                  "size-3 transition-transform",
+                  showArchived && "rotate-90",
+                )}
+              />
+              <Archive className="size-3" />
+              Archived ({archivedCount})
+            </button>
+            {showArchived && (
+              <div className="opacity-60">
+                {archivedGoals.map((goal) => {
+                  const goalArchivedJobs = archivedJobsByGoal.get(goal.id) ?? [];
+                  const isSelected =
+                    contentView === "goal-detail" && selectedGoalId === goal.id;
+                  return (
+                    <div key={goal.id}>
+                      <button
+                        onClick={() => selectGoal(goal.id)}
+                        className={cn(
+                          "flex w-full items-center gap-1.5 rounded-md px-3 py-1 text-sm transition-colors",
+                          isSelected
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <NodeIcon icon={goal.icon} defaultIcon="flag" />
+                        <span className="truncate">
+                          {goal.name || goal.description}
+                        </span>
+                      </button>
+                      {goalArchivedJobs.map((job) => (
+                        <SidebarJobNode
+                          key={job.id}
+                          job={job}
+                          recentRuns={recentRunsByJob.get(job.id) ?? []}
+                          isSelected={
+                            contentView === "job-detail" && selectedJobId === job.id
+                          }
+                          onSelect={() => selectJob(job.id)}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+                {archivedStandaloneJobs.map((job) => (
+                  <SidebarJobNode
+                    key={job.id}
+                    job={job}
+                    recentRuns={recentRunsByJob.get(job.id) ?? []}
+                    isSelected={
+                      contentView === "job-detail" && selectedJobId === job.id
+                    }
+                    onSelect={() => selectJob(job.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

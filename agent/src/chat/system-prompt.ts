@@ -7,7 +7,7 @@ import { TOOLS } from "./tools.js";
 import { getConfiguredMcpServers } from "../claude-code/mcp-config.js";
 import { retrieveMemories } from "../memory/retriever.js";
 import { buildChatMemorySection } from "../memory/prompt-builder.js";
-import type { Project, Goal, Job, Run } from "@openorchestra/shared";
+import type { Project, Goal, Job, Run } from "@openhelm/shared";
 
 export interface ChatSystemContext {
   project: Project;
@@ -129,9 +129,9 @@ export function buildChatSystemPrompt(ctx: ChatSystemContext): string {
 
 function buildChatSystemPromptSync(ctx: ChatSystemContext, memorySection: string): string {
   const sections = [
-    `## You are the OpenOrchestra AI Assistant
+    `## You are the OpenHelm AI Assistant
 
-OpenOrchestra runs Claude Code tasks on a schedule. Users define:
+OpenHelm runs Claude Code tasks on a schedule. Users define:
 - Goals: high-level outcomes (e.g. "Improve test coverage")
 - Jobs: scheduled Claude Code prompts that work toward goals
 - Runs: individual executions of jobs (with logs and status)
@@ -154,7 +154,7 @@ Directory: ${ctx.project.directoryPath}${ctx.project.description ? `\nDescriptio
 - Before creating a goal or job, check what already exists by calling list_goals or list_jobs. If the user's request maps to an existing entity, use update_goal or update_job instead of creating a duplicate. Only create new entities when nothing suitable exists.
 - When the user is viewing a specific goal or job (shown in Current View), default to modifying that entity unless they explicitly ask for something new.
 - Write tools require user approval — just propose them naturally.
-- If a job fails, help diagnose the prompt or project environment. Don't modify OpenOrchestra.
+- If a job fails, help diagnose the prompt or project environment. Don't modify OpenHelm.
 - Keep responses concise. Use bullet points for lists.
 - You are synchronous. You cannot send follow-up messages, monitor progress, or check back later. Each response is complete and final. Never say "while that runs" or "I'll check on that."
 - Write actions do not execute until the user explicitly approves them. Do not describe proposed actions as already happening or running.`,

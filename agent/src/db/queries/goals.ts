@@ -7,7 +7,7 @@ import type {
   CreateGoalParams,
   UpdateGoalParams,
   ListGoalsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function createGoal(params: CreateGoalParams): Goal {
   const db = getDb();

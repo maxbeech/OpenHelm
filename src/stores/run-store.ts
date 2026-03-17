@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { Run, RunStatus } from "@openorchestra/shared";
+import type { Run, RunStatus } from "@openhelm/shared";
 import * as api from "@/lib/api";
 import { friendlyError } from "@/lib/utils";
 

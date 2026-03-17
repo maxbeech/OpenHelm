@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../init.js";
 import { settings } from "../schema.js";
-import type { Setting, SettingKey } from "@openorchestra/shared";
+import type { Setting, SettingKey } from "@openhelm/shared";
 
 export function getSetting(key: SettingKey): Setting | null {
   const db = getDb();

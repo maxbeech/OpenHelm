@@ -6,7 +6,7 @@ import type {
   InboxItemStatus,
   CreateInboxItemParams,
   ListInboxItemsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 function rowToInboxItem(row: typeof inboxItems.$inferSelect): InboxItem {
   return {

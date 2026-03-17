@@ -7,10 +7,6 @@ import { AppErrorBoundary } from "./components/shared/error-boundary";
 
 // Initialize Sentry before first render — idempotent, safe to call at module level
 initFrontendSentry();
-import {
-  isPermissionGranted,
-  requestPermission,
-} from "@tauri-apps/plugin-notification";
 import { useAppStore } from "./stores/app-store";
 import { useProjectStore } from "./stores/project-store";
 import { useGoalStore } from "./stores/goal-store";
@@ -20,8 +16,12 @@ import { useInboxStore } from "./stores/inbox-store";
 import { useMemoryStore } from "./stores/memory-store";
 import { useChatStore } from "./stores/chat-store";
 import { useAgentEvent } from "./hooks/use-agent-event";
-import type { RunStatus, ChatMessage, InboxItem, Memory } from "@openorchestra/shared";
-import { notifyInboxItem } from "./lib/notifications";
+import type { RunStatus, ChatMessage, InboxItem, Memory } from "@openhelm/shared";
+import {
+  notifyInboxItem,
+  notifyRunCompleted,
+  ensureNotificationPermission,
+} from "./lib/notifications";
 import { OnboardingWizard } from "./components/onboarding/onboarding-wizard";
 import { AppShell } from "./components/layout/app-shell";
 import { WelcomeView } from "./components/content/welcome-view";
@@ -113,6 +113,28 @@ export default function App() {
         ...(data.exitCode !== undefined && { exitCode: data.exitCode }),
         ...(data.sessionId != null && { sessionId: data.sessionId }),
       });
+
+      // Send run-completion notification for terminal statuses
+      const terminalStatuses: RunStatus[] = [
+        "succeeded",
+        "failed",
+        "permanent_failure",
+      ];
+      if (terminalStatuses.includes(data.status)) {
+        const run = useRunStore
+          .getState()
+          .runs.find((r) => r.id === data.runId);
+        if (run) {
+          const job = useJobStore
+            .getState()
+            .jobs.find((j) => j.id === run.jobId);
+          notifyRunCompleted(
+            data.status,
+            job?.name ?? "Unknown job",
+            data.summary,
+          );
+        }
+      }
     },
     [updateRunInStore],
   );
@@ -313,22 +335,14 @@ export default function App() {
     }
   }, [activeProjectId, fetchGoals, fetchJobs, fetchRuns, fetchMessages, fetchMemories, fetchMemoryCount, fetchInboxItems, fetchInboxCount]);
 
-  // Notification permission
+  // Request notification permission on startup (skipped if level is "never")
   useEffect(() => {
     if (!agentReady || initialLoading) return;
     (async () => {
       try {
-        const notifRequested = await api.getSetting(
-          "notification_permission_requested",
-        );
-        if (!notifRequested?.value) {
-          const permissionGranted = await isPermissionGranted();
-          if (!permissionGranted) await requestPermission();
-          await api.setSetting({
-            key: "notification_permission_requested",
-            value: "true",
-          });
-        }
+        const level = await api.getSetting("notification_level");
+        if (level?.value === "never") return;
+        await ensureNotificationPermission();
       } catch (err) {
         console.error("Failed to request notification permission:", err);
       }

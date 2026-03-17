@@ -5,7 +5,7 @@ import { PROMPT_ASSESSMENT_SYSTEM_PROMPT } from "./prompts.js";
 import { PROMPT_ASSESSMENT_SCHEMA } from "./schemas.js";
 import type {
   PromptAssessmentResult,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 /**
  * Assess whether a manual job prompt is specific enough to produce useful

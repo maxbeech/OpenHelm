@@ -20,7 +20,7 @@ export interface FailureAnalysis {
   reason: string; // human-readable explanation
 }
 
-const FAILURE_ANALYSIS_SYSTEM_PROMPT = `You analyze failed automated coding runs for a desktop app called OpenOrchestra.
+const FAILURE_ANALYSIS_SYSTEM_PROMPT = `You analyze failed automated coding runs for a desktop app called OpenHelm.
 
 Given the original task prompt and the run's log output, determine:
 1. Whether the failure is fixable with additional guidance

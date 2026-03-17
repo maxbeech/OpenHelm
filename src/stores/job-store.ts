@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { Job, CreateJobParams, UpdateJobParams } from "@openorchestra/shared";
+import type { Job, CreateJobParams, UpdateJobParams } from "@openhelm/shared";
 import * as api from "@/lib/api";
 import { friendlyError } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ interface JobState {
   updateJob: (params: UpdateJobParams) => Promise<Job>;
   toggleEnabled: (id: string, isEnabled: boolean) => Promise<void>;
   archiveJob: (id: string) => Promise<void>;
+  unarchiveJob: (id: string) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
   updateJobInStore: (job: Job) => void;
 }
@@ -84,6 +85,18 @@ export const useJobStore = create<JobState>((set) => ({
     }
   },
 
+  unarchiveJob: async (id) => {
+    try {
+      const updated = await api.unarchiveJob(id);
+      set((s) => ({
+        jobs: s.jobs.map((j) => (j.id === id ? updated : j)),
+      }));
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to unarchive job") });
+      throw err;
+    }
+  },
+
   deleteJob: async (id) => {
     try {
       await api.deleteJob(id);
@@ -112,6 +125,7 @@ export const useJobActions = () =>
       updateJob: s.updateJob,
       toggleEnabled: s.toggleEnabled,
       archiveJob: s.archiveJob,
+      unarchiveJob: s.unarchiveJob,
       deleteJob: s.deleteJob,
       updateJobInStore: s.updateJobInStore,
     })),

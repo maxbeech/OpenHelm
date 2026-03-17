@@ -8,7 +8,7 @@ import { MemoryCard } from "./memory-card";
 import { MemoryCreateDialog } from "./memory-create-dialog";
 import { MemoryEditDialog } from "./memory-edit-dialog";
 import { Button } from "@/components/ui/button";
-import type { Memory, MemoryType } from "@openorchestra/shared";
+import type { Memory, MemoryType } from "@openhelm/shared";
 
 export function MemoryView() {
   const { activeProjectId } = useAppStore();

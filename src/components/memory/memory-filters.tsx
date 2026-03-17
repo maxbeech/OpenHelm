@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
 import { useMemoryStore } from "@/stores/memory-store";
 import { Switch } from "@/components/ui/switch";
-import type { MemoryType } from "@openorchestra/shared";
+import type { MemoryType } from "@openhelm/shared";
 
 const TYPES: Array<{ value: MemoryType | ""; label: string }> = [
   { value: "", label: "All Types" },

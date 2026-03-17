@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FolderOpen, Trash2 } from "lucide-react";
 import { useProjectStore } from "@/stores/project-store";
-import type { Project } from "@openorchestra/shared";
+import type { Project } from "@openhelm/shared";
 
 interface EditProjectDialogProps {
   open: boolean;
@@ -157,7 +157,7 @@ export function EditProjectDialog({
                 <p className="text-sm text-muted-foreground">
                   This will remove{" "}
                   <span className="font-medium text-foreground">{project.name}</span>{" "}
-                  from OpenOrchestra. Your files will not be affected.
+                  from OpenHelm. Your files will not be affected.
                 </p>
                 <div className="flex gap-2">
                   <Button

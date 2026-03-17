@@ -6,7 +6,7 @@ import type {
   CreateMemoryParams,
   UpdateMemoryParams,
   ListMemoriesParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 function rowToMemory(row: typeof memories.$inferSelect): Memory {
   return {

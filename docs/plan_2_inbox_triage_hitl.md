@@ -1,4 +1,4 @@
-# OpenOrchestra — Plan 2: Inbox, Failure Triage & Human-in-the-Loop
+# OpenHelm — Plan 2: Inbox, Failure Triage & Human-in-the-Loop
 
 **Implemented**: March 2026
 **Phases**: 10
@@ -60,7 +60,7 @@ The inbox screen combines three panels into one view:
 ### Sidebar Redesign
 
 **`src/components/layout/sidebar.tsx`**:
-1. **Logo** — "OpenOrchestra" branded text at top left
+1. **Logo** — "OpenHelm" branded text at top left
 2. **Inbox button** — below logo, red badge when open items exist
 3. **Project filter** — compact dropdown below Inbox, uniform sizing (same height/icon as Inbox button), "All Projects" as default option
 4. **Tree nav** — only rendered when a specific project is selected

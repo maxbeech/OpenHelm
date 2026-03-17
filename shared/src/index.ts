@@ -175,6 +175,8 @@ export interface RunLog {
   timestamp: string;
 }
 
+export type NotificationLevel = "never" | "on_finish" | "alerts_only";
+
 export type SettingKey =
   | "claude_code_path"
   | "claude_code_version"
@@ -182,6 +184,7 @@ export type SettingKey =
   | "default_timeout_minutes"
   | "run_timeout_minutes"
   | "notification_permission_requested"
+  | "notification_level"
   | "active_project"
   | "theme"
   | "auto_correction_enabled"
@@ -374,6 +377,8 @@ export interface SendChatMessageParams {
   projectId: string;
   content: string;
   context?: ChatContext;
+  model?: string;
+  modelEffort?: "low" | "medium" | "high";
 }
 
 export interface ApproveChatActionParams {
@@ -660,6 +665,83 @@ export interface MemoryRetrievalContext {
   jobId?: string;
   query: string;
   maxResults?: number;
+}
+
+// ─── Data Import/Export Types ───
+
+export interface ExportParams {
+  includeRunLogs: boolean;
+  filePath: string;
+}
+
+export interface RecordCounts {
+  projects: number;
+  goals: number;
+  jobs: number;
+  runs: number;
+  runLogs: number;
+  conversations: number;
+  messages: number;
+  inboxItems: number;
+  memories: number;
+  runMemories: number;
+  settings: number;
+}
+
+export interface ExportResult {
+  success: boolean;
+  filePath: string;
+  recordCounts: RecordCounts;
+  fileSizeBytes: number;
+}
+
+export interface ImportParams {
+  filePath: string;
+}
+
+export interface ImportPreviewResult {
+  valid: boolean;
+  error?: string;
+  version?: number;
+  exportedAt?: string;
+  appVersion?: string;
+  includesRunLogs?: boolean;
+  recordCounts?: RecordCounts;
+  fileSizeBytes: number;
+}
+
+export interface ImportExecuteParams {
+  filePath: string;
+}
+
+export interface InvalidProjectPath {
+  projectId: string;
+  projectName: string;
+  directoryPath: string;
+}
+
+export interface SkippedSetting {
+  key: string;
+  reason: string;
+}
+
+export interface ImportResult {
+  success: boolean;
+  recordCounts: RecordCounts;
+  invalidPaths: InvalidProjectPath[];
+  skippedSettings: SkippedSetting[];
+}
+
+export interface ExportStatsResult {
+  totalRecords: number;
+  runLogCount: number;
+  estimatedSizeWithLogs: number;
+  estimatedSizeWithoutLogs: number;
+}
+
+export interface FixProjectPathParams {
+  id: string;
+  directoryPath: string;
 }
 
 /** Params for assessing a manual job prompt */

@@ -6,8 +6,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { Memory, MemoryType } from "@openorchestra/shared";
-import { DEFAULT_MEMORY_TAGS } from "@openorchestra/shared";
+import type { Memory, MemoryType } from "@openhelm/shared";
+import { DEFAULT_MEMORY_TAGS } from "@openhelm/shared";
 
 interface MemoryEditDialogProps {
   open: boolean;

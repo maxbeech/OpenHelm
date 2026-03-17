@@ -1,7 +1,23 @@
 import { create } from "zustand";
-import type { ChatMessage, ChatContext } from "@openorchestra/shared";
+import type { ChatMessage, ChatContext } from "@openhelm/shared";
 import * as api from "@/lib/api";
 import { friendlyError } from "@/lib/utils";
+
+export const CHAT_MODELS = [
+  { value: "haiku", label: "Haiku" },
+  { value: "sonnet", label: "Sonnet" },
+  { value: "opus", label: "Opus" },
+] as const;
+
+export type ChatModelValue = typeof CHAT_MODELS[number]["value"];
+
+export const CHAT_EFFORTS = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+] as const;
+
+export type ChatEffortValue = typeof CHAT_EFFORTS[number]["value"];
 
 interface ChatState {
   messages: ChatMessage[];
@@ -10,11 +26,15 @@ interface ChatState {
   error: string | null;
   panelOpen: boolean;
   statusText: string | null;
+  chatModel: ChatModelValue;
+  chatEffort: ChatEffortValue;
 
   togglePanel: () => void;
   openPanel: () => void;
   closePanel: () => void;
   setStatusText: (text: string | null) => void;
+  setChatModel: (model: ChatModelValue) => void;
+  setChatEffort: (effort: ChatEffortValue) => void;
   fetchMessages: (projectId: string) => Promise<void>;
   sendMessage: (projectId: string, content: string, context?: ChatContext) => Promise<void>;
   approveAction: (messageId: string, callId: string, projectId: string) => Promise<void>;
@@ -33,11 +53,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   panelOpen: false,
   statusText: null,
+  chatModel: "sonnet",
+  chatEffort: "medium",
 
   togglePanel: () => set((s) => ({ panelOpen: !s.panelOpen })),
   openPanel: () => set({ panelOpen: true }),
   closePanel: () => set({ panelOpen: false }),
   setStatusText: (text) => set({ statusText: text }),
+  setChatModel: (model) => set({ chatModel: model }),
+  setChatEffort: (effort) => set({ chatEffort: effort }),
 
   fetchMessages: async (projectId) => {
     set({ loading: true, error: null });
@@ -51,9 +75,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: async (projectId, content, context) => {
     set({ sending: true, error: null });
+    const { chatModel, chatEffort } = get();
     try {
       // Optimistically add user message (agent will emit the real one via event)
-      await api.sendChatMessage({ projectId, content, context });
+      await api.sendChatMessage({ projectId, content, context, model: chatModel, modelEffort: chatEffort });
     } catch (err) {
       set({ error: friendlyError(err, "Failed to send message"), sending: false });
       throw err;

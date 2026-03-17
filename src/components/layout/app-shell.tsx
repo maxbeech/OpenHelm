@@ -4,6 +4,7 @@ import { Sidebar } from "./sidebar";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { useChatStore } from "@/stores/chat-store";
 import { useAppStore } from "@/stores/app-store";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -26,22 +27,27 @@ export function AppShell({
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar onNewProject={onNewProject} onEditProject={onEditProject} onNewJobForGoal={onNewJobForGoal} />
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        {/* Chat toggle button — hidden when panel is already open */}
-        {!panelOpen && (
-          <div className="absolute top-3 right-3 z-10">
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Header strip — h-12 matches sidebar logo row; drag region + chat toggle */}
+        <div
+          data-tauri-drag-region
+          onMouseDown={() => { getCurrentWindow().startDragging(); }}
+          className="flex h-12 shrink-0 items-center justify-end border-b border-border px-3"
+        >
+          {!panelOpen && (
             <Button
               variant="outline"
-              size="sm"
+              size="xs"
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={togglePanel}
-              className="gap-1.5 text-xs"
+              className="gap-1.5"
               title="Open chat"
             >
-              <MessageSquare className="size-3.5" />
+              <MessageSquare className="size-3" />
               Chat
             </Button>
-          </div>
-        )}
+          )}
+        </div>
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
       {rightPanel && (

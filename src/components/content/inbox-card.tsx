@@ -7,7 +7,7 @@ import { useAppStore } from "@/stores/app-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import type { InboxItem } from "@openorchestra/shared";
+import type { InboxItem } from "@openhelm/shared";
 
 const MAX_DESC_LENGTH = 500;
 

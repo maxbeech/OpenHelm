@@ -2357,7 +2357,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "openorchestra"
+name = "openhelm"
 version = "0.1.0"
 dependencies = [
  "log",

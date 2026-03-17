@@ -2,8 +2,8 @@ import type {
   IpcRequest,
   IpcResponse,
   IpcEvent,
-} from "@openorchestra/shared";
-import { isIpcResponse, isIpcEvent } from "@openorchestra/shared";
+} from "@openhelm/shared";
+import { isIpcResponse, isIpcEvent } from "@openhelm/shared";
 import { captureFrontendError } from "./sentry";
 
 /**

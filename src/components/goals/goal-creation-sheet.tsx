@@ -14,7 +14,7 @@ import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
 import { useAppStore } from "@/stores/app-store";
 import { InlineJobForm, EMPTY_INLINE_JOB, type InlineJob } from "./inline-job-form";
-import type { ScheduleConfig } from "@openorchestra/shared";
+import type { ScheduleConfig } from "@openhelm/shared";
 
 interface GoalCreationSheetProps {
   open: boolean;

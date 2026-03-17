@@ -13,7 +13,7 @@ import {
   getActiveMemoriesWithEmbeddings,
   touchMemories,
 } from "../db/queries/memories.js";
-import type { Memory, MemoryType, MemoryRetrievalContext } from "@openorchestra/shared";
+import type { Memory, MemoryType, MemoryRetrievalContext } from "@openhelm/shared";
 
 export interface ScoredMemory {
   memory: Memory;

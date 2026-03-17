@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Plus,
   Archive,
+  ArchiveRestore,
   Trash2,
   Pencil,
   Play,
@@ -23,7 +24,7 @@ import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
 import { useAppStore } from "@/stores/app-store";
 import { formatSchedule, formatRelativeTime } from "@/lib/format";
-import type { GoalStatus } from "@openorchestra/shared";
+import type { GoalStatus } from "@openhelm/shared";
 
 interface GoalDetailViewProps {
   goalId: string;
@@ -31,7 +32,7 @@ interface GoalDetailViewProps {
 }
 
 export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
-  const { goals, updateGoal, updateGoalStatus, archiveGoal, deleteGoal } = useGoalStore();
+  const { goals, updateGoal, updateGoalStatus, archiveGoal, unarchiveGoal, deleteGoal } = useGoalStore();
   const { jobs, fetchJobs } = useJobStore();
   const { runs } = useRunStore();
   const { selectJob, setContentView, activeProjectId } = useAppStore();
@@ -56,7 +57,7 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
   };
 
   const handleConfirm = async () => {
-    if (!confirmAction || !activeProjectId) return;
+    if (!confirmAction) return;
     setConfirmLoading(true);
     try {
       if (confirmAction === "archive") {
@@ -65,11 +66,17 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
         await deleteGoal(goalId);
         setContentView("home");
       }
-      await fetchJobs(activeProjectId);
+      if (activeProjectId) await fetchJobs(activeProjectId);
     } finally {
       setConfirmLoading(false);
       setConfirmAction(null);
     }
+  };
+
+  const handleUnarchive = async () => {
+    if (!activeProjectId) return;
+    await unarchiveGoal(goalId, activeProjectId);
+    await fetchJobs(activeProjectId);
   };
 
   if (!goal) {
@@ -193,7 +200,7 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
           <Pencil className="size-3.5" />
           Edit
         </Button>
-        {goal.status !== "archived" && (
+        {goal.status !== "archived" ? (
           <Button
             variant="outline"
             size="sm"
@@ -201,6 +208,15 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
           >
             <Archive className="size-3.5" />
             Archive
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUnarchive}
+          >
+            <ArchiveRestore className="size-3.5" />
+            Unarchive
           </Button>
         )}
         <Button

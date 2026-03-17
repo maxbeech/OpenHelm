@@ -3,13 +3,17 @@ import { ExternalLink } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import * as api from "@/lib/api";
 import { setAnalyticsEnabled } from "@/lib/sentry";
+import { ensureNotificationPermission } from "@/lib/notifications";
+import type { NotificationLevel } from "@openhelm/shared";
 
 export function ApplicationSection() {
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [launchLoading, setLaunchLoading] = useState(true);
   const [analyticsEnabled, setAnalyticsEnabledState] = useState(true);
+  const [notifLevel, setNotifLevel] = useState<NotificationLevel>("alerts_only");
 
   useEffect(() => {
     invoke<boolean>("plugin:autostart|is_enabled")
@@ -20,6 +24,16 @@ export function ApplicationSection() {
     api
       .getSetting("analytics_enabled")
       .then((s) => setAnalyticsEnabledState(s?.value !== "false"))
+      .catch(() => {});
+
+    api
+      .getSetting("notification_level")
+      .then((s) => {
+        const v = s?.value;
+        if (v === "never" || v === "on_finish" || v === "alerts_only") {
+          setNotifLevel(v);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -44,6 +58,15 @@ export function ApplicationSection() {
       .catch(() => {});
   };
 
+  const changeNotifLevel = async (value: string) => {
+    const level = value as NotificationLevel;
+    setNotifLevel(level);
+    await api.setSetting({ key: "notification_level", value: level }).catch(() => {});
+    if (level !== "never") {
+      await ensureNotificationPermission();
+    }
+  };
+
   return (
     <div>
       <h3 className="mb-3 font-medium">Application</h3>
@@ -53,7 +76,7 @@ export function ApplicationSection() {
           <div>
             <Label className="text-sm text-foreground">Launch at login</Label>
             <p className="text-xs text-muted-foreground">
-              Start OpenOrchestra automatically when you log in.
+              Start OpenHelm automatically when you log in.
             </p>
           </div>
           <Switch
@@ -68,23 +91,53 @@ export function ApplicationSection() {
               Share anonymous error reports
             </Label>
             <p className="text-xs text-muted-foreground">
-              Send crash reports to help improve OpenOrchestra. No code,
+              Send crash reports to help improve OpenHelm. No code,
               prompts, or file paths included.
             </p>
           </div>
           <Switch checked={analyticsEnabled} onCheckedChange={toggleAnalytics} />
         </div>
+        <div>
+          <Label className="text-sm text-foreground">Notifications</Label>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Choose when to receive native notifications.
+          </p>
+          <RadioGroup
+            value={notifLevel}
+            onValueChange={changeNotifLevel}
+            className="space-y-1"
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="alerts_only" id="notif-alerts" />
+              <Label htmlFor="notif-alerts" className="text-sm font-normal cursor-pointer">
+                Alerts only (default) — when something needs attention
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="on_finish" id="notif-finish" />
+              <Label htmlFor="notif-finish" className="text-sm font-normal cursor-pointer">
+                When any job finishes
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="never" id="notif-never" />
+              <Label htmlFor="notif-never" className="text-sm font-normal cursor-pointer">
+                Never
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
         <div className="flex gap-4">
           <a
-            href="https://openorchestra.ai"
+            href="https://openhelm.ai"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 hover:text-foreground"
           >
-            OpenOrchestra.ai <ExternalLink className="size-3" />
+            OpenHelm.ai <ExternalLink className="size-3" />
           </a>
           <a
-            href="https://github.com/openorchestra/openorchestra"
+            href="https://github.com/openhelm/openhelm"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 hover:text-foreground"

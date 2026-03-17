@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { RunStatusBadge, GoalStatusBadge } from "./status-badge";
-import type { RunStatus, GoalStatus } from "@openorchestra/shared";
+import type { RunStatus, GoalStatus } from "@openhelm/shared";
 
 describe("RunStatusBadge", () => {
   const statuses: RunStatus[] = [

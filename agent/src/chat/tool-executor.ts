@@ -12,7 +12,7 @@ import { generateEmbedding } from "../memory/embeddings.js";
 import { jobQueue } from "../scheduler/queue.js";
 import { executor } from "../executor/index.js";
 import { emit } from "../ipc/emitter.js";
-import type { ChatToolCall, ScheduleConfig } from "@openorchestra/shared";
+import type { ChatToolCall, ScheduleConfig } from "@openhelm/shared";
 
 export interface ToolExecutionResult {
   callId: string;

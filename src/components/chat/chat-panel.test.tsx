@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ChatPanel } from "./chat-panel";
 import { useChatStore } from "@/stores/chat-store";
 import { useAppStore } from "@/stores/app-store";
-import type { ChatMessage } from "@openorchestra/shared";
+import type { ChatMessage } from "@openhelm/shared";
 
 // jsdom doesn't implement scrollIntoView
 window.HTMLElement.prototype.scrollIntoView = vi.fn();

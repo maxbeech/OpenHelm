@@ -5,7 +5,7 @@ import { useAppStore } from "@/stores/app-store";
 import { useResizePanel } from "@/hooks/use-resize-panel";
 import { ChatMessageList } from "./chat-message-list";
 import { ChatInput } from "./chat-input";
-import type { ChatContext } from "@openorchestra/shared";
+import type { ChatContext } from "@openhelm/shared";
 
 interface ChatPanelProps {
   projectId: string;
@@ -59,7 +59,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 z-10"
       />
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
         <h3 className="text-sm font-semibold">Chat</h3>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (

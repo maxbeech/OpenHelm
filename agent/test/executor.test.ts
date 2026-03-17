@@ -13,7 +13,7 @@ import { setSetting } from "../src/db/queries/settings.js";
 import { JobQueue } from "../src/scheduler/queue.js";
 import { Executor } from "../src/executor/index.js";
 import type { RunnerConfig } from "../src/claude-code/runner.js";
-import type { ClaudeCodeRunResult } from "@openorchestra/shared";
+import type { ClaudeCodeRunResult } from "@openhelm/shared";
 
 let cleanup: () => void;
 let projectId: string;

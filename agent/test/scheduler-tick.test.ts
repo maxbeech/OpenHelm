@@ -10,7 +10,7 @@ import {
 import { createRun, listRuns } from "../src/db/queries/runs.js";
 import { JobQueue } from "../src/scheduler/queue.js";
 import { Scheduler } from "../src/scheduler/index.js";
-import type { Job } from "@openorchestra/shared";
+import type { Job } from "@openhelm/shared";
 
 // Use a fresh queue for each test (not the singleton)
 let queue: JobQueue;

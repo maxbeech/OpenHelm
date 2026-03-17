@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { JobEditSheet } from "./job-edit-sheet";
 import { useJobStore } from "@/stores/job-store";
 import { useGoalStore } from "@/stores/goal-store";
-import type { Job } from "@openorchestra/shared";
+import type { Job } from "@openhelm/shared";
 
 const mockUpdateJob = vi.fn();
 

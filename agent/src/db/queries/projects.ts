@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../init.js";
 import { projects } from "../schema.js";
-import type { Project, CreateProjectParams, UpdateProjectParams } from "@openorchestra/shared";
+import type { Project, CreateProjectParams, UpdateProjectParams } from "@openhelm/shared";
 
 export function createProject(params: CreateProjectParams): Project {
   const db = getDb();

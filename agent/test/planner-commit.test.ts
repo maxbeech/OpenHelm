@@ -4,7 +4,7 @@ import { createProject } from "../src/db/queries/projects.js";
 import { getGoal } from "../src/db/queries/goals.js";
 import { getJob, listJobs } from "../src/db/queries/jobs.js";
 import { commitPlan } from "../src/planner/commit.js";
-import type { PlannedJob } from "@openorchestra/shared";
+import type { PlannedJob } from "@openhelm/shared";
 
 let cleanup: () => void;
 let projectId: string;

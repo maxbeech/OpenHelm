@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Goal, ScheduleType, PermissionMode } from "@openorchestra/shared";
+import type { Goal, ScheduleType, PermissionMode } from "@openhelm/shared";
 import { ScheduleConfigForm } from "./schedule-config-form";
 
 export interface JobFormState {

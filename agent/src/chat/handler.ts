@@ -22,7 +22,7 @@ import { executeReadTool, executeWriteTool } from "./tool-executor.js";
 import { emit } from "../ipc/emitter.js";
 import type {
   ChatMessage, ChatContext, ChatToolCall, ChatToolResult, PendingAction,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 const MAX_TOOL_LOOP_ITERATIONS = 5;
 const MAX_HISTORY_MESSAGES = 20;
@@ -62,6 +62,8 @@ export async function handleChatMessage(
   projectId: string,
   content: string,
   context?: ChatContext,
+  modelOverride?: string,
+  effort?: "low" | "medium" | "high",
 ): Promise<ChatMessage[]> {
   const project = getProject(projectId);
   if (!project) throw new Error(`Project not found: ${projectId}`);
@@ -90,7 +92,7 @@ export async function handleChatMessage(
   for (let iter = 0; iter < MAX_TOOL_LOOP_ITERATIONS; iter++) {
     emit("chat.status", { status: iter === 0 ? "thinking" : "analyzing" });
     const userMessage = buildLlmUserMessage(history, content, toolExchange || undefined);
-    const rawResponse = await callLlmViaCli({ model: "chat", systemPrompt, userMessage });
+    const rawResponse = await callLlmViaCli({ model: "chat", modelOverride, effort, systemPrompt, userMessage });
     const parsed = parseLlmResponse(rawResponse);
     finalTextSegments = parsed.textSegments;
 

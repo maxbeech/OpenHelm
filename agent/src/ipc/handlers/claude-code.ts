@@ -8,7 +8,7 @@ import type {
   DetectClaudeCodeParams,
   VerifyClaudeCodeParams,
   ClaudeCodeDetectionResult,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerClaudeCodeHandlers() {
   /**

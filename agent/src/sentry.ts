@@ -1,5 +1,5 @@
 /**
- * Sentry integration for the OpenOrchestra agent sidecar.
+ * Sentry integration for the OpenHelm agent sidecar.
  * Reads analytics_enabled from DB and gates all Sentry operations accordingly.
  * All operations are wrapped in try/catch — Sentry failure must never crash the agent.
  */
@@ -29,7 +29,7 @@ export function initAgentSentry(): void {
       dsn: process.env.SENTRY_DSN ?? "",
       environment:
         process.env.NODE_ENV === "production" ? "production" : "development",
-      release: "openorchestra@0.1.0",
+      release: "openhelm@0.1.0",
       tracesSampleRate: 0.1,
       skipOpenTelemetrySetup: true,
       beforeSend(event) {

@@ -1,13 +1,14 @@
 import { registerHandler } from "../handler.js";
 import { emit } from "../emitter.js";
 import * as goalQueries from "../../db/queries/goals.js";
+import * as jobQueries from "../../db/queries/jobs.js";
 import { pickIcon } from "../../planner/icon-picker.js";
 import { extractMemoriesFromGoal } from "../../memory/goal-extractor.js";
 import type {
   CreateGoalParams,
   UpdateGoalParams,
   ListGoalsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerGoalHandlers() {
   registerHandler("goals.create", (params) => {
@@ -55,6 +56,14 @@ export function registerGoalHandlers() {
     const { id } = params as { id: string };
     if (!id) throw new Error("id is required");
     return goalQueries.updateGoal({ id, status: "archived" });
+  });
+
+  registerHandler("goals.unarchive", (params) => {
+    const { id } = params as { id: string };
+    if (!id) throw new Error("id is required");
+    const goal = goalQueries.updateGoal({ id, status: "active" });
+    jobQueries.unarchiveJobsForGoal(id);
+    return goal;
   });
 
   registerHandler("goals.delete", (params) => {

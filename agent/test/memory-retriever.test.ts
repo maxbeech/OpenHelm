@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { cosineSimilarity } from "../src/memory/embeddings.js";
 import { buildMemorySection, buildChatMemorySection } from "../src/memory/prompt-builder.js";
 import type { ScoredMemory } from "../src/memory/retriever.js";
-import type { Memory } from "@openorchestra/shared";
+import type { Memory } from "@openhelm/shared";
 
 function makeMem(overrides: Partial<Memory>): Memory {
   return {

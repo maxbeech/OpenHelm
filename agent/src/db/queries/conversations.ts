@@ -7,7 +7,7 @@ import type {
   ChatToolCall,
   ChatToolResult,
   PendingAction,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 function rowToConversation(row: typeof conversations.$inferSelect): Conversation {
   return {

@@ -7,7 +7,7 @@ import type {
   PlannedJob,
   CommitPlanResult,
   ScheduleConfigOnce,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 /**
  * Commit an approved plan to the database atomically.

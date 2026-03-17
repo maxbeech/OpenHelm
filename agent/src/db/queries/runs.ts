@@ -7,7 +7,7 @@ import type {
   CreateRunParams,
   UpdateRunParams,
   ListRunsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 function rowToRun(row: typeof runs.$inferSelect): Run {
   return {

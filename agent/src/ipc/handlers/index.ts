@@ -8,6 +8,7 @@ import { registerSchedulerHandlers } from "./scheduler.js";
 import { registerChatHandlers } from "./chat.js";
 import { registerInboxHandlers } from "./inbox.js";
 import { registerMemoryHandlers } from "./memories.js";
+import { registerDataHandlers } from "./data.js";
 
 /** Register all domain IPC handlers */
 export function registerAllHandlers() {
@@ -21,4 +22,5 @@ export function registerAllHandlers() {
   registerChatHandlers();
   registerInboxHandlers();
   registerMemoryHandlers();
+  registerDataHandlers();
 }

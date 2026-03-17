@@ -1,7 +1,7 @@
 import { execFile } from "child_process";
 import { existsSync } from "fs";
 import { promisify } from "util";
-import type { ClaudeCodeDetectionResult } from "@openorchestra/shared";
+import type { ClaudeCodeDetectionResult } from "@openhelm/shared";
 import { getSetting, setSetting } from "../db/queries/settings.js";
 
 const execFileAsync = promisify(execFile);

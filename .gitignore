@@ -7,6 +7,9 @@ dist-node/
 target/
 agent/dist/
 
+# Compiled sidecar binaries (built at CI time, not committed)
+src-tauri/binaries/
+
 # Tauri generated
 src-tauri/gen/
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useProjectStore } from "./project-store";
-import type { Project } from "@openorchestra/shared";
+import type { Project } from "@openhelm/shared";
 
 const mockProject: Project = {
   id: "p1",

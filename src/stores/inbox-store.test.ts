@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useInboxStore } from "./inbox-store";
 import * as api from "@/lib/api";
-import type { InboxItem } from "@openorchestra/shared";
+import type { InboxItem } from "@openhelm/shared";
 
 vi.mock("@/lib/api");
 

@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { X, Play, Clock, AlertTriangle, Archive, Trash2, CalendarClock } from "lucide-react";
+import { X, Play, Clock, AlertTriangle, Archive, ArchiveRestore, Trash2, CalendarClock } from "lucide-react";
 import { RunStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
 import { useAppStore } from "@/stores/app-store";
 import { formatSchedule, formatRelativeTime } from "@/lib/format";
-import type { Job, Run } from "@openorchestra/shared";
+import type { Job, Run } from "@openhelm/shared";
 import { cn } from "@/lib/utils";
 
 interface JobDetailPanelProps {
@@ -19,7 +19,7 @@ interface JobDetailPanelProps {
 }
 
 export function JobDetailPanel({ job, runs, onClose }: JobDetailPanelProps) {
-  const { toggleEnabled, archiveJob, deleteJob } = useJobStore();
+  const { toggleEnabled, archiveJob, unarchiveJob, deleteJob } = useJobStore();
   const { triggerRun, triggerDeferredRun, deleteRun, clearRunsByJob } = useRunStore();
   const { selectRun } = useAppStore();
   const [triggering, setTriggering] = useState(false);
@@ -276,7 +276,7 @@ export function JobDetailPanel({ job, runs, onClose }: JobDetailPanelProps) {
 
         {/* Archive & Delete */}
         <div className="flex gap-2">
-          {!job.isArchived && (
+          {!job.isArchived ? (
             <Button
               variant="outline"
               size="sm"
@@ -285,6 +285,16 @@ export function JobDetailPanel({ job, runs, onClose }: JobDetailPanelProps) {
             >
               <Archive className="size-3.5" />
               Archive
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => unarchiveJob(job.id)}
+            >
+              <ArchiveRestore className="size-3.5" />
+              Unarchive
             </Button>
           )}
           <Button

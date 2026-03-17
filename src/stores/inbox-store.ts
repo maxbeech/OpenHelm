@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import * as api from "@/lib/api";
-import type { InboxItem, InboxResolveAction } from "@openorchestra/shared";
+import type { InboxItem, InboxResolveAction } from "@openhelm/shared";
 
 interface InboxState {
   items: InboxItem[];

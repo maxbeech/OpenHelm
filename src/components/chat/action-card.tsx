@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, X, Wrench } from "lucide-react";
-import type { PendingAction } from "@openorchestra/shared";
+import type { PendingAction } from "@openhelm/shared";
 
 interface ActionCardProps {
   action: PendingAction;

@@ -13,7 +13,7 @@ import { emit } from "../emitter.js";
 import type {
   ListInboxItemsParams,
   ResolveInboxItemParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerInboxHandlers() {
   registerHandler("inbox.list", (params) => {

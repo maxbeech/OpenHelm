@@ -6,7 +6,7 @@ import type {
   ScheduleConfigInterval,
   ScheduleConfigCron,
   ScheduleConfigCalendar,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 /** Legacy interval config — kept for backward compat with existing DB rows */
 interface LegacyIntervalConfig {

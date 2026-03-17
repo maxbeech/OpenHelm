@@ -1,6 +1,6 @@
 import { registerHandler } from "../handler.js";
 import * as settingQueries from "../../db/queries/settings.js";
-import type { SettingKey, SetSettingParams } from "@openorchestra/shared";
+import type { SettingKey, SetSettingParams } from "@openhelm/shared";
 
 export function registerSettingHandlers() {
   registerHandler("settings.get", (params) => {

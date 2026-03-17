@@ -3,7 +3,7 @@ import { validatePlan, validatePlanCronExpressions } from "./validators.js";
 import { getProject } from "../db/queries/projects.js";
 import { PLAN_GENERATION_SYSTEM_PROMPT } from "./prompts.js";
 import { PLAN_GENERATION_SCHEMA } from "./schemas.js";
-import type { GeneratedPlan } from "@openorchestra/shared";
+import type { GeneratedPlan } from "@openhelm/shared";
 
 const JSON_PARSE_MAX_RETRIES = 1;
 

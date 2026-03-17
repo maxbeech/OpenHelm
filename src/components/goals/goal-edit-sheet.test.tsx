@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { GoalEditSheet } from "./goal-edit-sheet";
 import { useGoalStore } from "@/stores/goal-store";
-import type { Goal } from "@openorchestra/shared";
+import type { Goal } from "@openhelm/shared";
 
 const mockUpdateGoal = vi.fn();
 

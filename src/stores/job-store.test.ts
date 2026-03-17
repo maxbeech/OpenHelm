@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useJobStore } from "./job-store";
-import type { Job } from "@openorchestra/shared";
+import type { Job } from "@openhelm/shared";
 
 const mockJob: Job = {
   id: "j1",

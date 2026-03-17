@@ -11,7 +11,7 @@ import type {
   ListRunsParams,
   CreateRunLogParams,
   ListRunLogsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerRunHandlers() {
   // -- Runs --

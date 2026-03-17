@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SidebarJobNode } from "./sidebar-job-node";
-import type { Job, Run } from "@openorchestra/shared";
+import type { Job, Run } from "@openhelm/shared";
 
 function makeJob(overrides: Partial<Job> = {}): Job {
   return {

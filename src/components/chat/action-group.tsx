@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useChatStore } from "@/stores/chat-store";
 import { ActionCard } from "./action-card";
-import type { PendingAction, ChatContext } from "@openorchestra/shared";
+import type { PendingAction, ChatContext } from "@openhelm/shared";
 
 interface ActionGroupProps {
   messageId: string;

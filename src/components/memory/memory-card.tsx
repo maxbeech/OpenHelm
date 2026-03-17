@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pencil, Trash2, Archive } from "lucide-react";
 import { MemoryTypeBadge } from "./memory-type-badge";
 import { Badge } from "@/components/ui/badge";
-import type { Memory } from "@openorchestra/shared";
+import type { Memory } from "@openhelm/shared";
 import { cn } from "@/lib/utils";
 
 function formatRelativeTime(iso: string): string {

@@ -27,6 +27,8 @@ export interface PrintConfig {
   jsonSchema?: object;
   /** Pass --tools "" to disable tool use (default: true) */
   disableTools?: boolean;
+  /** Effort level passed via --effort flag (low/medium/high) */
+  effort?: "low" | "medium" | "high";
   /** Optional callback fired per stdout line as it arrives */
   onProgress?: (chunk: string) => void;
 }
@@ -153,6 +155,11 @@ function buildPrintArgs(config: PrintConfig): string[] {
   // Disable tools (default: true for pure generation calls)
   if (config.disableTools !== false) {
     args.push("--tools", "");
+  }
+
+  // Effort level
+  if (config.effort) {
+    args.push("--effort", config.effort);
   }
 
   // Prevent session state from being saved/loaded so internal LLM calls

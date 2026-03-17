@@ -1,5 +1,5 @@
 /**
- * Sentry integration for the OpenOrchestra frontend.
+ * Sentry integration for the OpenHelm frontend.
  * Initialized once at module load. Analytics can be toggled at runtime.
  */
 
@@ -30,7 +30,7 @@ export function initFrontendSentry(): void {
       dsn: (import.meta as any).env?.VITE_SENTRY_DSN ?? "",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       environment: (import.meta as any).env?.MODE === "production" ? "production" : "development",
-      release: "openorchestra@0.1.0",
+      release: "openhelm@0.1.0",
       tracesSampleRate: 0.1,
       beforeSend(event) {
         if (!analyticsEnabled) return null;
@@ -74,6 +74,33 @@ export function captureFrontendError(
     });
   } catch {
     // Swallow — Sentry must never break the UI
+  }
+}
+
+/**
+ * Submit explicit user feedback to Sentry.
+ * Bypasses the analyticsEnabled guard — user pressed Submit intentionally.
+ */
+export function submitUserFeedback(
+  type: 'feedback' | 'bug-report',
+  message: string,
+  includeAnonymousData: boolean,
+): void {
+  try {
+    const tags: Record<string, string> = { feedback_type: type };
+    if (includeAnonymousData) tags['app_version'] = 'openhelm@0.1.0';
+
+    if (type === 'bug-report') {
+      const eventId = Sentry.captureMessage(
+        `[Bug Report] ${message.slice(0, 80)}`,
+        { level: 'info', tags: { feedback_type: 'bug-report' } },
+      );
+      Sentry.captureFeedback({ message, source: 'feedback-button', associatedEventId: eventId, tags });
+    } else {
+      Sentry.captureFeedback({ message, source: 'feedback-button', tags });
+    }
+  } catch {
+    // Never throw — Sentry failure must not surface in UI
   }
 }
 

@@ -12,7 +12,7 @@ import { EmojiPicker } from "@/components/shared/emoji-picker";
 import { useJobStore } from "@/stores/job-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { JobCreationForm, type JobFormState, type JobFormErrors } from "./job-creation-form";
-import type { Job, ScheduleConfig, ScheduleConfigCalendar } from "@openorchestra/shared";
+import type { Job, ScheduleConfig, ScheduleConfigCalendar } from "@openhelm/shared";
 
 interface JobEditSheetProps {
   job: Job;

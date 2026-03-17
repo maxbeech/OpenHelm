@@ -1,4 +1,4 @@
-import type { IpcEvent } from "@openorchestra/shared";
+import type { IpcEvent } from "@openhelm/shared";
 import { broadcastEvent } from "./dev-server.js";
 
 /** Write a JSON message to stdout (IPC channel) and SSE clients */

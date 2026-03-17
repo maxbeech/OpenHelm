@@ -11,7 +11,7 @@ import type {
   CreateJobParams,
   UpdateJobParams,
   ListJobsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 function rowToJob(row: typeof jobs.$inferSelect): Job {
   return {
@@ -241,6 +241,39 @@ export function updateJobCorrectionNote(
   db.update(jobs)
     .set({ correctionNote, updatedAt: new Date().toISOString() })
     .where(eq(jobs.id, id))
+    .run();
+}
+
+export function unarchiveJob(id: string): Job {
+  const db = getDb();
+  const existing = getJob(id);
+  if (!existing) {
+    throw new Error(`Job not found: ${id}`);
+  }
+  const row = db
+    .update(jobs)
+    .set({
+      isArchived: false,
+      isEnabled: false,
+      nextFireAt: null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(jobs.id, id))
+    .returning()
+    .get();
+  return rowToJob(row);
+}
+
+export function unarchiveJobsForGoal(goalId: string): void {
+  const db = getDb();
+  db.update(jobs)
+    .set({
+      isArchived: false,
+      isEnabled: false,
+      nextFireAt: null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(and(eq(jobs.goalId, goalId), eq(jobs.isArchived, true)))
     .run();
 }
 

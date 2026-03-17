@@ -13,6 +13,7 @@ const options = {
   external: ["better-sqlite3", "@xenova/transformers", "onnxruntime-node", "sharp"],
   banner: {
     js: [
+      '#!/usr/bin/env -S node --input-type=module',
       '// ESM ↔ CJS bridge for native modules',
       'import { createRequire } from "module";',
       'const require = createRequire(import.meta.url);',
@@ -39,9 +40,9 @@ if (isWatch) {
           "sourcemaps",
           "upload",
           "--org",
-          "openorchestra",
+          "openhelm",
           "--project",
-          "openorchestra-agent",
+          "openhelm-agent",
           "dist/",
         ],
         { stdio: "inherit", env: process.env },

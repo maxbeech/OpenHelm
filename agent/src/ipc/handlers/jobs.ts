@@ -7,7 +7,7 @@ import type {
   CreateJobParams,
   UpdateJobParams,
   ListJobsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerJobHandlers() {
   registerHandler("jobs.create", (params) => {
@@ -57,6 +57,12 @@ export function registerJobHandlers() {
     const { id } = params as { id: string };
     if (!id) throw new Error("id is required");
     return jobQueries.archiveJob(id);
+  });
+
+  registerHandler("jobs.unarchive", (params) => {
+    const { id } = params as { id: string };
+    if (!id) throw new Error("id is required");
+    return jobQueries.unarchiveJob(id);
   });
 
   registerHandler("jobs.delete", (params) => {

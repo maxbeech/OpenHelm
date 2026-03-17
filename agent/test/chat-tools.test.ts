@@ -11,7 +11,7 @@ vi.mock("../src/memory/embeddings.js", () => ({
 }));
 
 import { executeReadTool, executeWriteTool } from "../src/chat/tool-executor.js";
-import type { ChatToolCall } from "@openorchestra/shared";
+import type { ChatToolCall } from "@openhelm/shared";
 
 function makeCall(tool: string, args: Record<string, unknown> = {}): ChatToolCall {
   return { id: crypto.randomUUID(), tool, args };

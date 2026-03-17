@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useJobStore } from "@/stores/job-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { JobCreationForm, type JobFormState, type JobFormErrors } from "./job-creation-form";
-import type { ScheduleConfig } from "@openorchestra/shared";
+import type { ScheduleConfig } from "@openhelm/shared";
 
 interface JobCreationSheetProps {
   open: boolean;

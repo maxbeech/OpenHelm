@@ -1,5 +1,8 @@
-import { useCallback } from "react";
-import { Settings, ChevronDown, Plus, Inbox, Layers, Waypoints, Pencil } from "lucide-react";
+import { useCallback, useState } from "react";
+import logoSvg from "@/assets/logo.svg";
+import { Settings, ChevronDown, Plus, Inbox, Layers, Waypoints, Pencil, MessageSquare } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { FeedbackDialog } from "@/components/shared/feedback-dialog";
 import { useAppStore } from "@/stores/app-store";
 import { useProjectStore } from "@/stores/project-store";
 import {
@@ -27,6 +30,7 @@ export function Sidebar({ onNewProject, onEditProject, onNewJobForGoal }: Sideba
   const { openCount } = useInboxStore();
   const { memoryCount } = useMemoryStore();
 
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
   const handleProjectSwitch = useCallback(
@@ -38,11 +42,14 @@ export function Sidebar({ onNewProject, onEditProject, onNewJobForGoal }: Sideba
 
   return (
     <aside className="no-select flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar">
-      {/* Logo */}
-      <div className="border-b border-sidebar-border px-4 py-3">
-        <h1 className="text-sm font-bold tracking-tight text-white">
-          OpenOrchestra
-        </h1>
+      {/* Logo row — h-12 header; click-to-drag via Tauri IPC */}
+      <div
+        data-tauri-drag-region
+        onMouseDown={() => { getCurrentWindow().startDragging(); }}
+        className="flex h-12 shrink-0 items-center border-b border-sidebar-border pl-[96px] pr-4"
+      >
+        <img src={logoSvg} alt="OpenHelm" className="pointer-events-none size-6" />
+        <h1 className="pointer-events-none ml-1.5 text-sm font-semibold tracking-tight text-white">OpenHelm</h1>
       </div>
 
       {/* Project selector */}
@@ -147,8 +154,20 @@ export function Sidebar({ onNewProject, onEditProject, onNewJobForGoal }: Sideba
         onNewJobForGoal={onNewJobForGoal}
       />
 
-      {/* Settings at bottom */}
-      <div className="mt-auto border-t border-sidebar-border p-2">
+      {/* Feedback + Settings at bottom */}
+      <div className="mt-auto border-t border-sidebar-border p-2 space-y-0.5">
+        <button
+          onClick={() => setFeedbackOpen(true)}
+          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm
+                     text-muted-foreground transition-colors
+                     hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+        >
+          <MessageSquare
+            className="size-4 [&_path]:[animation:feedback-icon-pulse_6s_ease-in-out_infinite]"
+          />
+          <span>Feedback</span>
+        </button>
+        <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
         <button
           onClick={() => setContentView("settings")}
           className={cn(

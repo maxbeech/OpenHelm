@@ -25,7 +25,7 @@ export function WelcomeView({ projectId }: WelcomeViewProps) {
         <div className="mb-6 flex items-center justify-center gap-2 text-primary">
           <Sparkles className="size-5" />
           <span className="text-sm font-medium uppercase tracking-widest">
-            OpenOrchestra
+            OpenHelm
           </span>
         </div>
         <h1 className="mb-2 text-center text-2xl font-semibold">

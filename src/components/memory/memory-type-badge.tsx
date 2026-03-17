@@ -1,4 +1,4 @@
-import type { MemoryType } from "@openorchestra/shared";
+import type { MemoryType } from "@openhelm/shared";
 import { cn } from "@/lib/utils";
 
 const TYPE_STYLES: Record<MemoryType, string> = {

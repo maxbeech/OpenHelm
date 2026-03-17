@@ -16,7 +16,7 @@
 
 import { spawn, type ChildProcess } from "child_process";
 import { createInterface } from "readline";
-import type { ClaudeCodeRunResult } from "@openorchestra/shared";
+import type { ClaudeCodeRunResult } from "@openhelm/shared";
 import { InteractiveDetector, type InteractiveDetectionType } from "./interactive-detector.js";
 import { parseStreamLine } from "./stream-parser.js";
 

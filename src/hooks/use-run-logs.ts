@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { RunLog } from "@openorchestra/shared";
+import type { RunLog } from "@openhelm/shared";
 import * as api from "@/lib/api";
 import { useAgentEvent } from "./use-agent-event";
 

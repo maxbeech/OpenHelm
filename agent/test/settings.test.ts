@@ -6,7 +6,7 @@ import {
   setSetting,
   deleteSetting,
 } from "../src/db/queries/settings.js";
-import type { SettingKey } from "@openorchestra/shared";
+import type { SettingKey } from "@openhelm/shared";
 
 let cleanup: () => void;
 

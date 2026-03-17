@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useRunStore } from "@/stores/run-store";
 import { cn } from "@/lib/utils";
-import type { Run, RunStatus } from "@openorchestra/shared";
+import type { Run, RunStatus } from "@openhelm/shared";
 
 const statusIcon: Record<RunStatus, React.ElementType> = {
   deferred: CalendarClock,
@@ -28,7 +28,7 @@ const statusIcon: Record<RunStatus, React.ElementType> = {
 const statusColor: Record<RunStatus, string> = {
   deferred: "text-blue-400",
   queued: "text-muted-foreground",
-  running: "text-primary animate-spin",
+  running: "text-sky-400 animate-spin",
   succeeded: "text-success",
   failed: "text-destructive",
   permanent_failure: "text-destructive",

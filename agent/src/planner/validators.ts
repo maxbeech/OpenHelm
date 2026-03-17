@@ -10,7 +10,7 @@ import type {
   GeneratedPlan,
   PlannedJob,
   ScheduleType,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 const MAX_QUESTIONS = 2;
 const MIN_JOBS = 2;

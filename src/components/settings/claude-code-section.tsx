@@ -3,7 +3,7 @@ import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as api from "@/lib/api";
-import type { ClaudeCodeDetectionResult } from "@openorchestra/shared";
+import type { ClaudeCodeDetectionResult } from "@openhelm/shared";
 
 export function ClaudeCodeSection() {
   const [detection, setDetection] = useState<ClaudeCodeDetectionResult | null>(

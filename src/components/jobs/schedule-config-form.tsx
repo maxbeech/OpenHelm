@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ScheduleType } from "@openorchestra/shared";
+import type { ScheduleType } from "@openhelm/shared";
 import type { JobFormState } from "./job-creation-form";
 
 export interface ScheduleConfigFormProps {

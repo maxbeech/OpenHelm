@@ -14,7 +14,7 @@ import { getProject } from "../db/queries/projects.js";
 import { ASSESS_AND_GENERATE_SYSTEM_PROMPT } from "./prompts.js";
 import { ASSESS_AND_GENERATE_SCHEMA } from "./schemas.js";
 import { emit } from "../ipc/emitter.js";
-import type { AssessAndGenerateResult } from "@openorchestra/shared";
+import type { AssessAndGenerateResult } from "@openhelm/shared";
 
 const JSON_PARSE_MAX_RETRIES = 1;
 

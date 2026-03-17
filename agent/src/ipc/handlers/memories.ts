@@ -8,7 +8,7 @@ import type {
   UpdateMemoryParams,
   ListMemoriesParams,
   MemoryRetrievalContext,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerMemoryHandlers() {
   registerHandler("memories.list", (params) => {

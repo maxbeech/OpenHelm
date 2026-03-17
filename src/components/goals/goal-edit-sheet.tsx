@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { EmojiPicker } from "@/components/shared/emoji-picker";
 import { useGoalStore } from "@/stores/goal-store";
-import type { Goal } from "@openorchestra/shared";
+import type { Goal } from "@openhelm/shared";
 
 interface GoalEditSheetProps {
   goal: Goal;

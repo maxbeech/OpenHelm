@@ -3,7 +3,7 @@ import { validateQuestions } from "./validators.js";
 import { getProject } from "../db/queries/projects.js";
 import { ASSESSMENT_SYSTEM_PROMPT } from "./prompts.js";
 import { ASSESSMENT_SCHEMA } from "./schemas.js";
-import type { AssessmentResult } from "@openorchestra/shared";
+import type { AssessmentResult } from "@openhelm/shared";
 
 const JSON_PARSE_MAX_RETRIES = 1;
 

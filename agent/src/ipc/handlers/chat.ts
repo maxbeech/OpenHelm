@@ -15,14 +15,14 @@ import type {
   RejectAllChatActionsParams,
   ListChatMessagesParams,
   ClearChatParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 export function registerChatHandlers() {
   registerHandler("chat.send", async (params) => {
     const p = params as SendChatMessageParams;
     if (!p?.projectId) throw new Error("projectId is required");
     if (!p?.content?.trim()) throw new Error("content is required");
-    return handleChatMessage(p.projectId, p.content.trim(), p.context);
+    return handleChatMessage(p.projectId, p.content.trim(), p.context, p.model, p.modelEffort);
   });
 
   registerHandler("chat.approveAction", async (params) => {

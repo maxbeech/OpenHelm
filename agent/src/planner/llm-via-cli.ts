@@ -10,6 +10,10 @@ export type ModelTier = "planning" | "classification" | "chat";
 
 export interface LlmCallConfig {
   model?: ModelTier;
+  /** Override the resolved model string directly (takes precedence over tier) */
+  modelOverride?: string;
+  /** Effort level passed via --effort flag */
+  effort?: "low" | "medium" | "high";
   systemPrompt: string;
   userMessage: string;
   timeoutMs?: number;
@@ -38,7 +42,7 @@ export async function callLlmViaCli(config: LlmCallConfig): Promise<string> {
   const binaryPath = getClaudeCodePath();
 
   const tier = config.model ?? "planning";
-  const model = MODEL_MAP[tier];
+  const model = config.modelOverride ?? MODEL_MAP[tier];
   const timeoutMs = config.timeoutMs ?? TIMEOUT_MAP[tier];
 
   console.error(`[llm] calling ${model} (tier=${tier}, timeout=${timeoutMs}ms)`);
@@ -52,6 +56,7 @@ export async function callLlmViaCli(config: LlmCallConfig): Promise<string> {
     disableTools: true,
     timeoutMs,
     jsonSchema: config.jsonSchema,
+    effort: config.effort,
     onProgress: config.onProgress,
   });
 

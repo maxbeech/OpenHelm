@@ -17,7 +17,7 @@ import { getSetting } from "../db/queries/settings.js";
 import { analyzeFailure } from "../planner/failure-analyzer.js";
 import { emit } from "../ipc/emitter.js";
 import type { QueueItem } from "../scheduler/queue.js";
-import type { Job, Run } from "@openorchestra/shared";
+import type { Job, Run } from "@openhelm/shared";
 
 const DEFAULT_MAX_RETRIES = 2;
 

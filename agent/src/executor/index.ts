@@ -37,7 +37,7 @@ import { retrieveMemories } from "../memory/retriever.js";
 import { buildMemorySection } from "../memory/prompt-builder.js";
 import { saveRunMemories } from "../db/queries/memories.js";
 import type { InteractiveDetectionType } from "../claude-code/interactive-detector.js";
-import type { RunStatus, ClaudeCodeRunResult, Job } from "@openorchestra/shared";
+import type { RunStatus, ClaudeCodeRunResult, Job } from "@openhelm/shared";
 import { captureAgentError, addAgentBreadcrumb } from "../sentry.js";
 
 const DEFAULT_MAX_CONCURRENCY = 2;

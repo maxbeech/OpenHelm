@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-**OpenOrchestra** is a local-first macOS desktop application that turns high-level goals into scheduled, self-correcting Claude Code jobs. Users type a goal ("Improve test coverage"), the system generates a plan of Claude Code tasks, and those tasks run autonomously in the background on a schedule.
+**OpenHelm** is a local-first macOS desktop application that turns high-level goals into scheduled, self-correcting Claude Code jobs. Users type a goal ("Improve test coverage"), the system generates a plan of Claude Code tasks, and those tasks run autonomously in the background on a schedule.
 
 The project is currently in the planning/bootstrapping phase. The `docs/` directory contains the PRD (`prd.md`), v1 implementation plan (`plan_1_v1.md`), and competitor research (`competitors.md`).
 
@@ -57,7 +57,7 @@ npm run lint
 ## Repository Structure
 
 ```
-openorchestra/
+openhelm/
 ├── src-tauri/               # Tauri Rust shell (keep minimal — thin wrappers only)
 │   ├── src/
 │   │   ├── main.rs          # Entry point, sidecar launch, window setup
@@ -124,7 +124,7 @@ RunLog       id, run_id, sequence, stream(stdout|stderr), text, timestamp
 Settings     key, value, updated_at
 ```
 
-Database lives at `~/.openorchestra/openorchestra.db`. WAL mode enabled; foreign keys enforced.
+Database lives at `~/.openhelm/openhelm.db`. WAL mode enabled; foreign keys enforced.
 
 ---
 

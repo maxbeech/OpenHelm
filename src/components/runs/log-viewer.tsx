@@ -3,7 +3,7 @@ import { Search, Code, FileText, Copy, Check } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { RunLog } from "@openorchestra/shared";
+import type { RunLog } from "@openhelm/shared";
 import { cn } from "@/lib/utils";
 import { LogViewerRaw } from "./log-viewer-raw";
 

@@ -4,7 +4,7 @@
  *   <tool_call>{"tool": "list_goals", "args": {}}</tool_call>
  */
 
-import type { ChatToolCall } from "@openorchestra/shared";
+import type { ChatToolCall } from "@openhelm/shared";
 
 export interface ParsedResponse {
   /** Text segments between tool calls (in order). */

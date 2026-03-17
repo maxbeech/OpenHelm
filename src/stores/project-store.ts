@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Project } from "@openorchestra/shared";
+import type { Project } from "@openhelm/shared";
 import * as api from "@/lib/api";
 
 interface ProjectState {

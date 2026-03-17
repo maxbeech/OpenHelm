@@ -4,7 +4,7 @@
  */
 
 import type { ScoredMemory } from "./retriever.js";
-import type { MemoryType } from "@openorchestra/shared";
+import type { MemoryType } from "@openhelm/shared";
 
 const TYPE_HEADERS: Record<MemoryType, string> = {
   semantic: "Facts",

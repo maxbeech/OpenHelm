@@ -11,8 +11,8 @@ export default defineConfig({
     ...(process.env.SENTRY_AUTH_TOKEN
       ? [
           sentryVitePlugin({
-            org: "openorchestra",
-            project: "openorchestra-frontend",
+            org: "openhelm",
+            project: "openhelm-frontend",
             authToken: process.env.SENTRY_AUTH_TOKEN,
             telemetry: false,
           }),

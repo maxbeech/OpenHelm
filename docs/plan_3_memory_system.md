@@ -2,7 +2,7 @@
 
 ## Context
 
-OpenOrchestra currently has no cross-run memory. Each Claude Code job runs in isolation — it doesn't know what happened in previous runs, what the user prefers, or what workflows have been established. The chat sidebar also has no project knowledge beyond what it reads from the DB entities.
+OpenHelm currently has no cross-run memory. Each Claude Code job runs in isolation — it doesn't know what happened in previous runs, what the user prefers, or what workflows have been established. The chat sidebar also has no project knowledge beyond what it reads from the DB entities.
 
 This plan adds a full memory system that automatically learns from runs, goals, and jobs, injects relevant context before every LLM operation, and gives users a UI to manually manage memories. The design prioritises lightweight atomic memories, efficient SQLite-only retrieval, and data-source pointers over data copying.
 

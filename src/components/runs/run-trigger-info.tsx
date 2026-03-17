@@ -1,5 +1,5 @@
 import { RotateCcw, Play, CalendarClock } from "lucide-react";
-import type { Run } from "@openorchestra/shared";
+import type { Run } from "@openhelm/shared";
 
 interface RunTriggerInfoProps {
   run: Run;

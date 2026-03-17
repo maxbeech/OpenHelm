@@ -1,4 +1,4 @@
-import type { RunStatus, GoalStatus } from "@openorchestra/shared";
+import type { RunStatus, GoalStatus } from "@openhelm/shared";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2,
@@ -31,7 +31,7 @@ const runStatusConfig: Record<
   running: {
     label: "Running",
     icon: Loader2,
-    className: "bg-primary/20 text-primary",
+    className: "bg-sky-500/20 text-sky-400",
   },
   succeeded: {
     label: "Succeeded",

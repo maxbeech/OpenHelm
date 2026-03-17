@@ -5,7 +5,7 @@ import type {
   RunLog,
   CreateRunLogParams,
   ListRunLogsParams,
-} from "@openorchestra/shared";
+} from "@openhelm/shared";
 
 /** Get the next sequence number for a given run via MAX aggregate (O(1) with index) */
 function nextSequence(runId: string): number {

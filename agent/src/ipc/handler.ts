@@ -1,4 +1,4 @@
-import type { IpcRequest, IpcResponse, IpcError } from "@openorchestra/shared";
+import type { IpcRequest, IpcResponse, IpcError } from "@openhelm/shared";
 import { PrintError } from "../claude-code/print.js";
 import { captureAgentError } from "../sentry.js";
 

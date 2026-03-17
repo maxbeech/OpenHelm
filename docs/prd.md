@@ -1,11 +1,11 @@
-# OpenOrchestra — Product Plan
+# OpenHelm — Product Plan
 ### A YC-informed revision | March 2026
 
 ---
 
 ## 0. The One-Liner
 
-**OpenOrchestra is an open-source autonomous agent platform for technical founders that turns high-level goals into scheduled, self-correcting Claude Code jobs — so you can wake up to done.**
+**OpenHelm is an open-source autonomous agent platform for technical founders that turns high-level goals into scheduled, self-correcting Claude Code jobs — so you can wake up to done.**
 
 ---
 
@@ -27,7 +27,7 @@ runCLAUDErun solves problem 1 for macOS only, and nothing else. Nobody solves pr
 
 ## 2. The Solution
 
-OpenOrchestra is a local-first desktop application (macOS first, with Linux and Windows to follow) that sits on top of Claude Code and provides:
+OpenHelm is a local-first desktop application (macOS first, with Linux and Windows to follow) that sits on top of Claude Code and provides:
 
 - **Goal-to-job planning**: Type a goal in plain English. The system generates a structured plan of one-off and recurring Claude Code jobs, which you review and approve before anything runs.
 - **Scheduling and execution**: Jobs run on a schedule via a persistent background agent. No cron knowledge required.
@@ -78,7 +78,7 @@ This is the right starting ICP because:
 
 ## 4. Competitive Positioning
 
-| | runCLAUDErun | OpenClaw | IdeaBrowser | OpenOrchestra |
+| | runCLAUDErun | OpenClaw | IdeaBrowser | OpenHelm |
 |---|---|---|---|---|
 | Uses Claude Code subscription | ✅ | ❌ | ❌ | ✅ |
 | Open source | ✅ | ✅ | ❌ | ✅ |
@@ -88,7 +88,7 @@ This is the right starting ICP because:
 | Cross-platform | ❌ (macOS) | ✅ | ✅ | ✅ (macOS first) |
 | Hosted tier | ❌ | ❌ | ✅ (expensive) | ✅ |
 
-**Positioning statement**: OpenOrchestra is the only open-source agent platform built around your existing Claude Code subscription that turns goals into autonomous, self-correcting background work — not just scheduled prompts.
+**Positioning statement**: OpenHelm is the only open-source agent platform built around your existing Claude Code subscription that turns goals into autonomous, self-correcting background work — not just scheduled prompts.
 
 The key differentiator isn't scheduling (runCLAUDErun does that). It's the **goal layer** and the **self-correction loop**. Those two features together are what makes this feel like you have an AI teammate rather than a fancy cron job.
 
@@ -100,7 +100,7 @@ The key differentiator isn't scheduling (runCLAUDErun does that). It's the **goa
 
 The temptation with this product is to build everything in the plan before shipping. That is the most likely way to fail. The right approach is to find the thinnest slice that proves the core value, ship it to 20–30 people you know personally, and iterate.
 
-The core value hypothesis is: **"If I tell OpenOrchestra what I want to achieve, it will generate a sensible set of Claude Code jobs, and running them will produce real value."**
+The core value hypothesis is: **"If I tell OpenHelm what I want to achieve, it will generate a sensible set of Claude Code jobs, and running them will produce real value."**
 
 Everything else — memory, inbox, self-correction, audio, templates — is in service of that. Ship it without those things first.
 
@@ -298,7 +298,7 @@ The common mistake is making the hosted tier too weak so as not to "cannibalise"
 
 The hosted tier should offer things that are genuinely hard to do yourself:
 
-- **Managed infrastructure**: no need to keep your own machine running for scheduled jobs — OpenOrchestra's cloud runs your jobs even when your laptop is closed
+- **Managed infrastructure**: no need to keep your own machine running for scheduled jobs — OpenHelm's cloud runs your jobs even when your laptop is closed
 - **Team workspaces**: shared projects, goals, run history, and inbox across multiple collaborators
 - **Run history retention**: the OSS version stores logs locally; the hosted tier retains them for 90 days with search
 - **Priority support**: response within 24 hours
@@ -384,7 +384,7 @@ This is the most important UX to get right. YC companies that fail at onboarding
 
 ### First-run onboarding (target: under 5 minutes from install to first run queued)
 
-1. **Welcome screen**: "OpenOrchestra runs Claude Code jobs in the background so you can focus on building. Let's get you set up." One button: "Get started."
+1. **Welcome screen**: "OpenHelm runs Claude Code jobs in the background so you can focus on building. Let's get you set up." One button: "Get started."
 
 2. **Claude Code detection**: automatically scan common install locations for the `claude` binary. If found, show confirmation. If not, show a friendly step-by-step install guide with a single copyable command. Test button to verify.
 
@@ -398,7 +398,7 @@ This is the most important UX to get right. YC companies that fail at onboarding
 
 7. **First run**: the one-off job fires immediately. A real-time log view shows Claude Code's output as it runs. When it completes, show a summary: "Done. Here's what Claude Code did."
 
-8. **Recurring jobs confirmed**: "Your 2 recurring jobs are now scheduled. They'll run automatically in the background, even when OpenOrchestra isn't open." Show the next scheduled fire times.
+8. **Recurring jobs confirmed**: "Your 2 recurring jobs are now scheduled. They'll run automatically in the background, even when OpenHelm isn't open." Show the next scheduled fire times.
 
 ### What the onboarding must NOT do
 
@@ -476,7 +476,7 @@ The messaging should not lead with "it's open source". Lead with the outcome: "W
 
 ### Phase 3: Content-led growth (ongoing from month 3)
 
-The product's natural content strategy is "goals that worked". Publish regular posts structured as: "Here's a goal a founder typed into OpenOrchestra, here's the job plan it generated, and here's what happened after 4 weeks of running."
+The product's natural content strategy is "goals that worked". Publish regular posts structured as: "Here's a goal a founder typed into OpenHelm, here's the job plan it generated, and here's what happened after 4 weeks of running."
 
 This content:
 - Demonstrates real value with real evidence
@@ -576,14 +576,14 @@ The product needs a name that:
 
 **Top candidates:**
 
-- **OpenOrchestra** — suggests coordinating many things toward a unified outcome; the "Open" prefix signals open source; has good visual potential (conductor imagery); `openorchestra.dev` likely available
+- **OpenHelm** — suggests coordinating many things toward a unified outcome; the "Open" prefix signals open source; has good visual potential (conductor imagery); `openhelm.dev` likely available
 - **Foreman** — a foreman coordinates workers and is accountable for outcomes; hints at the "you are the overlord" framing; `foremanapp.com` or `getforeman.dev`
 - **OpenMaestro** — similar to Orchestra but more personal; suggests expertise and direction
 - **Groundwork** — suggests laying the foundation for ongoing work; less AI-specific which is a differentiator
 
-**Recommended**: **OpenOrchestra** (or simply **Orchestra** for the hosted tier, with the OSS project named OpenOrchestra). It's distinctive, memorable, and communicates exactly what the product does without overusing AI terminology.
+**Recommended**: **OpenHelm** (or simply **Orchestra** for the hosted tier, with the OSS project named OpenHelm). It's distinctive, memorable, and communicates exactly what the product does without overusing AI terminology.
 
-Using domain: **OpenOrchestra.ai**
+Using domain: **OpenHelm.ai**
 
 ### Visual direction
 

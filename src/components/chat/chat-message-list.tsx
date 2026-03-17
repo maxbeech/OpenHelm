@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { ChatMessageBubble } from "./chat-message-bubble";
 import { useChatStore } from "@/stores/chat-store";
-import type { ChatMessage } from "@openorchestra/shared";
+import type { ChatMessage } from "@openhelm/shared";
 
 interface ChatMessageListProps {
   messages: ChatMessage[];

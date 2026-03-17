@@ -1,5 +1,5 @@
 import { createInterface } from "readline";
-import type { IpcRequest } from "@openorchestra/shared";
+import type { IpcRequest } from "@openhelm/shared";
 import { handleRequest } from "./ipc/handler.js";
 import { registerAllHandlers } from "./ipc/handlers/index.js";
 import { initDatabase } from "./db/init.js";
@@ -13,7 +13,7 @@ import { initAgentSentry, captureAgentError } from "./sentry.js";
 
 // -- Bootstrap --
 
-console.error("[agent] starting OpenOrchestra agent v0.1.0");
+console.error("[agent] starting OpenHelm agent v0.1.0");
 
 // 1. Initialize database
 try {

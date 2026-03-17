@@ -9,7 +9,7 @@ import { RunChainBreadcrumb } from "@/components/runs/run-chain-breadcrumb";
 import { LogViewer } from "@/components/runs/log-viewer";
 import { useRunLogs } from "@/hooks/use-run-logs";
 import { openRunInTerminal, getRun } from "@/lib/api";
-import type { Run } from "@openorchestra/shared";
+import type { Run } from "@openhelm/shared";
 
 interface RunDetailViewProps {
   runId: string;

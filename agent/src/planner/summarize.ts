@@ -10,11 +10,11 @@
 import { listRunLogs } from "../db/queries/run-logs.js";
 import { callLlmViaCli } from "./llm-via-cli.js";
 import { PrintError } from "../claude-code/print.js";
-import type { RunStatus } from "@openorchestra/shared";
+import type { RunStatus } from "@openhelm/shared";
 
 const MAX_LOG_CHARS = 8_000;
 
-const SUMMARIZE_SYSTEM_PROMPT = `You summarise the output of automated coding runs for a desktop app called OpenOrchestra.
+const SUMMARIZE_SYSTEM_PROMPT = `You summarise the output of automated coding runs for a desktop app called OpenHelm.
 
 Given the run status and the run's log output, write a 2–3 sentence plain-English summary:
 - Whether the run succeeded or failed

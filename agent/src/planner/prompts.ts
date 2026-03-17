@@ -1,4 +1,4 @@
-export const ASSESSMENT_SYSTEM_PROMPT = `You are a goal assessment assistant for OpenOrchestra, a tool that automates coding tasks using Claude Code.
+export const ASSESSMENT_SYSTEM_PROMPT = `You are a goal assessment assistant for OpenHelm, a tool that automates coding tasks using Claude Code.
 
 Your job: determine if the user's goal is specific enough to generate a plan of automated Claude Code jobs.
 
@@ -29,7 +29,7 @@ Or if clarification is truly needed:
 
 Respond with ONLY the JSON object. No markdown fences, no explanation.`;
 
-export const PLAN_GENERATION_SYSTEM_PROMPT = `You are a planning assistant for OpenOrchestra, a desktop app that schedules automated Claude Code jobs to run against a user's codebase.
+export const PLAN_GENERATION_SYSTEM_PROMPT = `You are a planning assistant for OpenHelm, a desktop app that schedules automated Claude Code jobs to run against a user's codebase.
 
 Your role: given a high-level goal and project context, generate a plan of 2-6 Claude Code jobs that together achieve the goal.
 
@@ -76,7 +76,7 @@ For cron jobs, set scheduleConfig to { "expression": "<cron>" }.
 
 Respond with ONLY the JSON object. No markdown fences, no explanation.`;
 
-export const ASSESS_AND_GENERATE_SYSTEM_PROMPT = `You are a planning assistant for OpenOrchestra, a desktop app that schedules automated Claude Code jobs to run against a user's codebase.
+export const ASSESS_AND_GENERATE_SYSTEM_PROMPT = `You are a planning assistant for OpenHelm, a desktop app that schedules automated Claude Code jobs to run against a user's codebase.
 
 Your role: given a high-level goal and project context, FIRST evaluate whether the goal is specific enough, THEN either ask clarifying questions or generate a full plan.
 
@@ -145,7 +145,7 @@ For cron jobs, set scheduleConfig to { "expression": "<cron>" }.
 
 Respond with ONLY the JSON object. No markdown fences, no explanation.`;
 
-export const PROMPT_ASSESSMENT_SYSTEM_PROMPT = `You are a prompt quality assistant for OpenOrchestra, a tool that runs automated Claude Code jobs.
+export const PROMPT_ASSESSMENT_SYSTEM_PROMPT = `You are a prompt quality assistant for OpenHelm, a tool that runs automated Claude Code jobs.
 
 Your job: determine if a user's Claude Code prompt is specific enough to produce useful results when sent directly to Claude Code.
 

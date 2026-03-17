@@ -9,7 +9,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { formatDuration, getElapsed } from "@/lib/format";
-import type { Run, RunStatus } from "@openorchestra/shared";
+import type { Run, RunStatus } from "@openhelm/shared";
 import { cn } from "@/lib/utils";
 
 interface StatusConfig {
@@ -21,7 +21,7 @@ interface StatusConfig {
 const bannerConfig: Record<RunStatus, StatusConfig> = {
   deferred: { bg: "bg-blue-500/10", icon: CalendarClock, label: "Scheduled" },
   queued: { bg: "bg-muted", icon: Clock, label: "Queued" },
-  running: { bg: "bg-primary/15", icon: Loader2, label: "Running" },
+  running: { bg: "bg-sky-500/15", icon: Loader2, label: "Running" },
   succeeded: { bg: "bg-success/15", icon: CheckCircle2, label: "Succeeded" },
   failed: { bg: "bg-destructive/15", icon: XCircle, label: "Failed" },
   permanent_failure: {
@@ -59,7 +59,7 @@ export function RunStatusBanner({ run }: RunStatusBannerProps) {
       <Icon
         className={cn(
           "size-5 shrink-0",
-          run.status === "running" && "animate-spin text-primary",
+          run.status === "running" && "animate-spin text-sky-400",
           run.status === "succeeded" && "text-success",
           (run.status === "failed" || run.status === "permanent_failure") &&
             "text-destructive",

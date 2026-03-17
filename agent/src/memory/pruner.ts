@@ -12,7 +12,7 @@ import {
   archiveMemories,
   countActiveMemories,
 } from "../db/queries/memories.js";
-import type { Memory } from "@openorchestra/shared";
+import type { Memory } from "@openhelm/shared";
 
 const MAX_ACTIVE_MEMORIES = 200;
 const DECAY_GRACE_DAYS = 7;

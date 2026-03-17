@@ -7,6 +7,6 @@ export default defineConfig({
   out: "./src/db/migrations",
   dialect: "sqlite",
   dbCredentials: {
-    url: join(homedir(), ".openorchestra", "openorchestra.db"),
+    url: join(homedir(), ".openhelm", "openhelm.db"),
   },
 });

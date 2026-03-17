@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RunStatusBadge } from "@/components/shared/status-badge";
 import { InboxCard } from "./inbox-card";
-import type { Run } from "@openorchestra/shared";
+import type { Run } from "@openhelm/shared";
 
 const DEFAULT_VISIBLE_ALERTS = 3;
 
