@@ -1,6 +1,15 @@
 {
-  "version": "0.1.1",
-  "notes": "",
-  "pub_date": "2026-03-18T00:00:00Z",
-  "platforms": {}
+  "version": "0.1.2",
+  "notes": "See https://github.com/openhelm/openhelm/releases/tag/v0.1.2 for details.",
+  "pub_date": "2026-03-18T12:30:17Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU3ZaOG5yV0ViNTZVanAzMHBQNkdZSy8yV1MveCtVaDdpYlVUeXordUN6eEx6eUZ3dGNOVDJvOXJ3b1JhUCtrc0xyL3diOHppVERFTUtNQ3hwdXJSUFFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzczODM3MDA3CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpKMHF2ZGxVMHU4UGQ2bTNRL2VSSndXK28rM3JDU2piMjhEVTRZS21WQ1JYa3M2SG04MmZhSXhmdFdib25uRWFZTk9FRGNNS1FiVVpZbVZJcWVhTXRDUT09Cg==",
+      "url": "https://github.com/openhelm/openhelm/releases/download/v0.1.2/OpenHelm_aarch64.app.tar.gz"
+    },
+    "darwin-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU3ZMbXBSTFV3UURYZjdGbG5QVG9yb2ZkNHUrMWU5d29yUCtCWmROSHlLK2l1M0FxUGtEQ0RsVlR5aVJuWTczSmhaTVh3UHFzYlYxQkpmQzUzbEY1S3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzczODM2ODU0CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negp4cmEwQVdiZWJnSENyME5ENjFRMWR6NnFtMVYrbEVwZU5PT0hzOGhjMUxLSElKTmhQRm1GTDN3bU52OVMxZHBBWnUxL1VZSXVPVVVJRWJOYW9INkRBdz09Cg==",
+      "url": "https://github.com/openhelm/openhelm/releases/download/v0.1.2/OpenHelm_x64.app.tar.gz"
+    }
+  }
 }
