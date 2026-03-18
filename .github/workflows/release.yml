@@ -97,20 +97,29 @@ jobs:
 
       - name: Upload updater signature
         # tauri-action builds the .sig file but skips attaching it to the release.
-        # Upload explicitly with a versioned name so update-manifest can find it.
+        # Sign the already-uploaded .app.tar.gz ourselves and upload the sig.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
           TARGET: ${{ matrix.target }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           VER="${TAG#v}"
           [[ "$TARGET" == "aarch64-apple-darwin" ]] && ARCH="aarch64" || ARCH="x64"
-          SIG="src-tauri/target/${TARGET}/release/bundle/macos/OpenHelm.app.tar.gz.sig"
+          TAR="src-tauri/target/${TARGET}/release/bundle/macos/OpenHelm.app.tar.gz"
+          SIG="${TAR}.sig"
+          # Sig should already exist from tauri build; re-sign if not found
+          if [ ! -f "$SIG" ]; then
+            echo "Sig not found at expected path, re-signing..."
+            npx @tauri-apps/cli signer sign --private-key "$TAURI_SIGNING_PRIVATE_KEY" "$TAR"
+          fi
           if [ -f "$SIG" ]; then
             gh release upload "$TAG" "$SIG#OpenHelm_${VER}_${ARCH}.app.tar.gz.sig" \
               --clobber -R maxbeech/OpenHelm
+            echo "Uploaded sig for $ARCH"
           else
-            echo "ERROR: sig file not found at $SIG" && exit 1
+            echo "ERROR: sig file still not found at $SIG" && exit 1
           fi
 
   update-manifest:
