@@ -1,6 +1,12 @@
 import { registerHandler } from "../handler.js";
 import * as settingQueries from "../../db/queries/settings.js";
 import type { SettingKey, SetSettingParams } from "@openhelm/shared";
+import {
+  syncWakeEvents,
+  cancelAllWakes,
+  invalidatePowerCache,
+} from "../../power/index.js";
+import { removeSudoersEntry } from "../../power/wake-scheduler.js";
 
 export function registerSettingHandlers() {
   registerHandler("settings.get", (params) => {
@@ -13,11 +19,30 @@ export function registerSettingHandlers() {
     return settingQueries.getAllSettings();
   });
 
-  registerHandler("settings.set", (params) => {
+  registerHandler("settings.set", async (params) => {
     const p = params as SetSettingParams;
     if (!p?.key) throw new Error("key is required");
     if (p?.value === undefined) throw new Error("value is required");
-    return settingQueries.setSetting(p.key, p.value);
+    const result = settingQueries.setSetting(p.key, p.value);
+
+    // React to wake scheduling toggle
+    if (p.key === "wake_schedule_enabled") {
+      invalidatePowerCache();
+      if (p.value === "true") {
+        syncWakeEvents().catch((err) =>
+          console.error("[settings] wake sync on enable failed:", err),
+        );
+      } else {
+        cancelAllWakes().catch((err) =>
+          console.error("[settings] cancel wakes on disable failed:", err),
+        );
+        removeSudoersEntry().catch((err) =>
+          console.error("[settings] remove sudoers entry on disable failed:", err),
+        );
+      }
+    }
+
+    return result;
   });
 
   registerHandler("settings.delete", (params) => {

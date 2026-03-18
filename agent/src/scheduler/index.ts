@@ -14,6 +14,7 @@ import { computeNextFireAt } from "./schedule.js";
 import { listDueJobs, updateJobNextFireAt } from "../db/queries/jobs.js";
 import { createRun, listDeferredDueRuns, listRuns, updateRun } from "../db/queries/runs.js";
 import { emit } from "../ipc/emitter.js";
+import { isPowerManagementEnabled, scheduleWake } from "../power/index.js";
 
 const TICK_INTERVAL_MS = 60_000; // 1 minute
 
@@ -86,6 +87,13 @@ export class Scheduler {
           new Date(),
         );
         updateJobNextFireAt(job.id, nextFireAt);
+
+        // Schedule a wake event before the next occurrence
+        if (isPowerManagementEnabled() && nextFireAt) {
+          scheduleWake(job.id, new Date(nextFireAt)).catch((err) =>
+            console.error("[scheduler] wake schedule error:", err),
+          );
+        }
 
         emit("run.created", { runId: run.id, jobId: job.id });
         emit("run.statusChanged", {

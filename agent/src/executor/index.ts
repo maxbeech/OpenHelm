@@ -39,6 +39,12 @@ import { saveRunMemories } from "../db/queries/memories.js";
 import type { InteractiveDetectionType } from "../claude-code/interactive-detector.js";
 import type { RunStatus, ClaudeCodeRunResult, Job } from "@openhelm/shared";
 import { captureAgentError, addAgentBreadcrumb } from "../sentry.js";
+import {
+  isPowerManagementEnabled,
+  onRunStarted,
+  onRunFinished,
+  scheduleWake,
+} from "../power/index.js";
 
 const DEFAULT_MAX_CONCURRENCY = 2;
 const DEFAULT_TIMEOUT_MS = 0; // No limit (silence timeout catches stuck processes)
@@ -99,6 +105,9 @@ export class Executor {
     const controller = this.activeRuns.get(runId);
     if (controller) {
       controller.abort();
+      if (isPowerManagementEnabled()) {
+        onRunFinished();
+      }
       return true;
     }
 
@@ -177,6 +186,11 @@ export class Executor {
       previousStatus: "queued",
       startedAt,
     });
+
+    // Prevent idle sleep while this run is active
+    if (isPowerManagementEnabled()) {
+      onRunStarted();
+    }
 
     // Create abort controller for cancellation
     const controller = new AbortController();
@@ -326,6 +340,11 @@ export class Executor {
     result: ClaudeCodeRunResult,
     timeoutMs?: number,
   ): Promise<void> {
+    // Release sleep prevention for this run
+    if (isPowerManagementEnabled()) {
+      onRunFinished();
+    }
+
     const finishedAt = new Date().toISOString();
 
     // Check if this was a HITL kill and what type
@@ -511,6 +530,13 @@ export class Executor {
     }
 
     updateJobNextFireAt(job.id, nextFireAt);
+
+    // Schedule a wake event before the next occurrence
+    if (isPowerManagementEnabled() && nextFireAt) {
+      scheduleWake(job.id, new Date(nextFireAt)).catch((err) =>
+        console.error("[executor] wake schedule error:", err),
+      );
+    }
   }
 
   /** Mark a run as permanent_failure with a log message + inbox item */

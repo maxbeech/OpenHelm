@@ -75,7 +75,7 @@ OpenHelm is licensed under the **Business Source License 1.1 (BSL 1.1)**.
 - Non-profit organisations
 - Companies with total annual gross revenue under **USD $1,000,000**
 
-**Commercial license required** for production use by businesses above that revenue threshold. Contact [hello@openhelm.app](mailto:hello@openhelm.app).
+**Commercial license required** for production use by businesses above that revenue threshold. Contact [ahoy@openhelm.ai](mailto:ahoy@openhelm.ai).
 
 **Conversion:** On **January 1, 2029**, this license automatically converts to the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0), making the code fully open source.
 

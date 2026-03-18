@@ -12,6 +12,26 @@ import type {
   UpdateJobParams,
   ListJobsParams,
 } from "@openhelm/shared";
+// Lazy import to avoid circular dependencies; power module may not be initialized yet
+function cancelWakeLazy(jobId: string): void {
+  import("../../power/wake-scheduler.js")
+    .then(({ cancelWake }) => cancelWake(jobId))
+    .catch(() => {/* non-fatal */});
+}
+
+function rescheduleWakeLazy(jobId: string, nextFireAt: string | null): void {
+  if (!nextFireAt) {
+    cancelWakeLazy(jobId);
+    return;
+  }
+  import("../../power/index.js")
+    .then(({ isPowerManagementEnabled, scheduleWake }) => {
+      if (isPowerManagementEnabled()) {
+        scheduleWake(jobId, new Date(nextFireAt)).catch(() => {/* non-fatal */});
+      }
+    })
+    .catch(() => {/* non-fatal */});
+}
 
 function rowToJob(row: typeof jobs.$inferSelect): Job {
   return {
@@ -129,6 +149,15 @@ export function updateJob(params: UpdateJobParams): Job {
       : null;
   }
 
+  // Reschedule wake if nextFireAt changed
+  if (
+    params.scheduleType !== undefined ||
+    params.scheduleConfig !== undefined ||
+    params.isEnabled !== undefined
+  ) {
+    rescheduleWakeLazy(params.id, nextFireAt);
+  }
+
   const row = db
     .update(jobs)
     .set({
@@ -210,6 +239,7 @@ export function disableJob(id: string): void {
     })
     .where(eq(jobs.id, id))
     .run();
+  cancelWakeLazy(id);
 }
 
 export function archiveJob(id: string): Job {
@@ -229,6 +259,7 @@ export function archiveJob(id: string): Job {
     .where(eq(jobs.id, id))
     .returning()
     .get();
+  cancelWakeLazy(id);
   return rowToJob(row);
 }
 
@@ -280,5 +311,8 @@ export function unarchiveJobsForGoal(goalId: string): void {
 export function deleteJob(id: string): boolean {
   const db = getDb();
   const result = db.delete(jobs).where(eq(jobs.id, id)).run();
+  if (result.changes > 0) {
+    cancelWakeLazy(id);
+  }
   return result.changes > 0;
 }

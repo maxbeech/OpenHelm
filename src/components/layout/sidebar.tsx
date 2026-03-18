@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
 import logoSvg from "@/assets/logo.svg";
-import { Settings, ChevronDown, Plus, Inbox, Layers, Waypoints, Pencil, MessageSquare } from "lucide-react";
+import { Settings, ChevronDown, Plus, Inbox, Layers, Waypoints, Pencil, MessageSquare, Star, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { FeedbackDialog } from "@/components/shared/feedback-dialog";
+import { GitHubStarDialog, getStarBannerVisible } from "@/components/shared/github-star-dialog";
 import { useAppStore } from "@/stores/app-store";
 import { useProjectStore } from "@/stores/project-store";
 import {
@@ -31,6 +33,8 @@ export function Sidebar({ onNewProject, onEditProject, onNewJobForGoal }: Sideba
   const { memoryCount } = useMemoryStore();
 
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [starDialogOpen, setStarDialogOpen] = useState(false);
+  const [starBannerVisible, setStarBannerVisible] = useState(() => getStarBannerVisible());
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
   const handleProjectSwitch = useCallback(
@@ -156,6 +160,29 @@ export function Sidebar({ onNewProject, onEditProject, onNewJobForGoal }: Sideba
 
       {/* Feedback + Settings at bottom */}
       <div className="mt-auto border-t border-sidebar-border p-2 space-y-0.5">
+        {starBannerVisible && (
+          <div className="flex items-center rounded-md hover:bg-sidebar-accent/50 transition-colors group">
+            <button
+              onClick={() => openUrl("https://github.com/maxbeech/openhelm")}
+              className="flex flex-1 items-center gap-2.5 px-2.5 py-1.5 text-sm text-muted-foreground group-hover:text-sidebar-foreground"
+            >
+              <Star className="size-4" />
+              <span>Star on GitHub</span>
+            </button>
+            <button
+              onClick={() => setStarDialogOpen(true)}
+              className="mr-1.5 flex size-5 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors"
+              title="Dismiss"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+        )}
+        <GitHubStarDialog
+          open={starDialogOpen}
+          onOpenChange={setStarDialogOpen}
+          onDismiss={() => setStarBannerVisible(false)}
+        />
         <button
           onClick={() => setFeedbackOpen(true)}
           className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm

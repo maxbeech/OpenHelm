@@ -60,11 +60,11 @@ git tag v<version>
 git push origin v<version>
 ```
 
-Tell the user: "CI is now running. Both DMGs will be built, signed, notarized, and published to https://github.com/maxbeech/openhelm/releases/tag/v<version>. This takes ~7 minutes."
+Tell the user: "CI is now running. Both DMGs will be built, signed, notarized, and published to https://github.com/maxbeech/OpenHelm/releases/tag/v<version>. This takes ~7 minutes."
 
 ### 5. Wait for CI to complete
 
-Poll `gh run list -R maxbeech/openhelm --limit 1` every 30 seconds until the run status is `completed`. If it fails, show the failure details from `gh run view --log-failed`.
+Poll `gh run list -R maxbeech/OpenHelm --limit 1` every 30 seconds until the run status is `completed`. If it fails, show the failure details from `gh run view --log-failed`.
 
 ### 6. Update the website download links
 
@@ -73,8 +73,8 @@ Edit `/Users/maxbeech/Documents/Beech/Development/OpenHelm-Website/src/lib/relea
 ```ts
 export const LATEST_RELEASE = {
   version: '<version>',
-  arm64Url: 'https://github.com/maxbeech/openhelm/releases/download/v<version>/OpenHelm_<version>_aarch64.dmg',
-  x64Url:   'https://github.com/maxbeech/openhelm/releases/download/v<version>/OpenHelm_<version>_x64.dmg',
+  arm64Url: 'https://github.com/maxbeech/OpenHelm/releases/download/v<version>/OpenHelm_<version>_aarch64.dmg',
+  x64Url:   'https://github.com/maxbeech/OpenHelm/releases/download/v<version>/OpenHelm_<version>_x64.dmg',
 };
 ```
 
@@ -89,6 +89,6 @@ git push origin main
 ### 7. Done
 
 Report:
-- GitHub release URL: `https://github.com/maxbeech/openhelm/releases/tag/v<version>`
+- GitHub release URL: `https://github.com/maxbeech/OpenHelm/releases/tag/v<version>`
 - Both DMG assets confirmed present
 - Website download links updated and pushed (Vercel deploys automatically)

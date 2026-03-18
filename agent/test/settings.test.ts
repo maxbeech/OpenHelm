@@ -64,4 +64,30 @@ describe("settings queries", () => {
   it("should return false when deleting non-existent setting", () => {
     expect(deleteSetting("default_timeout_minutes" as SettingKey)).toBe(false);
   });
+
+  it("should store and retrieve newsletter_email", () => {
+    const key: SettingKey = "newsletter_email";
+    const email = "user@example.com";
+    const result = setSetting(key, email);
+    expect(result.key).toBe(key);
+    expect(result.value).toBe(email);
+
+    const fetched = getSetting(key);
+    expect(fetched).not.toBeNull();
+    expect(fetched!.value).toBe(email);
+  });
+
+  it("should update newsletter_email via upsert", () => {
+    const key: SettingKey = "newsletter_email";
+    setSetting(key, "old@example.com");
+    setSetting(key, "new@example.com");
+    expect(getSetting(key)!.value).toBe("new@example.com");
+  });
+
+  it("should delete newsletter_email", () => {
+    const key: SettingKey = "newsletter_email";
+    setSetting(key, "todelete@example.com");
+    expect(deleteSetting(key)).toBe(true);
+    expect(getSetting(key)).toBeNull();
+  });
 });

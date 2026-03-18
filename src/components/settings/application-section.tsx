@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import * as api from "@/lib/api";
 import { setAnalyticsEnabled } from "@/lib/sentry";
 import { ensureNotificationPermission } from "@/lib/notifications";
@@ -14,6 +16,11 @@ export function ApplicationSection() {
   const [launchLoading, setLaunchLoading] = useState(true);
   const [analyticsEnabled, setAnalyticsEnabledState] = useState(true);
   const [notifLevel, setNotifLevel] = useState<NotificationLevel>("alerts_only");
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [emailInput, setEmailInput] = useState("");
+  const [emailEditing, setEmailEditing] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSaving, setEmailSaving] = useState(false);
 
   useEffect(() => {
     invoke<boolean>("plugin:autostart|is_enabled")
@@ -33,6 +40,13 @@ export function ApplicationSection() {
         if (v === "never" || v === "on_finish" || v === "alerts_only") {
           setNotifLevel(v);
         }
+      })
+      .catch(() => {});
+
+    api
+      .getSetting("newsletter_email")
+      .then((s) => {
+        if (s?.value) setNewsletterEmail(s.value);
       })
       .catch(() => {});
   }, []);
@@ -65,6 +79,43 @@ export function ApplicationSection() {
     if (level !== "never") {
       await ensureNotificationPermission();
     }
+  };
+
+  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+  const saveNewsletterEmail = async () => {
+    if (!isValidEmail(emailInput.trim())) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+    setEmailSaving(true);
+    setEmailError(null);
+    try {
+      await api.setSetting({ key: "newsletter_email", value: emailInput.trim() });
+      setNewsletterEmail(emailInput.trim());
+      setEmailEditing(false);
+    } catch {
+      setEmailError("Failed to save — please try again.");
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const removeNewsletterEmail = async () => {
+    try {
+      await api.deleteSetting("newsletter_email");
+      setNewsletterEmail("");
+      setEmailInput("");
+      setEmailEditing(false);
+    } catch {
+      // Silently ignore — worst case email remains stored locally
+    }
+  };
+
+  const startEditing = () => {
+    setEmailInput(newsletterEmail);
+    setEmailError(null);
+    setEmailEditing(true);
   };
 
   return (
@@ -126,6 +177,75 @@ export function ApplicationSection() {
               </Label>
             </div>
           </RadioGroup>
+        </div>
+        <div>
+          <Label className="text-sm text-foreground">Newsletter</Label>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Receive occasional updates on new features and releases.
+          </p>
+          {newsletterEmail && !emailEditing ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm">{newsletterEmail}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-0.5 text-xs"
+                onClick={startEditing}
+              >
+                Change
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-0.5 text-xs text-destructive hover:text-destructive"
+                onClick={removeNewsletterEmail}
+              >
+                Remove
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={emailInput}
+                  onChange={(e) => {
+                    setEmailInput(e.target.value);
+                    setEmailError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveNewsletterEmail();
+                    if (e.key === "Escape" && emailEditing) setEmailEditing(false);
+                  }}
+                  disabled={emailSaving}
+                  className="h-8 text-sm"
+                />
+                <Button
+                  size="sm"
+                  className="h-8"
+                  onClick={saveNewsletterEmail}
+                  disabled={emailSaving || emailInput.trim() === ""}
+                >
+                  {emailSaving ? "Saving…" : "Subscribe"}
+                </Button>
+                {emailEditing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => setEmailEditing(false)}
+                    disabled={emailSaving}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
+              {emailError && (
+                <p className="text-xs text-destructive">{emailError}</p>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex gap-4">
           <a

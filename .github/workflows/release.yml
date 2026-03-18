@@ -48,7 +48,7 @@ jobs:
         run: |
           cd agent && npm run build
           mkdir -p ../src-tauri/binaries
-          cp dist/agent.mjs "../src-tauri/binaries/agent-$TARGET"
+          cp dist/agent.js "../src-tauri/binaries/agent-$TARGET"
           chmod +x "../src-tauri/binaries/agent-$TARGET"
         env:
           TARGET: ${{ matrix.target }}

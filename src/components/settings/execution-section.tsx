@@ -15,6 +15,7 @@ export function ExecutionSection() {
   const [timeout, setTimeout_] = useState("0");
   const [autoCorrect, setAutoCorrect] = useState(true);
   const [maxRetries, setMaxRetries] = useState("2");
+  const [wakeEnabled, setWakeEnabled] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -22,13 +23,28 @@ export function ExecutionSection() {
       api.getSetting("run_timeout_minutes"),
       api.getSetting("auto_correction_enabled"),
       api.getSetting("max_correction_retries"),
-    ]).then(([concurrent, to, correction, retries]) => {
+      api.getSetting("wake_schedule_enabled"),
+    ]).then(([concurrent, to, correction, retries, wake]) => {
       if (concurrent?.value) setMaxConcurrent(concurrent.value);
       if (to?.value) setTimeout_(to.value);
       if (correction?.value) setAutoCorrect(correction.value !== "false");
       if (retries?.value) setMaxRetries(retries.value);
+      if (wake?.value) setWakeEnabled(wake.value === "true");
     });
   }, []);
+
+  async function handleWakeToggle(checked: boolean) {
+    if (checked) {
+      // Verify admin auth before enabling — shows macOS password dialog
+      const result = await api.checkWakeAuth();
+      if (!result.authorized) {
+        // User cancelled the auth dialog — don't enable
+        return;
+      }
+    }
+    setWakeEnabled(checked);
+    api.setSetting({ key: "wake_schedule_enabled", value: String(checked) });
+  }
 
   const saveSetting = async (
     key: "max_concurrent_runs" | "run_timeout_minutes",
@@ -134,6 +150,19 @@ export function ExecutionSection() {
             </p>
           </div>
         )}
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm">Wake Mac for scheduled jobs</Label>
+            <p className="text-xs text-muted-foreground">
+              Wake your Mac from sleep before scheduled jobs run. Requires
+              administrator privileges. May not work with lid closed.
+            </p>
+          </div>
+          <Switch
+            checked={wakeEnabled}
+            onCheckedChange={handleWakeToggle}
+          />
+        </div>
       </div>
     </div>
   );

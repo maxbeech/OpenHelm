@@ -189,7 +189,9 @@ export type SettingKey =
   | "theme"
   | "auto_correction_enabled"
   | "max_correction_retries"
-  | "analytics_enabled";
+  | "analytics_enabled"
+  | "wake_schedule_enabled"
+  | "newsletter_email";
 
 export interface Setting {
   key: SettingKey;

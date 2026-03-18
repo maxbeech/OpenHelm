@@ -59,7 +59,7 @@ jobs:
         run: |
           cd agent && npm run build
           mkdir -p ../src-tauri/binaries
-          cp dist/agent.mjs ../src-tauri/binaries/agent-aarch64-apple-darwin
+          cp dist/agent.js ../src-tauri/binaries/agent-aarch64-apple-darwin
 
       - name: Check Rust compilation
         run: cd src-tauri && cargo check

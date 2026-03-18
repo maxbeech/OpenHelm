@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import logoSvg from "./assets/logo.svg";
 import { RefreshCw } from "lucide-react";
 import { agentClient } from "./lib/agent-client";
 import * as api from "./lib/api";
@@ -403,9 +404,12 @@ export default function App() {
   if (!agentReady || initialLoading) {
     return (
       <div className="no-select flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-        <h1 className="text-2xl font-bold tracking-tight">
-          <span className="text-primary">Open</span>Orchestra
-        </h1>
+        <div className="flex items-center gap-2">
+          <img src={logoSvg} alt="OpenHelm" className="size-10" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            OpenHelm
+          </h1>
+        </div>
         {agentTimeout ? (
           <div className="flex flex-col items-center gap-3">
             <p className="max-w-xs text-center text-sm text-destructive">

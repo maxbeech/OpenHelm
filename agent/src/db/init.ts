@@ -1,10 +1,10 @@
 import Database from "better-sqlite3";
 import { drizzle, BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import * as schema from "./schema.js";
+import { runMigrations } from "./migrator.js";
 
 const DATA_DIR = join(homedir(), ".openhelm");
 const DB_PATH = join(DATA_DIR, "openhelm.db");
@@ -37,14 +37,10 @@ export function initDatabase(dbPath?: string) {
     // Wait up to 5 s on locked DB before failing
     sqlite.pragma("busy_timeout = 5000");
 
+    // Run migrations (SQL is embedded at build time — no filesystem access needed)
+    runMigrations(sqlite);
+
     const db = drizzle(sqlite, { schema });
-
-    // Run migrations
-    const migrationsPath =
-      process.env.OPENORCHESTRA_MIGRATIONS_PATH ||
-      join(import.meta.dirname, "migrations");
-
-    migrate(db, { migrationsFolder: migrationsPath });
 
     dbInstance = db;
     console.error(`[agent] database initialized at ${resolvedPath}`);

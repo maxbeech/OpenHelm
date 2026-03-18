@@ -2,6 +2,7 @@ import { useState } from "react";
 import { WelcomeStep } from "./steps/welcome-step";
 import { ClaudeCodeStep } from "./steps/claude-code-step";
 import { ProjectStep } from "./steps/project-step";
+import { NewsletterStep } from "./steps/newsletter-step";
 import { CompleteStep } from "./steps/complete-step";
 import { Progress } from "@/components/ui/progress";
 
@@ -9,6 +10,7 @@ const STEPS = [
   { id: "welcome", label: "Welcome" },
   { id: "claude-code", label: "Claude Code" },
   { id: "project", label: "Project" },
+  { id: "newsletter", label: "Newsletter" },
   { id: "complete", label: "Complete" },
 ] as const;
 
@@ -53,7 +55,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             }}
           />
         )}
-        {step === 3 && (
+        {step === 3 && <NewsletterStep onNext={next} />}
+        {step === 4 && (
           <CompleteStep onComplete={() => onComplete(projectId!)} />
         )}
       </div>

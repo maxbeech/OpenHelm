@@ -8,17 +8,8 @@ import { initDatabase } from "../src/db/init.js";
  * Returns a cleanup function that removes the temp dir.
  */
 export function setupTestDb(): () => void {
-  const tempDir = mkdtempSync(join(tmpdir(), "oo-test-"));
+  const tempDir = mkdtempSync(join(tmpdir(), "oh-test-"));
   const dbPath = join(tempDir, "test.db");
-
-  // Point migrations to the source directory
-  process.env.OPENORCHESTRA_MIGRATIONS_PATH = join(
-    import.meta.dirname,
-    "..",
-    "src",
-    "db",
-    "migrations",
-  );
 
   initDatabase(dbPath);
 

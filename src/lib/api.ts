@@ -367,3 +367,17 @@ export function listAllMemoryTags(): Promise<string[]> {
 export function countAllMemories(): Promise<{ count: number }> {
   return agentClient.request<{ count: number }>("memories.countAll");
 }
+
+// ── Power management ──────────────────────────────────────────────────────────
+
+export function checkWakeAuth(): Promise<{ authorized: boolean; error?: string }> {
+  return agentClient.request<{ authorized: boolean; error?: string }>("power.checkAuth", {});
+}
+
+export function getPowerStatus(): Promise<{
+  enabled: boolean;
+  scheduledWakes: number;
+  sleepGuardActive: boolean;
+}> {
+  return agentClient.request("power.status");
+}

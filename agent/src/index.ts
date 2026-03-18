@@ -10,6 +10,7 @@ import { detectClaudeCode } from "./claude-code/detector.js";
 import { scheduler } from "./scheduler/index.js";
 import { executor } from "./executor/index.js";
 import { initAgentSentry, captureAgentError } from "./sentry.js";
+import { initPowerManagement, shutdownPowerManagement } from "./power/index.js";
 
 // -- Bootstrap --
 
@@ -72,7 +73,7 @@ rl.on("close", () => {
   console.error("[agent] stdin closed, shutting down");
   scheduler.stop();
   executor.stopAll();
-  process.exit(0);
+  shutdownPowerManagement().finally(() => process.exit(0));
 });
 
 // 5. Signal readiness
@@ -98,6 +99,11 @@ detectClaudeCode()
 // 7. Start scheduler — connects to executor via callback
 scheduler.setOnWorkEnqueued(() => executor.processNext());
 scheduler.start();
+
+// 7b. Initialize power management (non-blocking, non-fatal)
+initPowerManagement().catch((err) =>
+  console.error("[agent] power management init failed (non-fatal):", err),
+);
 
 // Process any re-enqueued runs from crash recovery
 executor.processNext();
