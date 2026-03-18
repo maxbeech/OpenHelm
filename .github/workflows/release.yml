@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 # Prevent concurrent releases
 concurrency:
   group: release-${{ github.ref }}
