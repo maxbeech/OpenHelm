@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.1] - 2026-03-18
+
+### Added
+- Power management: sleep guard and wake scheduler to keep scheduled jobs running reliably on macOS
+- Newsletter opt-in step in onboarding wizard
+- GitHub star dialog for community engagement
+
+### Fixed
+- CI workflow improvements: fail-fast disabled for build matrix, tsbuildinfo files gitignored
+- Release workflow updated to use macos-latest for both targets
+- Bundle identifier changed to com.maxbeech.openhelm
+- /release command updated to use small/medium/large bump types
+
 ## [0.1.0] - Unreleased
 
 ### Robustness Improvements
