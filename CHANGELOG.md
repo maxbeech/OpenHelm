@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.8] - 2026-03-19
+
+### Fixed
+- Fix "agent not responding" on all downloaded builds: bundled Node.js binary was codesigned with the hardened runtime but without JIT entitlements, causing V8 to crash with "Fatal process OOM in Failed to reserve virtual memory for CodeRange" before emitting any IPC events
+
 ## [0.1.7] - 2026-03-19
 
 ### Fixed
