@@ -96,6 +96,19 @@ jobs:
             -s -k "ci-keychain" build.keychain
           rm certificate.p12
 
+      - name: Sign native .node binaries
+        # Apple notarization requires all executables/dylibs in the bundle to be
+        # codesigned with the hardened runtime. The better-sqlite3 native addon
+        # (.node file) must be signed before it is included in the app bundle.
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          find src-tauri/bundled-node-modules -name "*.node" | while read f; do
+            echo "Signing $f"
+            codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+              --timestamp --options runtime "$f"
+          done
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
