@@ -47,6 +47,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Rebuild better-sqlite3 for x64 (cross-arch)
+        # The CI runner is ARM64 (macos-latest). For the x86_64 release build we
+        # need the x64 native addon. npm_config_arch=x64 makes prebuild-install
+        # download the x64 prebuilt binary instead of the ARM64 one.
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: npm_config_arch=x64 npm rebuild better-sqlite3
+
       - name: Build agent sidecar
         run: |
           cd agent && npm run build
@@ -55,6 +62,21 @@ jobs:
           chmod +x "../src-tauri/binaries/agent-$TARGET"
         env:
           TARGET: ${{ matrix.target }}
+
+      - name: Bundle native modules for Tauri resources
+        # Ensures src-tauri/bundled-node-modules exists for the Tauri resource glob.
+        # The agent build script tries to do this but may not resolve the workspace
+        # root node_modules correctly in CI, so we do it explicitly here.
+        run: |
+          mkdir -p src-tauri/bundled-node-modules
+          for pkg in better-sqlite3 bindings file-uri-to-path; do
+            if [ -d "node_modules/$pkg" ]; then
+              cp -r "node_modules/$pkg" "src-tauri/bundled-node-modules/$pkg"
+              echo "Bundled $pkg"
+            else
+              echo "WARNING: $pkg not found in node_modules"
+            fi
+          done
 
       - name: Import Apple certificate
         env:
