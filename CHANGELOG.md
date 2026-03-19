@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.4] - 2026-03-19
+
+### Added
+- License system: license manager, IPC handler, license section in settings, and license banner
+- Newsletter integration module
+- Chat system: chat handler, chat input component, and updated system prompt
+- Onboarding wizard expanded with email, payment, and usage-type steps
+- Email validation utility and license utilities
+
+### Fixed
+- Settings screen and application section improvements
+- Shared types updated for new license and chat features
+
 ## [0.1.3] - 2026-03-18
 
 ### Added
