@@ -9,6 +9,7 @@ vi.mock("@sentry/node", () => ({
     cb({ setExtra: vi.fn() });
   }),
   addBreadcrumb: vi.fn(),
+  consoleLoggingIntegration: vi.fn(() => ({ name: "ConsoleLogging" })),
 }));
 
 vi.mock("../src/db/queries/settings.js", () => ({

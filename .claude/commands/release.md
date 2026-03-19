@@ -24,6 +24,26 @@ Tell the user the calculated new version and confirm before proceeding: "Releasi
 
 ---
 
+### 0. Commit any working tree changes
+
+Before doing anything else, check for uncommitted changes:
+
+```bash
+git status
+```
+
+If there are **any staged or unstaged changes**, commit them first:
+
+```bash
+git add -A
+git commit -m "chore: pre-release cleanup"
+git push origin main
+```
+
+If there are **untracked files**, ask the user: "There are untracked files in the working tree. Should I include them in the release commit, or skip them?"
+
+Do not proceed until the working tree is clean.
+
 ### 1. Bump version in the app
 
 Edit `src-tauri/tauri.conf.json` — set `"version"` to the new version.
@@ -86,9 +106,15 @@ git commit -m "Bump download links to v<version>"
 git push origin main
 ```
 
+Then trigger a Vercel deployment manually (git is not connected to the Vercel project):
+```bash
+cd /Users/maxbeech/Documents/Beech/Development/OpenHelm-Website
+npx vercel --prod
+```
+
 ### 7. Done
 
 Report:
 - GitHub release URL: `https://github.com/maxbeech/OpenHelm/releases/tag/v<version>`
 - Both DMG assets confirmed present
-- Website download links updated and pushed (Vercel deploys automatically)
+- Website download links updated, pushed, and deployed via `vercel --prod`

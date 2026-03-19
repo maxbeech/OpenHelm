@@ -32,6 +32,10 @@ export function initFrontendSentry(): void {
       environment: (import.meta as any).env?.MODE === "production" ? "production" : "development",
       release: "openhelm@0.1.0",
       tracesSampleRate: 0.1,
+      integrations: [
+        Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+      ],
+      enableLogs: true,
       beforeSend(event) {
         if (!analyticsEnabled) return null;
         // Strip non-whitelisted extra keys (privacy guard)
@@ -43,6 +47,10 @@ export function initFrontendSentry(): void {
           event.extra = filtered;
         }
         return event;
+      },
+      beforeSendLog(log) {
+        if (!analyticsEnabled) return null;
+        return log;
       },
     });
   } catch (err) {

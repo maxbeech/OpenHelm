@@ -4,13 +4,17 @@
  * Zero cloud cost, ~50ms per embedding after initial model load.
  */
 
-// @ts-expect-error — @xenova/transformers has no bundled types
-import { pipeline } from "@xenova/transformers";
-
-let embedder: ReturnType<typeof pipeline> | null = null;
+// Lazily imported inside getEmbedder() so the agent starts even if the package
+// is absent in production (e.g. not installed on the end-user's machine).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let embedder: any | null = null;
 
 async function getEmbedder() {
   if (!embedder) {
+    // Dynamic import — avoids a top-level static import that would prevent the
+    // agent from starting when @xenova/transformers is not available.
+    // @ts-expect-error — @xenova/transformers has no bundled types
+    const { pipeline } = await import("@xenova/transformers");
     console.error("[embeddings] loading all-MiniLM-L6-v2 model...");
     embedder = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
     console.error("[embeddings] model loaded");

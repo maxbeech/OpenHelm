@@ -1,5 +1,5 @@
 import { build, context } from "esbuild";
-import { copyFileSync, chmodSync, existsSync, cpSync, mkdirSync } from "fs";
+import { copyFileSync, chmodSync, existsSync, cpSync, mkdirSync, writeFileSync } from "fs";
 import { execFileSync } from "child_process";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -12,12 +12,16 @@ const options = {
   bundle: true,
   platform: "node",
   target: "node20",
-  format: "esm",
+  format: "cjs",
   outfile: "dist/agent.js",
   external: ["better-sqlite3", "@xenova/transformers", "onnxruntime-node", "sharp"],
   loader: { ".sql": "text" },
   banner: {
-    js: "#!/usr/bin/env node\nimport { createRequire } from 'module';\nconst require = createRequire(import.meta.url);",
+    // CJS format: shebang only — require() is available natively so no createRequire needed.
+    // ESM format would emit `import X from "better-sqlite3"` for external modules, which
+    // Node.js resolves via ESM semantics that ignore NODE_PATH. CJS require() respects
+    // NODE_PATH, which is how we point the sidecar at bundled-node-modules in production.
+    js: "#!/usr/bin/env node",
   },
   sourcemap: true,
   logLevel: "info",
@@ -29,6 +33,13 @@ function copySidecarBinaries() {
   const dist = resolve(__dirname, "..", "dist", "agent.js");
   const binDir = resolve(__dirname, "..", "..", "src-tauri", "binaries");
   if (!existsSync(binDir)) return;
+
+  // The bundle is CJS format. Without this package.json, Node.js walks up from
+  // binaries/ and finds the workspace root package.json ("type": "module"), which
+  // would treat our CJS bundle as ESM and make `require` unavailable. Pinning the
+  // directory to "commonjs" here matches the production behaviour (inside the
+  // .app bundle there is no package.json so Node defaults to CJS).
+  writeFileSync(resolve(binDir, "package.json"), JSON.stringify({ type: "commonjs" }));
 
   for (const target of ["agent-aarch64-apple-darwin", "agent-x86_64-apple-darwin"]) {
     const dest = resolve(binDir, target);

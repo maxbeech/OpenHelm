@@ -32,6 +32,10 @@ export function initAgentSentry(): void {
       release: "openhelm@0.1.0",
       tracesSampleRate: 0.1,
       skipOpenTelemetrySetup: true,
+      integrations: [
+        Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+      ],
+      enableLogs: true,
       beforeSend(event) {
         if (!_enabled) return null;
         // Strip non-whitelisted extra keys (privacy guard)
@@ -43,6 +47,10 @@ export function initAgentSentry(): void {
           event.extra = filtered;
         }
         return event;
+      },
+      beforeSendLog(log) {
+        if (!_enabled) return null;
+        return log;
       },
     });
 
