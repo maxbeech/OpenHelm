@@ -237,6 +237,18 @@ export function getSchedulerStatus(): Promise<SchedulerStatus> {
   return agentClient.request<SchedulerStatus>("scheduler.status");
 }
 
+export function pauseScheduler(): Promise<{ paused: boolean }> {
+  return agentClient.request<{ paused: boolean }>("scheduler.pause");
+}
+
+export function resumeScheduler(): Promise<{ paused: boolean }> {
+  return agentClient.request<{ paused: boolean }>("scheduler.resume");
+}
+
+export function stopAllRuns(): Promise<{ stoppedActive: number; clearedQueued: number }> {
+  return agentClient.request<{ stoppedActive: number; clearedQueued: number }>("executor.stopAll");
+}
+
 // ─── Chat ───
 
 export function sendChatMessage(

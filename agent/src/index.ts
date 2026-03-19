@@ -9,6 +9,7 @@ import { startDevServer } from "./ipc/dev-server.js";
 import { detectClaudeCode } from "./claude-code/detector.js";
 import { scheduler } from "./scheduler/index.js";
 import { executor } from "./executor/index.js";
+import { getSetting } from "./db/queries/settings.js";
 import { initAgentSentry, captureAgentError } from "./sentry.js";
 import { initPowerManagement, shutdownPowerManagement } from "./power/index.js";
 import { startPeriodicVerifier, stopPeriodicVerifier } from "./license/periodic-verifier.js";
@@ -98,9 +99,14 @@ detectClaudeCode()
     console.error("[agent] Claude Code detection error:", err);
   });
 
-// 7. Start scheduler — connects to executor via callback
+// 7. Start scheduler — connects to executor via callback (unless paused)
 scheduler.setOnWorkEnqueued(() => executor.processNext());
-scheduler.start();
+const schedulerPaused = getSetting("scheduler_paused");
+if (schedulerPaused?.value === "true") {
+  console.error("[agent] scheduler is paused (persisted setting), skipping start");
+} else {
+  scheduler.start();
+}
 
 // 7b. Initialize power management (non-blocking, non-fatal)
 initPowerManagement().catch((err) =>

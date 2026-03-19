@@ -1,6 +1,7 @@
 import { registerHandler } from "../handler.js";
 import { createRun } from "../../db/queries/runs.js";
 import { getJob } from "../../db/queries/jobs.js";
+import { getSetting, setSetting, deleteSetting } from "../../db/queries/settings.js";
 import { jobQueue } from "../../scheduler/queue.js";
 import { scheduler } from "../../scheduler/index.js";
 import { executor } from "../../executor/index.js";
@@ -85,13 +86,54 @@ export function registerSchedulerHandlers() {
    * Get current scheduler and executor status.
    */
   registerHandler("scheduler.status", () => {
+    const paused = getSetting("scheduler_paused");
     const status: SchedulerStatus = {
       schedulerRunning: scheduler.running,
+      paused: paused?.value === "true",
       tickIntervalMs: scheduler.tickIntervalMs,
       activeRuns: executor.activeRunCount,
       queuedRuns: jobQueue.size(),
       maxConcurrency: executor.maxConcurrency,
     };
     return status;
+  });
+
+  /**
+   * Pause the scheduler. Persists across restarts.
+   * Does NOT stop currently running or queued runs.
+   */
+  registerHandler("scheduler.pause", () => {
+    scheduler.stop();
+    setSetting("scheduler_paused", "true");
+    console.error("[scheduler] paused by user");
+    emit("scheduler.statusChanged", { paused: true });
+    return { paused: true };
+  });
+
+  /**
+   * Resume the scheduler after a pause.
+   */
+  registerHandler("scheduler.resume", () => {
+    deleteSetting("scheduler_paused");
+    scheduler.start();
+    console.error("[scheduler] resumed by user");
+    emit("scheduler.statusChanged", { paused: false });
+    return { paused: false };
+  });
+
+  /**
+   * Stop all active runs and clear the queue.
+   * Does NOT pause the scheduler — call scheduler.pause separately if needed.
+   */
+  registerHandler("executor.stopAll", () => {
+    const queuedCount = jobQueue.size();
+    const activeCount = executor.activeRunCount;
+    jobQueue.clear();
+    executor.stopAll();
+    console.error(`[executor] stopAll: cleared ${queuedCount} queued, stopped ${activeCount} active`);
+    emit("scheduler.statusChanged", {
+      paused: getSetting("scheduler_paused")?.value === "true",
+    });
+    return { stoppedActive: activeCount, clearedQueued: queuedCount };
   });
 }

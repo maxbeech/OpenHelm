@@ -25,6 +25,12 @@ const options = {
   },
   sourcemap: true,
   logLevel: "info",
+  // Bake SENTRY_DSN into the bundle so the agent can report errors in production
+  // where the env var is not available (Tauri sidecar doesn't inherit .env files).
+  // Falls back to empty string if not set at build time (Sentry init handles gracefully).
+  define: {
+    "process.env.SENTRY_DSN": JSON.stringify(process.env.SENTRY_DSN || ""),
+  },
 };
 
 /** Copy built agent to Tauri sidecar binaries directory */
@@ -103,6 +109,10 @@ if (isWatch) {
   if (process.env.SENTRY_AUTH_TOKEN) {
     const { execFileSync } = await import("child_process");
     try {
+      // Read version from package.json for the release name
+      const { readFileSync } = await import("fs");
+      const pkg = JSON.parse(readFileSync(resolve(__dirname, "..", "package.json"), "utf8"));
+      const release = `openhelm@${pkg.version}`;
       execFileSync(
         "sentry-cli",
         [
@@ -112,6 +122,8 @@ if (isWatch) {
           "openhelm",
           "--project",
           "openhelm",
+          "--release",
+          release,
           "dist/",
         ],
         { stdio: "inherit", env: process.env },

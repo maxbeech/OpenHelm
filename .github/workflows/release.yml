@@ -63,6 +63,7 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
       - name: Bundle native modules for Tauri resources
         # Ensures src-tauri/bundled-node-modules exists for the Tauri resource glob.
@@ -78,6 +79,28 @@ jobs:
               echo "WARNING: $pkg not found in node_modules"
             fi
           done
+
+      - name: Bundle Node.js runtime
+        # Ship the official Node.js binary inside the app so the agent sidecar
+        # always runs with the same Node.js version used to compile better-sqlite3.
+        # Without this, users' system Node.js may have a different ABI, causing
+        # NODE_MODULE_VERSION mismatch crashes.
+        run: |
+          NODE_VER="$(node -v)"
+          if [[ "$TARGET" == "aarch64-apple-darwin" ]]; then
+            ARCH="arm64"
+          else
+            ARCH="x64"
+          fi
+          echo "Downloading Node.js $NODE_VER for darwin-$ARCH"
+          curl -sL "https://nodejs.org/dist/${NODE_VER}/node-${NODE_VER}-darwin-${ARCH}.tar.gz" \
+            | tar -xzf - --strip-components=2 -C /tmp "node-${NODE_VER}-darwin-${ARCH}/bin/node"
+          mkdir -p src-tauri/bundled-node/bin
+          mv /tmp/node "src-tauri/bundled-node/bin/node"
+          chmod +x "src-tauri/bundled-node/bin/node"
+          echo "Bundled Node.js $NODE_VER ($(du -h src-tauri/bundled-node/bin/node | cut -f1))"
+        env:
+          TARGET: ${{ matrix.target }}
 
       - name: Import Apple certificate
         env:
@@ -97,10 +120,10 @@ jobs:
             -s -k "ci-keychain" build.keychain
           rm certificate.p12
 
-      - name: Sign native .node binaries
+      - name: Sign native binaries and bundled node
         # Apple notarization requires all executables/dylibs in the bundle to be
-        # codesigned with the hardened runtime. The better-sqlite3 native addon
-        # (.node file) must be signed before it is included in the app bundle.
+        # codesigned with the hardened runtime. Sign both better-sqlite3's .node
+        # addon and the bundled Node.js binary.
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
@@ -109,6 +132,11 @@ jobs:
             codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
               --timestamp --options runtime "$f"
           done
+          if [ -f src-tauri/bundled-node/bin/node ]; then
+            echo "Signing bundled Node.js binary"
+            codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+              --timestamp --options runtime "src-tauri/bundled-node/bin/node"
+          fi
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0

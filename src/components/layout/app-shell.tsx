@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./sidebar";
+import { SchedulerControl } from "./scheduler-control";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { UpdateBanner } from "@/components/shared/update-banner";
 import { LicenseBanner, shouldShowLicenseBanner } from "@/components/shared/license-banner";
@@ -75,6 +76,7 @@ export function AppShell({
               onRetry={checkForUpdate}
             />
           )}
+          <SchedulerControl />
           {!panelOpen && (
             <Button
               variant="outline"

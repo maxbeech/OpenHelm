@@ -203,7 +203,8 @@ export type SettingKey =
   | "stripe_customer_id"
   | "stripe_subscription_id"
   | "stripe_subscription_status"
-  | "license_verified_at";
+  | "license_verified_at"
+  | "scheduler_paused";
 
 export interface Setting {
   key: SettingKey;
@@ -487,6 +488,7 @@ export interface ClearRunsByJobParams {
 /** Current status of the scheduler and executor */
 export interface SchedulerStatus {
   schedulerRunning: boolean;
+  paused: boolean;
   tickIntervalMs: number;
   activeRuns: number;
   queuedRuns: number;

@@ -24,13 +24,14 @@ use tauri_plugin_shell::process::CommandChild;
 ///
 /// In debug builds (tauri dev) the terminal already supplies the correct PATH, so
 /// we return it unchanged.
-fn build_node_path(bin_dir: &std::path::Path) -> String {
+fn build_node_path(bin_dir: &std::path::Path, resource_dir: &str) -> String {
     let current = std::env::var("PATH").unwrap_or_default();
 
     // Dev mode: inherit terminal PATH as-is.
     #[cfg(debug_assertions)]
     {
-        let _ = bin_dir; // suppress unused warning
+        let _ = bin_dir;
+        let _ = resource_dir;
         return current;
     }
 
@@ -39,9 +40,17 @@ fn build_node_path(bin_dir: &std::path::Path) -> String {
     {
         let mut extra: Vec<String> = Vec::new();
 
-        // 1. Build-time node directory (written by scripts/patch-bundle.mjs).
-        //    If present this is the single best choice — it is literally the node
-        //    binary that compiled the bundled native addons.
+        // 1. Bundled Node.js binary (shipped inside Contents/Resources/ by CI).
+        //    This is the most reliable choice — ABI-matched to bundled-node-modules.
+        let bundled_node_bin = std::path::PathBuf::from(resource_dir)
+            .join("bundled-node")
+            .join("bin");
+        if bundled_node_bin.join("node").exists() {
+            extra.push(bundled_node_bin.to_string_lossy().to_string());
+        }
+
+        // 2. Build-time node directory (written by scripts/patch-bundle.mjs).
+        //    Present on locally-built apps; points to the exact node that compiled deps.
         let node_bin_dir_file = bin_dir.join(".node-bin-dir");
         if let Ok(dir) = std::fs::read_to_string(&node_bin_dir_file) {
             let dir = dir.trim().to_string();
@@ -50,13 +59,12 @@ fn build_node_path(bin_dir: &std::path::Path) -> String {
             }
         }
 
-        // 2. Homebrew (most common macOS primary install).
+        // 3. Homebrew (most common macOS primary install).
         extra.push("/opt/homebrew/bin".into()); // Apple Silicon
         extra.push("/usr/local/bin".into());    // Intel / official .pkg installer
 
-        // 3. NVM / fnm — append as fallbacks only (do NOT insert before Homebrew).
+        // 4. NVM / fnm — fallbacks only.
         if let Ok(home) = std::env::var("HOME") {
-            // NVM
             let nvm_base = format!("{}/.nvm/versions/node", home);
             if let Ok(entries) = std::fs::read_dir(&nvm_base) {
                 let mut versions: Vec<String> = entries
@@ -68,8 +76,6 @@ fn build_node_path(bin_dir: &std::path::Path) -> String {
                     extra.push(format!("{}/{}/bin", nvm_base, latest));
                 }
             }
-
-            // fnm (Fast Node Manager)
             let fnm_base = format!("{}/.local/share/fnm/node-versions", home);
             if let Ok(entries) = std::fs::read_dir(&fnm_base) {
                 let mut versions: Vec<String> = entries
@@ -126,13 +132,9 @@ pub fn run() {
             write_to_sidecar,
             relaunch_app,
         ])
-        .on_window_event(|window, event| {
-            // Hide window on close instead of quitting (agent keeps running).
-            // The macOS "Quit" menu item still terminates the app normally.
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
-            }
+        .on_window_event(|_window, _event| {
+            // Window close (red ✕) quits the app normally.
+            // The RunEvent::Exit handler below kills the agent sidecar.
         })
         .setup(|app| {
             // Create the main window programmatically so we can set traffic_light_position.
@@ -156,15 +158,17 @@ pub fn run() {
             // In production the path is inside Contents/Resources/; in dev it
             // falls back to an empty string (workspace node_modules are found
             // via normal directory traversal instead).
-            let node_path_env = app
+            let resource_dir = app
                 .path()
                 .resource_dir()
-                .map(|dir| {
-                    dir.join("bundled-node-modules")
-                        .to_string_lossy()
-                        .to_string()
-                })
+                .map(|dir| dir.to_string_lossy().to_string())
                 .unwrap_or_default();
+
+            let node_path_env = if resource_dir.is_empty() {
+                String::new()
+            } else {
+                format!("{}/bundled-node-modules", resource_dir)
+            };
 
             // Ensure the agent sidecar is treated as CommonJS by Node.js.
             // Node.js resolves module type by walking UP the directory tree looking
@@ -198,7 +202,7 @@ pub fn run() {
             let (mut rx, child) = shell
                 .sidecar("agent")
                 .expect("failed to create sidecar command")
-                .env("PATH", build_node_path(&bin_dir))
+                .env("PATH", build_node_path(&bin_dir, &resource_dir))
                 .env("NODE_PATH", node_path_env)
                 .spawn()
                 .expect("failed to spawn sidecar");
