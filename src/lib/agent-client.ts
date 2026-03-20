@@ -83,11 +83,29 @@ class AgentClient {
 
   private async startTauri() {
     const { listen } = await import("@tauri-apps/api/event");
-    this.unlisten = await listen<string>("sidecar-stdout", (event) => {
+    const unlistenStdout = await listen<string>("sidecar-stdout", (event) => {
       this.handleLine(event.payload);
     });
+    const unlistenTerminated = await listen<string>("sidecar-terminated", () => {
+      this.handleSidecarDeath();
+    });
+    this.unlisten = () => { unlistenStdout(); unlistenTerminated(); };
     this.connected = true;
     this.probeReadiness();
+  }
+
+  /** Called when the sidecar process terminates unexpectedly. */
+  private handleSidecarDeath() {
+    console.error("[agent-client] sidecar process terminated");
+    this.connected = false;
+    // Reject all pending requests immediately instead of waiting for timeout
+    for (const [id, pending] of this.pending) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error("Agent process terminated unexpectedly"));
+      this.pending.delete(id);
+    }
+    // Notify the UI so it can show an error / restart prompt
+    window.dispatchEvent(new CustomEvent("agent:agent.terminated"));
   }
 
   private async sendViaTauri(req: IpcRequest): Promise<void> {

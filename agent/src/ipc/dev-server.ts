@@ -101,6 +101,16 @@ export function startDevServer(): void {
     res.end();
   });
 
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `[dev-server] port ${DEV_SERVER_PORT} already in use — dev bridge disabled (non-fatal)`,
+      );
+    } else {
+      console.error("[dev-server] listen error (non-fatal):", err.message);
+    }
+  });
+
   server.listen(DEV_SERVER_PORT, "127.0.0.1", () => {
     console.error(`[agent] dev HTTP bridge listening on port ${DEV_SERVER_PORT}`);
   });

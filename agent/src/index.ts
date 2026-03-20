@@ -16,11 +16,14 @@ import { startPeriodicVerifier, stopPeriodicVerifier } from "./license/periodic-
 
 // -- Bootstrap --
 
+const t0 = Date.now();
+const elapsed = () => `${Date.now() - t0}ms`;
 console.error("[agent] starting OpenHelm agent v0.1.0");
 
 // 1. Initialize database
 try {
   initDatabase();
+  console.error(`[agent] database ready (${elapsed()})`);
 } catch (err) {
   console.error("[agent] database init failed:", err);
   process.exit(1);
@@ -81,7 +84,7 @@ rl.on("close", () => {
 
 // 5. Signal readiness
 emit("agent.ready", { version: "0.1.0" });
-console.error("[agent] ready, listening for IPC on stdin");
+console.error(`[agent] ready, listening for IPC on stdin (${elapsed()})`);
 
 // 6. Auto-detect Claude Code CLI in background (non-blocking)
 detectClaudeCode()

@@ -2,6 +2,16 @@
 
 A local-first macOS desktop app that turns high-level goals into scheduled, self-correcting Claude Code jobs.
 
+## Download
+
+**Don't want to build from source?** Download the latest release directly:
+
+**[→ Download OpenHelm at openhelm.ai](https://www.openhelm.ai/#download)**
+
+Pre-built, signed, and notarized DMGs for Apple Silicon are available there — no Rust toolchain required.
+
+---
+
 ## Prerequisites
 
 | Tool | Version |
@@ -9,6 +19,9 @@ A local-first macOS desktop app that turns high-level goals into scheduled, self
 | Node.js | 20+ |
 | Rust | 1.77+ |
 | Xcode CLT | Latest |
+| Claude Code | 2.0+ (subscription required) |
+
+> **No Anthropic API key needed.** All AI operations (planning, assessment, summarisation) route through your existing Claude Code subscription via the CLI.
 
 ## Setup
 
@@ -41,11 +54,11 @@ Agent tests use real SQLite databases in temporary directories. Frontend tests u
 
 - **`src/`** — React frontend (Vite + Tailwind CSS 4 + shadcn/ui)
   - `src/components/layout/` — AppShell, Sidebar with project selector
-  - `src/components/onboarding/` — 5-step onboarding wizard
+  - `src/components/onboarding/` — 4-step onboarding wizard (Welcome → Claude Code detection → First project → Complete)
   - `src/components/goals/` — Goals screen, goal cards, goal creation sheet
   - `src/components/jobs/` — Jobs table with detail panel, manual job creation
   - `src/components/runs/` — Runs table, run detail panel, virtualized log viewer
-  - `src/components/settings/` — Settings screen (Claude Code, API key, execution, app)
+  - `src/components/settings/` — Settings screen (Claude Code path, execution, app, license)
   - `src/components/shared/` — Status badges, empty states, skeletons, error banner
   - `src/stores/` — Zustand stores (app, project, goal, job, run)
   - `src/hooks/` — useAgentEvent, useRunLogs
@@ -53,11 +66,10 @@ Agent tests use real SQLite databases in temporary directories. Frontend tests u
 - **`src-tauri/`** — Tauri Rust shell (thin wrapper, macOS plugins: autostart, notification, dialog, updater)
 - **`agent/`** — Node.js background agent (sidecar)
   - `agent/src/db/` — Drizzle schema, migrations, query layer
-  - `agent/src/ipc/` — IPC server, domain handlers, typed LLM error mapping
-  - `agent/src/claude-code/` — ClaudeCodeRunner, detector, stream parser
+  - `agent/src/ipc/` — IPC server, domain handlers, typed error mapping
+  - `agent/src/claude-code/` — ClaudeCodeRunner, detector, stream parser, print-mode wrapper
   - `agent/src/scheduler/` — 1-minute tick scheduler, priority queue
   - `agent/src/executor/` — Worker pool, process lifecycle, preflight checks
-  - `agent/src/llm/` — Anthropic SDK wrapper, agent loop, tool definitions
   - `agent/src/planner/` — Goal assessment, plan generation, plan commit, prompt assessment
 - **`shared/`** — IPC type contract shared between frontend and agent
 - **`.github/workflows/`** — CI (lint, test, build check) and Release (sign, notarize, DMG)

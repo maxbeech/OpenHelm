@@ -256,6 +256,13 @@ pub fn run() {
                                 "[agent] sidecar terminated with code: {:?}",
                                 payload.code
                             );
+                            // Notify the frontend so it can show an error
+                            // instead of hanging on unanswered IPC requests.
+                            let code = payload.code.unwrap_or(-1);
+                            let _ = handle.emit(
+                                "sidecar-terminated",
+                                format!("{{\"code\":{}}}", code),
+                            );
                         }
                         _ => {}
                     }

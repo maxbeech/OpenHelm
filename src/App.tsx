@@ -38,6 +38,35 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { NewProjectDialog } from "./components/shared/new-project-dialog";
 import { EditProjectDialog } from "./components/shared/edit-project-dialog";
 
+const SAILING_PHRASES = [
+  "Pulling through the fairlead\u2026",
+  "Stocking the ship\u2019s biscuits\u2026",
+  "Hoisting the mainsail\u2026",
+  "Charting the course\u2026",
+  "Checking the rigging\u2026",
+  "Raising the anchor\u2026",
+  "Unfurling the jib\u2026",
+  "Tying the bowline\u2026",
+  "Setting the compass heading\u2026",
+  "Swabbing the quarterdeck\u2026",
+  "Loading the cargo hold\u2026",
+  "Trimming the sails\u2026",
+  "Winding the capstan\u2026",
+  "Reading the almanac\u2026",
+  "Polishing the binnacle\u2026",
+];
+
+function useRotatingPhrase(phrases: string[], intervalMs = 2500): string {
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * phrases.length));
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % phrases.length);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [phrases.length, intervalMs]);
+  return phrases[index];
+}
+
 export default function App() {
   const { setShouldCheckUpdates } = useUpdaterStore();
   const {
@@ -91,6 +120,8 @@ export default function App() {
   const [jobSheetProjectId, setJobSheetProjectId] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [agentTimeout, setAgentTimeout] = useState(false);
+
+  const sailingPhrase = useRotatingPhrase(SAILING_PHRASES);
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
@@ -295,11 +326,20 @@ export default function App() {
   // Start agent client
   useEffect(() => {
     const onReady = () => setAgentReady(true);
+    const onTerminated = () => {
+      console.error("Agent sidecar terminated unexpectedly");
+      setAgentReady(false);
+      setAgentTimeout(true);
+    };
     window.addEventListener("agent:agent.ready", onReady);
+    window.addEventListener("agent:agent.terminated", onTerminated);
     agentClient.start().catch((err) => {
       console.error("Failed to start agent client:", err);
     });
-    return () => window.removeEventListener("agent:agent.ready", onReady);
+    return () => {
+      window.removeEventListener("agent:agent.ready", onReady);
+      window.removeEventListener("agent:agent.terminated", onTerminated);
+    };
   }, [setAgentReady]);
 
   // Timeout
@@ -313,42 +353,54 @@ export default function App() {
   useEffect(() => {
     if (!agentReady) return;
     (async () => {
-      await fetchProjects();
-      const projectsList = useProjectStore.getState().projects;
-      if (projectsList.length > 0) {
-        setOnboardingComplete(true);
-        const saved = await api.getSetting("active_project");
-        const savedId = saved?.value;
-        const activeProj = projectsList.find((p) => p.id === savedId);
-        // Use saved project, or if only one project exists default to it
-        // instead of "All Projects"
-        setActiveProjectId(
-          activeProj?.id ?? (projectsList.length === 1 ? projectsList[0].id : null),
-        );
-      }
-      // Fetch cross-project inbox right away
-      fetchInboxItems();
-      fetchInboxCount();
-      // Configure Sentry analytics opt-out (read after projects load)
       try {
-        const s = await api.getSetting("analytics_enabled");
-        setAnalyticsEnabled(s?.value !== "false");
-      } catch {
-        // Keep optimistic default (enabled)
-      }
-      // Enable auto-update check unless user has explicitly opted out or running in dev mode
-      if (!import.meta.env.DEV) {
+        // Check the persisted onboarding flag first — this survives updates
+        // even if projects can't be loaded momentarily
+        const onboardingFlag = await api.getSetting("onboarding_complete").catch(() => null);
+        await fetchProjects();
+        const projectsList = useProjectStore.getState().projects;
+        if (projectsList.length > 0 || onboardingFlag?.value === "true") {
+          setOnboardingComplete(true);
+          // Backfill flag for existing users who completed onboarding before this flag existed
+          if (onboardingFlag?.value !== "true") {
+            api.setSetting({ key: "onboarding_complete", value: "true" }).catch(() => {});
+          }
+          const saved = await api.getSetting("active_project");
+          const savedId = saved?.value;
+          const activeProj = projectsList.find((p) => p.id === savedId);
+          // Use saved project, or if only one project exists default to it
+          // instead of "All Projects"
+          setActiveProjectId(
+            activeProj?.id ?? (projectsList.length === 1 ? projectsList[0].id : null),
+          );
+        }
+        // Fetch cross-project inbox right away
+        fetchInboxItems();
+        fetchInboxCount();
+        // Configure Sentry analytics opt-out (read after projects load)
         try {
-          const autoUpdate = await api.getSetting("auto_update_enabled");
-          if (autoUpdate?.value !== "false") {
+          const s = await api.getSetting("analytics_enabled");
+          setAnalyticsEnabled(s?.value !== "false");
+        } catch {
+          // Keep optimistic default (enabled)
+        }
+        // Enable auto-update check unless user has explicitly opted out or running in dev mode
+        if (!import.meta.env.DEV) {
+          try {
+            const autoUpdate = await api.getSetting("auto_update_enabled");
+            if (autoUpdate?.value !== "false") {
+              setShouldCheckUpdates(true);
+            }
+          } catch {
+            // Default ON
             setShouldCheckUpdates(true);
           }
-        } catch {
-          // Default ON
-          setShouldCheckUpdates(true);
         }
+      } catch (err) {
+        console.error("Initial load failed:", err);
+      } finally {
+        setInitialLoading(false);
       }
-      setInitialLoading(false);
     })();
   }, [agentReady, fetchProjects, setOnboardingComplete, setActiveProjectId, fetchInboxItems, fetchInboxCount, setShouldCheckUpdates]);
 
@@ -386,11 +438,12 @@ export default function App() {
   const handleOnboardingComplete = useCallback(
     (projectId: string) => {
       fetchProjects().then(async () => {
-        // Persist the active project setting before transitioning so the
-        // initial-load effect always finds it on re-launch.
-        await api
-          .setSetting({ key: "active_project", value: projectId })
-          .catch(() => {});
+        // Persist both the active project and onboarding flag so re-launches
+        // (including after updates) skip onboarding.
+        await Promise.all([
+          api.setSetting({ key: "active_project", value: projectId }).catch(() => {}),
+          api.setSetting({ key: "onboarding_complete", value: "true" }).catch(() => {}),
+        ]);
         setActiveProjectId(projectId);
         setOnboardingComplete(true);
       });
@@ -441,8 +494,11 @@ export default function App() {
   // Loading state
   if (!agentReady || initialLoading) {
     return (
-      <div className="no-select flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-        <div className="flex items-center gap-2">
+      <div
+        data-tauri-drag-region
+        className="no-select flex min-h-screen flex-col items-center justify-center gap-4 bg-background"
+      >
+        <div data-tauri-drag-region className="flex items-center gap-2">
           <img src={logoSvg} alt="OpenHelm" className="size-10" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             OpenHelm
@@ -465,7 +521,7 @@ export default function App() {
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="size-2 animate-pulse rounded-full bg-primary" />
-            Starting agent...
+            {sailingPhrase}
           </div>
         )}
       </div>

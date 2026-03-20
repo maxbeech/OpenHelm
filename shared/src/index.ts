@@ -205,7 +205,8 @@ export type SettingKey =
   | "stripe_subscription_status"
   | "license_verified_at"
   | "scheduler_paused"
-  | "update_pending";
+  | "update_pending"
+  | "onboarding_complete";
 
 export interface Setting {
   key: SettingKey;

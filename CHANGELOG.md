@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Fix onboarding screen showing after app updates: persisted `onboarding_complete` flag in DB so it survives restarts even when project list hasn't loaded yet
+- Fix window not being draggable on the "Starting agent" loading screen: added `data-tauri-drag-region` to the splash screen
+- Fix agent crash when dev HTTP bridge port 1421 is already in use (e.g. after update restart): EADDRINUSE is now non-fatal instead of crashing the entire agent process
+- Fix frontend hanging indefinitely when agent dies: sidecar termination events are now forwarded to the frontend, immediately rejecting all pending requests
+- Fix initial load hanging if any startup request fails: wrapped in try/finally so `initialLoading` always completes
+
+### Changed
+- Replace static "Starting agent..." text with rotating sailing-themed phrases (e.g. "Hoisting the mainsail…", "Pulling through the fairlead…")
+
 ## [0.1.10] - 2026-03-20
 
 ### Fixed
