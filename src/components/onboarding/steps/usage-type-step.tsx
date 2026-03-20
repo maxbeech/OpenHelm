@@ -28,7 +28,7 @@ interface UsageTypeStepProps {
 
 export function UsageTypeStep({ userEmail, onBack, onNext }: UsageTypeStepProps) {
   const [selected, setSelected] = useState<UsageType | null>(null);
-  const [employeeCount, setEmployeeCount] = useState<EmployeeCount>("1-3");
+  const [employeeCount, setEmployeeCount] = useState<EmployeeCount | null>(null);
   const [saving, setSaving] = useState(false);
 
   const hasMismatch =
@@ -36,18 +36,21 @@ export function UsageTypeStep({ userEmail, onBack, onNext }: UsageTypeStepProps)
     (selected === "personal" || selected === "education") &&
     isCommercialEmail(userEmail);
 
+  const canContinue = selected !== null && (selected !== "business" || employeeCount !== null);
+
   const handleContinue = async () => {
-    if (!selected) return;
+    if (!selected || (selected === "business" && !employeeCount)) return;
     setSaving(true);
+    const count = selected === "business" ? employeeCount! : "1-3";
     try {
       await api.setSetting({ key: "usage_type", value: selected });
       if (selected === "business") {
-        await api.setSetting({ key: "employee_count", value: employeeCount });
+        await api.setSetting({ key: "employee_count", value: count });
       }
-      onNext(selected, selected === "business" ? employeeCount : "1-3");
+      onNext(selected, count);
     } catch {
       // Settings save is best-effort — continue anyway
-      onNext(selected, selected === "business" ? employeeCount : "1-3");
+      onNext(selected, count);
     } finally {
       setSaving(false);
     }
@@ -128,14 +131,14 @@ export function UsageTypeStep({ userEmail, onBack, onNext }: UsageTypeStepProps)
       {selected === "business" && (
         <div className="mt-4 w-full max-w-sm">
           <p className="mb-2 text-left text-xs text-muted-foreground">
-            How many people will use OpenHelm in your organisation?
+            How many people are in your organisation?
           </p>
           <Select
-            value={employeeCount}
+            value={employeeCount ?? ""}
             onValueChange={(v) => setEmployeeCount(v as EmployeeCount)}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue placeholder="Select team size" />
             </SelectTrigger>
             <SelectContent>
               {EMPLOYEE_OPTIONS.map((opt) => (
@@ -145,16 +148,6 @@ export function UsageTypeStep({ userEmail, onBack, onNext }: UsageTypeStepProps)
               ))}
             </SelectContent>
           </Select>
-          {employeeCount === "1-3" && (
-            <p className="mt-2 text-left text-xs text-green-600 dark:text-green-400">
-              You qualify for the free Community tier.
-            </p>
-          )}
-          {employeeCount !== "1-3" && (
-            <p className="mt-2 text-left text-xs text-muted-foreground">
-              Business license required — includes a 14-day free trial.
-            </p>
-          )}
         </div>
       )}
 
@@ -162,7 +155,7 @@ export function UsageTypeStep({ userEmail, onBack, onNext }: UsageTypeStepProps)
         onClick={handleContinue}
         size="lg"
         className="mt-6 w-full max-w-sm"
-        disabled={!selected || saving}
+        disabled={!canContinue || saving}
       >
         {saving ? "Saving…" : "Continue"}
       </Button>

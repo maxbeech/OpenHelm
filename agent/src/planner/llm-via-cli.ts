@@ -25,6 +25,10 @@ export interface LlmCallConfig {
   workingDirectory?: string;
   /** Permission mode for Claude Code (e.g. "plan", "bypassPermissions") */
   permissionMode?: string;
+  /** Fired with each text chunk as it streams (enables stream-json output) */
+  onTextChunk?: (text: string) => void;
+  /** Fired when a tool is invoked by name (enables stream-json output) */
+  onToolUse?: (toolName: string) => void;
 }
 
 const MODEL_MAP: Record<ModelTier, string> = {
@@ -66,6 +70,8 @@ export async function callLlmViaCli(config: LlmCallConfig): Promise<string> {
     jsonSchema: config.jsonSchema,
     effort: config.effort,
     onProgress: config.onProgress,
+    onTextChunk: config.onTextChunk,
+    onToolUse: config.onToolUse,
   });
 
   console.error(`[llm] ${model} completed in ${Date.now() - t0}ms (${result.text.length} chars)`);

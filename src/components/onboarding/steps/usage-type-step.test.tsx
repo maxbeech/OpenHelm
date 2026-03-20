@@ -61,11 +61,11 @@ describe("UsageTypeStep", () => {
     expect(screen.getByText(/how many people/i)).toBeInTheDocument();
   });
 
-  it("shows community tier message for 1-3 business members", () => {
+  it("does not show tier qualification label for business use", () => {
     render(<UsageTypeStep {...defaultProps} />);
     fireEvent.click(screen.getByText("Business use"));
-    // Default is 1-3
-    expect(screen.getByText(/qualify for the free Community tier/i)).toBeInTheDocument();
+    expect(screen.queryByText(/qualify for the free Community tier/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/business license required/i)).not.toBeInTheDocument();
   });
 
   it("saves usage_type setting on continue", async () => {
@@ -83,9 +83,13 @@ describe("UsageTypeStep", () => {
     const onNext = vi.fn();
     render(<UsageTypeStep {...defaultProps} onNext={onNext} />);
     fireEvent.click(screen.getByText("Business use"));
+    // Continue is disabled until an employee count is selected
+    expect(screen.getByRole("button", { name: /continue/i })).toBeDisabled();
+    // Select a team size
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "4-10" } });
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     await waitFor(() => {
-      expect(api.setSetting).toHaveBeenCalledWith({ key: "employee_count", value: "1-3" });
+      expect(api.setSetting).toHaveBeenCalledWith({ key: "employee_count", value: "4-10" });
     });
   });
 

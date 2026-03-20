@@ -7,6 +7,7 @@ import { ProjectStep } from "./steps/project-step";
 import { PaymentStep } from "./steps/payment-step";
 import { CompleteStep } from "./steps/complete-step";
 import { Progress } from "@/components/ui/progress";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as api from "@/lib/api";
 import type { UsageType, EmployeeCount } from "@openhelm/shared";
 import { needsPayment } from "@/lib/license-utils";
@@ -27,6 +28,7 @@ interface OnboardingWizardProps {
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState(0);
+  const [highestStep, setHighestStep] = useState(0);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [usageType, setUsageType] = useState<UsageType>("personal");
   const [employeeCount, setEmployeeCount] = useState<EmployeeCount>("1-3");
@@ -39,7 +41,29 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const progress = ((step + 1) / totalSteps) * 100;
   const currentLabel = STEP_LABELS[Math.min(step, STEP_LABELS.length - 1)];
 
-  const next = () => setStep((s) => s + 1);
+  // Last "in-progress" step index (before the complete step)
+  const lastMiddleStep = requiresPayment ? 5 : 4;
+  const isComplete = requiresPayment ? step === 6 : step === 5 && !requiresPayment;
+
+  const next = () =>
+    setStep((s) => {
+      const n = s + 1;
+      setHighestStep((h) => Math.max(h, n));
+      return n;
+    });
+
+  const goBack = () => {
+    if (step <= 0) return;
+    if (isComplete) {
+      setStep(lastMiddleStep);
+      return;
+    }
+    setStep((s) => s - 1);
+  };
+
+  const canGoBack = step > 0 && !isComplete;
+  // Only allow forward if the user has already completed this step before
+  const canGoForward = step > 0 && step < lastMiddleStep && step < highestStep;
 
   const handleUsageNext = (type: UsageType, count: EmployeeCount) => {
     setUsageType(type);
@@ -54,7 +78,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const handleProjectNext = (id: string) => {
     setProjectId(id);
-    // If payment needed, advance to payment step; otherwise skip to complete
     if (requiresPayment) {
       next(); // → payment
     } else {
@@ -70,16 +93,39 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   };
 
   return (
-    <div className="no-select flex min-h-screen flex-col items-center justify-center bg-background p-8">
-      {/* Progress (shown on steps 1–5) */}
+    <div
+      data-tauri-drag-region
+      className="no-select flex min-h-screen flex-col items-center justify-center bg-background p-8"
+    >
+      {/* Progress bar with navigation arrows (shown on steps 1–5) */}
       {step > 0 && step < STEP_LABELS.length - 1 && (
-        <div className="fixed top-0 right-0 left-0 p-4">
+        <div data-tauri-drag-region className="fixed top-0 right-0 left-0 p-4">
           <div className="mx-auto max-w-md">
-            <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+            <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
               <span>{currentLabel}</span>
-              <span>
-                {step + 1} of {totalSteps}
-              </span>
+              <div className="flex items-center gap-1">
+                <span>
+                  {step + 1} of {totalSteps}
+                </span>
+                <button
+                  type="button"
+                  onClick={goBack}
+                  disabled={!canGoBack}
+                  className="ml-1 rounded p-0.5 text-orange-500 transition-colors hover:text-orange-600 disabled:opacity-30 disabled:hover:text-orange-500"
+                  aria-label="Go back"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep((s) => s + 1)}
+                  disabled={!canGoForward}
+                  className="rounded p-0.5 text-orange-500 transition-colors hover:text-orange-600 disabled:opacity-30 disabled:hover:text-orange-500"
+                  aria-label="Go forward"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
             </div>
             <Progress value={progress} className="h-1" />
           </div>

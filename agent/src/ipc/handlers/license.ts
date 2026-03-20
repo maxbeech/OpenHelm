@@ -12,11 +12,12 @@ import {
   createCheckoutSession,
   pollCheckoutSession,
   createPortalSession,
+  getPricing,
 } from "../../license/stripe-client.js";
 import type {
   RequestEmailVerificationParams,
   CheckEmailVerificationParams,
-  CreateCheckoutSessionParams,
+  CreateCheckoutSessionWithCurrencyParams,
   PollCheckoutSessionParams,
 } from "@openhelm/shared";
 
@@ -60,13 +61,18 @@ export function registerLicenseHandlers() {
     return status;
   });
 
+  /** Fetch pricing from Stripe */
+  registerHandler("license.getPricing", async () => {
+    return getPricing();
+  });
+
   /** Create a Stripe Checkout Session */
   registerHandler("license.createCheckoutSession", async (params) => {
-    const p = params as CreateCheckoutSessionParams;
+    const p = params as CreateCheckoutSessionWithCurrencyParams;
     if (!p?.email) throw new Error("email is required");
     if (!p?.employeeCount) throw new Error("employeeCount is required");
 
-    return createCheckoutSession(p.email, p.employeeCount);
+    return createCheckoutSession(p.email, p.employeeCount, p.currency);
   });
 
   /** Poll a Stripe Checkout Session for completion */

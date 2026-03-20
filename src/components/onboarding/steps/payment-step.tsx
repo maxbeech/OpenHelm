@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { CreditCard, ExternalLink, CheckCircle2, Loader2 } from "lucide-react";
-import type { EmployeeCount } from "@openhelm/shared";
+import type { EmployeeCount, StripePriceEntry } from "@openhelm/shared";
 import * as api from "@/lib/api";
 import { open } from "@tauri-apps/plugin-shell";
 
@@ -13,14 +13,70 @@ interface PaymentStepProps {
 
 const POLL_INTERVAL_MS = 3000;
 
+/** Map locale to preferred currency (lowercase ISO 4217) */
+function detectCurrency(): string {
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? navigator.language;
+    const region = locale.split("-")[1]?.toUpperCase();
+    if (region === "GB") return "gbp";
+    const euroCountries = [
+      "AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR",
+      "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PT", "SI", "SK",
+    ];
+    if (region && euroCountries.includes(region)) return "eur";
+  } catch {
+    // fallback below
+  }
+  return "usd";
+}
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  usd: "$",
+  gbp: "\u00a3",
+  eur: "\u20ac",
+};
+
+function formatPrice(entry: StripePriceEntry): string {
+  const symbol = CURRENCY_SYMBOLS[entry.currency] ?? entry.currency.toUpperCase() + " ";
+  const amount = (entry.unitAmount / 100).toFixed(entry.unitAmount % 100 === 0 ? 0 : 2);
+  return `${symbol}${amount}`;
+}
+
 export function PaymentStep({ email, employeeCount, onNext }: PaymentStepProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
   const [complete, setComplete] = useState(false);
+  const [priceDisplay, setPriceDisplay] = useState<string | null>(null);
+  const [currency] = useState(() => detectCurrency());
 
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch pricing from Stripe on mount
+  useEffect(() => {
+    let cancelled = false;
+    api.getPricing()
+      .then((result) => {
+        if (cancelled) return;
+        const match = result.prices.find(
+          (p) => p.currency === currency && p.interval === "month",
+        );
+        if (match) {
+          setPriceDisplay(`${formatPrice(match)} per user / month`);
+        } else {
+          // Fallback: try USD
+          const usd = result.prices.find(
+            (p) => p.currency === "usd" && p.interval === "month",
+          );
+          if (usd) setPriceDisplay(`${formatPrice(usd)} per user / month`);
+        }
+      })
+      .catch(() => {
+        // Pricing endpoint not available — leave null (hidden)
+      });
+    return () => { cancelled = true; };
+  }, [currency]);
 
   useEffect(() => {
     return () => {
@@ -50,13 +106,20 @@ export function PaymentStep({ email, employeeCount, onNext }: PaymentStepProps) 
     setCreating(true);
     setError(null);
     try {
-      const result = await api.createCheckoutSession({ email, employeeCount });
+      const result = await api.createCheckoutSession({
+        email,
+        employeeCount,
+        currency,
+      });
       setSessionId(result.sessionId);
-      // Open checkout in system browser
       await open(result.url);
       startPolling(result.sessionId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start checkout. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to start checkout. Please try again.",
+      );
     } finally {
       setCreating(false);
     }
@@ -89,9 +152,15 @@ export function PaymentStep({ email, employeeCount, onNext }: PaymentStepProps) 
       <div className="mt-6 w-full max-w-sm rounded-lg border p-4 text-left">
         <div className="flex items-baseline justify-between">
           <span className="font-semibold">Business</span>
-          <span className="font-display text-xl font-bold">£19 / $19 / €19</span>
+          {priceDisplay && (
+            <span className="font-display text-xl font-bold">
+              {priceDisplay.split(" per ")[0]}
+            </span>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground">per user / month</p>
+        {priceDisplay && (
+          <p className="text-xs text-muted-foreground">per user / month</p>
+        )}
         <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
           {[
             "Full commercial use license",

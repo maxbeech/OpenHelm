@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Pause, Play, Square } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,20 +31,17 @@ export function SchedulerControl() {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="xs"
-            onMouseDown={(e) => e.stopPropagation()}
-            className="gap-1.5"
-          >
+        <DropdownMenuTrigger
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-xs font-medium shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
             <span
               className={`inline-block size-2 rounded-full ${
                 isPaused ? "bg-amber-500" : "bg-emerald-500"
               }`}
             />
             {isPaused ? "Paused" : "Running"}
-          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
           {isPaused ? (

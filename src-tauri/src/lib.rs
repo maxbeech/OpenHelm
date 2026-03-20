@@ -198,12 +198,37 @@ pub fn run() {
                 let _ = std::fs::write(&pkg_json, r#"{"type":"commonjs"}"#);
             }
 
+            // In dev builds, use a separate data directory so dev and production
+            // instances don't share state (enables testing onboarding, etc.).
+            let openhelm_data_dir: Option<String> = {
+                #[cfg(debug_assertions)]
+                {
+                    if std::env::var("OPENHELM_DATA_DIR").is_ok() {
+                        std::env::var("OPENHELM_DATA_DIR").ok()
+                    } else if let Ok(home) = std::env::var("HOME") {
+                        Some(format!("{}/.openhelm-dev", home))
+                    } else {
+                        None
+                    }
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    std::env::var("OPENHELM_DATA_DIR").ok()
+                }
+            };
+
             let shell = app.shell();
-            let (mut rx, child) = shell
+            let mut cmd = shell
                 .sidecar("agent")
                 .expect("failed to create sidecar command")
                 .env("PATH", build_node_path(&bin_dir, &resource_dir))
-                .env("NODE_PATH", node_path_env)
+                .env("NODE_PATH", node_path_env);
+
+            if let Some(ref data_dir) = openhelm_data_dir {
+                cmd = cmd.env("OPENHELM_DATA_DIR", data_dir);
+            }
+
+            let (mut rx, child) = cmd
                 .spawn()
                 .expect("failed to spawn sidecar");
 

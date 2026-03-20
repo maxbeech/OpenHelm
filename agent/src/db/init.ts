@@ -6,7 +6,7 @@ import { homedir } from "os";
 import * as schema from "./schema.js";
 import { runMigrations } from "./migrator.js";
 
-const DATA_DIR = join(homedir(), ".openhelm");
+const DATA_DIR = process.env.OPENHELM_DATA_DIR || join(homedir(), ".openhelm");
 const DB_PATH = join(DATA_DIR, "openhelm.db");
 
 let dbInstance: BetterSQLite3Database<typeof schema> | null = null;

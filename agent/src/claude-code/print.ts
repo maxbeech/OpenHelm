@@ -33,6 +33,16 @@ export interface PrintConfig {
   onProgress?: (chunk: string) => void;
   /** Permission mode passed via --permission-mode (e.g. "default", "acceptEdits") */
   permissionMode?: string;
+  /**
+   * Fired with each text chunk as it streams from the assistant.
+   * Switches output to --output-format stream-json automatically.
+   */
+  onTextChunk?: (text: string) => void;
+  /**
+   * Fired when the assistant invokes a tool (name provided).
+   * Switches output to --output-format stream-json automatically.
+   */
+  onToolUse?: (toolName: string) => void;
 }
 
 export interface PrintResult {
@@ -81,11 +91,13 @@ export function runClaudeCodePrint(config: PrintConfig): Promise<PrintResult> {
     const stdoutChunks: string[] = [];
     const stderrChunks: string[] = [];
     let resolved = false;
+    const useStreamJson = !!(config.onTextChunk || config.onToolUse);
 
     const stdoutRl = createInterface({ input: child.stdout! });
     stdoutRl.on("line", (line) => {
       stdoutChunks.push(line);
       config.onProgress?.(line + "\n");
+      if (useStreamJson) parseStreamJsonLine(line, config);
     });
 
     const stderrRl = createInterface({ input: child.stderr! });
@@ -109,7 +121,13 @@ export function runClaudeCodePrint(config: PrintConfig): Promise<PrintResult> {
       resolved = true;
       clearTimeout(timeoutTimer);
 
-      const text = stdoutChunks.join("\n");
+      let text: string;
+      if (useStreamJson) {
+        // Extract final text from the result event
+        text = extractResultFromStreamJson(stdoutChunks);
+      } else {
+        text = stdoutChunks.join("\n");
+      }
 
       if (code === 0) {
         resolve({ text, exitCode: code });
@@ -133,11 +151,75 @@ export function runClaudeCodePrint(config: PrintConfig): Promise<PrintResult> {
   });
 }
 
+/** Parse a single stream-json line and fire the appropriate callbacks. */
+function parseStreamJsonLine(line: string, config: PrintConfig): void {
+  let event: Record<string, unknown>;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    return;
+  }
+
+  const type = event.type as string;
+  if (type !== "assistant") return;
+
+  const message = event.message as Record<string, unknown> | undefined;
+  const content = message?.content;
+  if (!Array.isArray(content)) return;
+
+  for (const block of content as Array<Record<string, unknown>>) {
+    if (block.type === "text" && typeof block.text === "string" && block.text) {
+      config.onTextChunk?.(block.text);
+    } else if (block.type === "tool_use" && typeof block.name === "string") {
+      config.onToolUse?.(block.name);
+    }
+  }
+}
+
+/** Extract the final result text from collected stream-json lines. */
+function extractResultFromStreamJson(lines: string[]): string {
+  for (const line of lines) {
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (event.type === "result" && typeof event.result === "string") {
+      return event.result;
+    }
+  }
+  // Fallback: concatenate all text blocks from assistant events
+  const parts: string[] = [];
+  for (const line of lines) {
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (event.type !== "assistant") continue;
+    const message = event.message as Record<string, unknown> | undefined;
+    const content = message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content as Array<Record<string, unknown>>) {
+      if (block.type === "text" && typeof block.text === "string") {
+        parts.push(block.text);
+      }
+    }
+  }
+  return parts.join("");
+}
+
 function buildPrintArgs(config: PrintConfig): string[] {
   const args: string[] = ["--print"];
 
-  // Output format
-  if (config.jsonSchema) {
+  // Output format — stream-json when streaming callbacks are provided
+  const useStreamJson = !!(config.onTextChunk || config.onToolUse);
+  if (useStreamJson) {
+    args.push("--output-format", "stream-json");
+    args.push("--verbose"); // required by CLI when combining --print with --output-format stream-json
+  } else if (config.jsonSchema) {
     args.push("--output-format", "json");
     args.push("--json-schema", JSON.stringify(config.jsonSchema));
   } else {

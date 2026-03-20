@@ -63,6 +63,8 @@ export default function App() {
     fetchMessages,
     addMessageToStore,
     updateMessageInStore,
+    appendStreamingText,
+    clearStreamingText,
   } = useChatStore();
   const {
     fetchItems: fetchInboxItems,
@@ -195,8 +197,12 @@ export default function App() {
       } else {
         addMessageToStore(msg);
       }
+      // Assistant message arrived — clear the streaming preview
+      if (msg.role === "assistant") {
+        clearStreamingText();
+      }
     },
-    [addMessageToStore, updateMessageInStore],
+    [addMessageToStore, updateMessageInStore, clearStreamingText],
   );
 
   const handleChatStatus = useCallback(
@@ -206,6 +212,8 @@ export default function App() {
         setStatusText(null);
         return;
       }
+      // Clear streaming preview on each new LLM iteration so stale chunks don't linger
+      clearStreamingText();
       if (data.status === "reading" && data.tools) {
         const label = data.tools
           .map((t) => t.replace(/_/g, " "))
@@ -217,7 +225,14 @@ export default function App() {
         setStatusText("Thinking...");
       }
     },
-    [],
+    [clearStreamingText],
+  );
+
+  const handleChatStreaming = useCallback(
+    (data: { text: string }) => {
+      appendStreamingText(data.text);
+    },
+    [appendStreamingText],
   );
 
   const handleChatActionResolved = useCallback(() => {
@@ -228,6 +243,7 @@ export default function App() {
 
   useAgentEvent("chat.messageCreated", handleChatMessageCreated);
   useAgentEvent("chat.status", handleChatStatus);
+  useAgentEvent("chat.streaming", handleChatStreaming);
   useAgentEvent("chat.actionResolved", handleChatActionResolved);
 
   // Inbox event handlers — respect active project filter
@@ -304,8 +320,11 @@ export default function App() {
         const saved = await api.getSetting("active_project");
         const savedId = saved?.value;
         const activeProj = projectsList.find((p) => p.id === savedId);
-        // null = All Projects (default); specific project if previously saved
-        setActiveProjectId(activeProj?.id ?? null);
+        // Use saved project, or if only one project exists default to it
+        // instead of "All Projects"
+        setActiveProjectId(
+          activeProj?.id ?? (projectsList.length === 1 ? projectsList[0].id : null),
+        );
       }
       // Fetch cross-project inbox right away
       fetchInboxItems();
@@ -366,7 +385,12 @@ export default function App() {
 
   const handleOnboardingComplete = useCallback(
     (projectId: string) => {
-      fetchProjects().then(() => {
+      fetchProjects().then(async () => {
+        // Persist the active project setting before transitioning so the
+        // initial-load effect always finds it on re-launch.
+        await api
+          .setSetting({ key: "active_project", value: projectId })
+          .catch(() => {});
         setActiveProjectId(projectId);
         setOnboardingComplete(true);
       });

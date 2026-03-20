@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Target, Briefcase, Play, AlertTriangle, Inbox, ChevronDown, ChevronUp } from "lucide-react";
+import { Target, Briefcase, Play, AlertTriangle, Inbox, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInboxStore } from "@/stores/inbox-store";
 import { useGoalStore } from "@/stores/goal-store";
@@ -21,7 +21,8 @@ export function InboxView() {
   const { jobs } = useJobStore();
   const { runs } = useRunStore();
   const { projects } = useProjectStore();
-  const { selectRun } = useAppStore();
+  const { selectRunPreserveView } = useAppStore();
+  const { triggerRun } = useRunStore();
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [dismissingAll, setDismissingAll] = useState(false);
 
@@ -158,7 +159,9 @@ export function InboxView() {
                 run={run}
                 jobs={jobs}
                 projects={projects}
-                onSelect={() => selectRun(run.id, run.jobId)}
+                onSelect={() => selectRunPreserveView(run.id)}
+                onRerun={() => triggerRun(run.jobId)}
+                onFreshRun={() => triggerRun(run.jobId)}
               />
             ))}
           </div>
@@ -207,22 +210,26 @@ function RecentRunRow({
   jobs,
   projects,
   onSelect,
+  onRerun,
+  onFreshRun,
 }: {
   run: Run;
   jobs: { id: string; name: string; projectId: string }[];
   projects: { id: string; name: string }[];
   onSelect: () => void;
+  onRerun: () => void;
+  onFreshRun: () => void;
 }) {
   const job = jobs.find((j) => j.id === run.jobId);
   const project = job ? projects.find((p) => p.id === job.projectId) : null;
   const timeAgo = formatRelativeTime(run.createdAt);
 
   return (
-    <button
-      onClick={onSelect}
-      className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
-    >
-      <div className="min-w-0 flex-1">
+    <div className="group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent">
+      <button
+        onClick={onSelect}
+        className="min-w-0 flex-1 text-left"
+      >
         <span className="truncate font-medium">
           {job?.name ?? "Unknown Job"}
         </span>
@@ -231,12 +238,29 @@ function RecentRunRow({
             {project.name}
           </span>
         )}
+      </button>
+      {/* Hover action CTAs */}
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          onClick={(e) => { e.stopPropagation(); onRerun(); }}
+          title="Retry — pick up where it left off"
+          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          <RotateCcw className="size-3.5" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onFreshRun(); }}
+          title="Fresh run"
+          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          <Play className="size-3.5" />
+        </button>
       </div>
       <RunStatusBadge status={run.status} />
       <span className="shrink-0 text-[11px] text-muted-foreground">
         {timeAgo}
       </span>
-    </button>
+    </div>
   );
 }
 

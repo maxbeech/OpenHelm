@@ -234,4 +234,125 @@ describe("runClaudeCodePrint", () => {
     simulateProcess(['{"answer":"ok"}'], [], 0);
     await promise;
   });
+
+  it("should use --output-format stream-json when onTextChunk is provided", async () => {
+    const onTextChunk = vi.fn();
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      onTextChunk,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const spawnArgs = (spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+    expect(spawnArgs[spawnArgs.indexOf("--output-format") + 1]).toBe("stream-json");
+
+    const resultEvent = JSON.stringify({ type: "result", result: "hello" });
+    simulateProcess([resultEvent], [], 0);
+    const result = await promise;
+    expect(result.text).toBe("hello");
+  });
+
+  it("should use --output-format stream-json when onToolUse is provided", async () => {
+    const onToolUse = vi.fn();
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      onToolUse,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const spawnArgs = (spawn as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+    expect(spawnArgs[spawnArgs.indexOf("--output-format") + 1]).toBe("stream-json");
+
+    const resultEvent = JSON.stringify({ type: "result", result: "done" });
+    simulateProcess([resultEvent], [], 0);
+    await promise;
+  });
+
+  it("should fire onTextChunk for text blocks in assistant events", async () => {
+    const onTextChunk = vi.fn();
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      onTextChunk,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const assistantEvent = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "text", text: "Hello world" }] },
+    });
+    const resultEvent = JSON.stringify({ type: "result", result: "Hello world" });
+    simulateProcess([assistantEvent, resultEvent], [], 0);
+
+    await promise;
+    expect(onTextChunk).toHaveBeenCalledWith("Hello world");
+  });
+
+  it("should fire onToolUse for tool_use blocks in assistant events", async () => {
+    const onToolUse = vi.fn();
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      onToolUse,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const assistantEvent = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "tool_use", name: "read_file", id: "abc" }] },
+    });
+    const resultEvent = JSON.stringify({ type: "result", result: "" });
+    simulateProcess([assistantEvent, resultEvent], [], 0);
+
+    await promise;
+    expect(onToolUse).toHaveBeenCalledWith("read_file");
+  });
+
+  it("should extract final text from result event in stream-json mode", async () => {
+    const onTextChunk = vi.fn();
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      onTextChunk,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const assistantEvent = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "text", text: "partial" }] },
+    });
+    const resultEvent = JSON.stringify({ type: "result", result: "final full text" });
+    simulateProcess([assistantEvent, resultEvent], [], 0);
+
+    const result = await promise;
+    // Final text comes from result event, not the partial assistant events
+    expect(result.text).toBe("final full text");
+  });
+
+  it("should fall back to concatenated assistant text if no result event", async () => {
+    const onTextChunk = vi.fn();
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      onTextChunk,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const assistantEvent = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "text", text: "fallback text" }] },
+    });
+    simulateProcess([assistantEvent], [], 0);
+
+    const result = await promise;
+    expect(result.text).toBe("fallback text");
+  });
 });

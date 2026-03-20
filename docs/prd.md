@@ -576,7 +576,7 @@ The product needs a name that:
 
 **Top candidates:**
 
-- **OpenHelm** — suggests coordinating many things toward a unified outcome; the "Open" prefix signals open source; has good visual potential (conductor imagery); `openhelm.dev` likely available
+- **OpenHelm** — suggests coordinating many things toward a unified outcome; the "Open" prefix signals open source; has good visual potential (conductor imagery); `openhelm.ai`
 - **Foreman** — a foreman coordinates workers and is accountable for outcomes; hints at the "you are the overlord" framing; `foremanapp.com` or `getforeman.dev`
 - **OpenMaestro** — similar to Orchestra but more personal; suggests expertise and direction
 - **Groundwork** — suggests laying the foundation for ongoing work; less AI-specific which is a differentiator

@@ -59,7 +59,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 z-10"
       />
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+      <div data-tauri-drag-region className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
         <h3 className="text-sm font-semibold">Chat</h3>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (

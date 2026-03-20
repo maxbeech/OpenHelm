@@ -1,16 +1,7 @@
-import { useState, useRef } from "react";
-import { Send, Settings2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, Settings2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   useChatStore,
   CHAT_MODELS,
@@ -28,7 +19,9 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [value, setValue] = useState("");
+  const [configOpen, setConfigOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const configRef = useRef<HTMLDivElement>(null);
   const {
     chatModel, chatEffort, chatPermissionMode,
     setChatModel, setChatEffort, setChatPermissionMode,
@@ -49,12 +42,50 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   };
 
+  // Close config panel on outside click
+  useEffect(() => {
+    if (!configOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (configRef.current && !configRef.current.contains(e.target as Node)) {
+        setConfigOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [configOpen]);
+
   const modelLabel = CHAT_MODELS.find((m) => m.value === chatModel)?.label ?? chatModel;
   const effortLabel = CHAT_EFFORTS.find((e) => e.value === chatEffort)?.label ?? chatEffort;
   const permLabel = CHAT_PERMISSION_MODES.find((p) => p.value === chatPermissionMode)?.label ?? chatPermissionMode;
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border p-3">
+    <div className="relative flex flex-col gap-2 border-t border-border p-3" ref={configRef}>
+      {/* Config panel — opens above the settings bar */}
+      {configOpen && (
+        <div className="absolute bottom-full left-0 right-0 z-50 mb-0 border-t border-border bg-popover p-2 text-popover-foreground shadow-md">
+          <RadioSection
+            label="Model"
+            options={CHAT_MODELS}
+            value={chatModel}
+            onChange={(v) => setChatModel(v as ChatModelValue)}
+          />
+          <div className="my-1.5 h-px bg-border" />
+          <RadioSection
+            label="Effort"
+            options={CHAT_EFFORTS}
+            value={chatEffort}
+            onChange={(v) => setChatEffort(v as ChatEffortValue)}
+          />
+          <div className="my-1.5 h-px bg-border" />
+          <RadioSection
+            label="Tool Access"
+            options={CHAT_PERMISSION_MODES}
+            value={chatPermissionMode}
+            onChange={(v) => setChatPermissionMode(v as ChatPermissionModeValue)}
+          />
+        </div>
+      )}
+
       {/* Text input row */}
       <div className="flex items-end gap-2">
         <Textarea
@@ -78,48 +109,56 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       </div>
       {/* Compact settings bar */}
       <div className="flex items-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground">
-              <Settings2 className="size-3" />
-              <span>{modelLabel}</span>
-              <span className="text-muted-foreground/50">·</span>
-              <span>{effortLabel}</span>
-              <span className="text-muted-foreground/50">·</span>
-              <span>{permLabel}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuLabel className="text-xs">Model</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={chatModel} onValueChange={(v) => setChatModel(v as ChatModelValue)}>
-              {CHAT_MODELS.map((m) => (
-                <DropdownMenuRadioItem key={m.value} value={m.value} className="text-xs">
-                  {m.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs">Effort</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={chatEffort} onValueChange={(v) => setChatEffort(v as ChatEffortValue)}>
-              {CHAT_EFFORTS.map((e) => (
-                <DropdownMenuRadioItem key={e.value} value={e.value} className="text-xs">
-                  {e.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs">Tool Access</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={chatPermissionMode} onValueChange={(v) => setChatPermissionMode(v as ChatPermissionModeValue)}>
-              {CHAT_PERMISSION_MODES.map((p) => (
-                <DropdownMenuRadioItem key={p.value} value={p.value} className="text-xs">
-                  <span>{p.label}</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground">{p.description}</span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          type="button"
+          onClick={() => setConfigOpen((o) => !o)}
+          className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Settings2 className="size-3" />
+          <span>{modelLabel}</span>
+          <span className="opacity-40">·</span>
+          <span>{effortLabel}</span>
+          <span className="opacity-40">·</span>
+          <span>{permLabel}</span>
+        </button>
       </div>
+    </div>
+  );
+}
+
+/** A labelled group of radio-style option buttons. */
+function RadioSection<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { value: T; label: string; description?: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs transition-colors hover:bg-accent"
+        >
+          <span className="flex size-3.5 items-center justify-center">
+            {opt.value === value && <Check className="size-3 text-primary" />}
+          </span>
+          <span>{opt.label}</span>
+          {opt.description && (
+            <span className="ml-auto text-[10px] text-muted-foreground">{opt.description}</span>
+          )}
+        </button>
+      ))}
     </div>
   );
 }

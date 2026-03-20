@@ -66,11 +66,13 @@ export function useUpdater(): UseUpdaterReturn {
         setState((s) => ({ ...s, status: "not-available", currentVersion }));
       }
     } catch (err) {
-      setState((s) => ({
-        ...s,
-        status: "error",
-        error: err instanceof Error ? err.message : String(err),
-      }));
+      const msg = err instanceof Error ? err.message : String(err);
+      // Treat "no manifest" / network errors as "not available" — not a user-visible error
+      if (msg.includes("release JSON") || msg.includes("404") || msg.includes("fetch")) {
+        setState((s) => ({ ...s, status: "not-available" }));
+      } else {
+        setState((s) => ({ ...s, status: "error", error: msg }));
+      }
     } finally {
       checkingRef.current = false;
     }

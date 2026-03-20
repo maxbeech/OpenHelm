@@ -102,6 +102,14 @@ export async function handleChatMessage(
       disableTools: false,
       workingDirectory: project.directoryPath,
       permissionMode: permissionMode || "plan",
+      onTextChunk: (text) => {
+        // Strip <tool_call> XML blocks from the streaming preview — they're internal
+        const stripped = text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "").trimEnd();
+        if (stripped) emit("chat.streaming", { text: stripped });
+      },
+      onToolUse: (toolName) => {
+        emit("chat.status", { status: "reading", tools: [toolName] });
+      },
     });
     const parsed = parseLlmResponse(rawResponse);
     finalTextSegments = parsed.textSegments;
@@ -114,7 +122,8 @@ export async function handleChatMessage(
 
     allToolCalls.push(...parsed.toolCalls);
 
-    // Execute read tools immediately
+    // Execute read tools immediately (status already emitted via onToolUse for native tools;
+    // this covers app-level XML tool calls)
     if (readCalls.length > 0) {
       emit("chat.status", { status: "reading", tools: readCalls.map((c) => c.tool) });
     }

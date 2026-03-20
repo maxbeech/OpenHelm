@@ -48,11 +48,12 @@ import type {
   EmailVerificationResult,
   CheckEmailVerificationParams,
   EmailVerificationStatus,
-  CreateCheckoutSessionParams,
+  CreateCheckoutSessionWithCurrencyParams,
   CheckoutSessionResult,
   PollCheckoutSessionParams,
   PollCheckoutSessionResult,
   CustomerPortalResult,
+  PricingResult,
 } from "@openhelm/shared";
 
 // ─── Projects ───
@@ -428,8 +429,12 @@ export function checkEmailVerification(
   );
 }
 
+export function getPricing(): Promise<PricingResult> {
+  return agentClient.request<PricingResult>("license.getPricing");
+}
+
 export function createCheckoutSession(
-  params: CreateCheckoutSessionParams,
+  params: CreateCheckoutSessionWithCurrencyParams,
 ): Promise<CheckoutSessionResult> {
   return agentClient.request<CheckoutSessionResult>(
     "license.createCheckoutSession",

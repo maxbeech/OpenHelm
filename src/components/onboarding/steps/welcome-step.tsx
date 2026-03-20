@@ -47,6 +47,7 @@ export function WelcomeStep({ onNext }: { onNext: () => void }) {
           id="analytics"
           checked={analyticsEnabled}
           onCheckedChange={(checked) => handleAnalyticsChange(!!checked)}
+          className="mt-0.5"
         />
         <label htmlFor="analytics" className="cursor-pointer">
           <span className="text-sm font-medium">Help improve OpenHelm</span>

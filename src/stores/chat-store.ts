@@ -34,6 +34,8 @@ interface ChatState {
   error: string | null;
   panelOpen: boolean;
   statusText: string | null;
+  /** Incrementally accumulated text from chat.streaming events. */
+  streamingText: string;
   chatModel: ChatModelValue;
   chatEffort: ChatEffortValue;
   chatPermissionMode: ChatPermissionModeValue;
@@ -42,6 +44,8 @@ interface ChatState {
   openPanel: () => void;
   closePanel: () => void;
   setStatusText: (text: string | null) => void;
+  appendStreamingText: (text: string) => void;
+  clearStreamingText: () => void;
   setChatModel: (model: ChatModelValue) => void;
   setChatEffort: (effort: ChatEffortValue) => void;
   setChatPermissionMode: (mode: ChatPermissionModeValue) => void;
@@ -63,6 +67,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   panelOpen: false,
   statusText: null,
+  streamingText: "",
   chatModel: "sonnet",
   chatEffort: "medium",
   chatPermissionMode: "plan",
@@ -71,6 +76,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   openPanel: () => set({ panelOpen: true }),
   closePanel: () => set({ panelOpen: false }),
   setStatusText: (text) => set({ statusText: text }),
+  appendStreamingText: (text) => set((s) => ({ streamingText: s.streamingText + text })),
+  clearStreamingText: () => set({ streamingText: "" }),
   setChatModel: (model) => set({ chatModel: model }),
   setChatEffort: (effort) => set({ chatEffort: effort }),
   setChatPermissionMode: (mode) => set({ chatPermissionMode: mode }),

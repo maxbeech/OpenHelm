@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChatMessageBubble } from "./chat-message-bubble";
 import { useChatStore } from "@/stores/chat-store";
 import type { ChatMessage } from "@openhelm/shared";
@@ -12,12 +14,13 @@ interface ChatMessageListProps {
 
 export function ChatMessageList({ messages, sending, projectId }: ChatMessageListProps) {
   const statusText = useChatStore((s) => s.statusText);
+  const streamingText = useChatStore((s) => s.streamingText);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or streaming chunks
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, sending]);
+  }, [messages.length, sending, streamingText]);
 
   if (messages.length === 0 && !sending) {
     return (
@@ -36,12 +39,27 @@ export function ChatMessageList({ messages, sending, projectId }: ChatMessageLis
         <ChatMessageBubble key={msg.id} message={msg} projectId={projectId} />
       ))}
       {sending && (
-        <div className="flex items-start gap-2">
-          <div className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
-            {statusText ?? "Thinking..."}
+        <>
+          {/* Status indicator */}
+          <div className="flex items-start gap-2">
+            <div className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
+              {statusText ?? "Thinking..."}
+            </div>
           </div>
-        </div>
+          {/* Streaming text preview — shown as Claude generates the response */}
+          {streamingText && (
+            <div className="flex flex-col items-start">
+              <div className="max-w-[85%] rounded-xl bg-muted px-3 py-2 text-sm text-foreground opacity-80">
+                <div className="markdown-content break-words leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingText}</ReactMarkdown>
+                </div>
+                {/* Blinking cursor to signal live generation */}
+                <span className="inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-foreground/50" />
+              </div>
+            </div>
+          )}
+        </>
       )}
       <div ref={bottomRef} />
     </div>

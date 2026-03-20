@@ -810,11 +810,6 @@ export interface EmailVerificationStatus {
   verified: boolean;
 }
 
-export interface CreateCheckoutSessionParams {
-  email: string;
-  employeeCount: EmployeeCount;
-}
-
 export interface CheckoutSessionResult {
   sessionId: string;
   url: string;
@@ -832,4 +827,22 @@ export interface PollCheckoutSessionResult {
 
 export interface CustomerPortalResult {
   url: string;
+}
+
+/** A single price entry from Stripe */
+export interface StripePriceEntry {
+  currency: string; // lowercase ISO 4217 e.g. "usd", "gbp", "eur"
+  unitAmount: number; // amount in minor units (cents/pence)
+  interval: "month" | "year";
+}
+
+/** Result from the pricing endpoint */
+export interface PricingResult {
+  prices: StripePriceEntry[];
+}
+
+export interface CreateCheckoutSessionWithCurrencyParams {
+  email: string;
+  employeeCount: EmployeeCount;
+  currency?: string; // preferred currency ISO code
 }
