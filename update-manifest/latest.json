@@ -1,15 +1,15 @@
 {
-  "version": "0.1.11",
-  "notes": "See https://github.com/openhelm/openhelm/releases/tag/v0.1.11 for details.",
-  "pub_date": "2026-03-20T20:15:51Z",
+  "version": "0.1.12",
+  "notes": "See https://github.com/openhelm/openhelm/releases/tag/v0.1.12 for details.",
+  "pub_date": "2026-03-22T20:08:09Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU2gvR2hmaVNONnMyZjBMbkxGaXJxMFpVc0ptTHZKc0FvalYvdmxnWHhOV1NNVk1ZcFArS3lQQmMzSEp5VVNQUk1lbjlYbVZOeFNFNzdSOXpXZWFnRndvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0MDM3NjgxCWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpUa2d4TW9vT0RGcG8rb1dNK1kzSlRWdzZVYWVmWEl3WHVPVm1wNURJRjkrQU82VnNVZUY3UmdJL3l3NUtPVUdwQmUzVXpva3pJRVFwT0FobENEQmpCUT09Cg==",
-      "url": "https://github.com/openhelm/openhelm/releases/download/v0.1.11/OpenHelm_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU3Y2UE5kdUVxWFZ0a0Z3QyttUjlUMEthSU53bkozNXBMdVBTTHBCczE2Sll0YUorNURrWFRaSm1MR05ZMzhMQms2TU1RcGNLYnRkMFpoRjRxN01KSWdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0MjA5OTU0CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5nego5RFVaNERRVWlSVk5mdVpPa2VpR2JiRDZnSEplaUYvWHhibFMwMTgzTjNIVERlL0NiaFl5U1FrdFVxYnBRL2x2Qkk3SFhpMXRFaVVsTTVpZGhUVHhBdz09Cg==",
+      "url": "https://github.com/openhelm/openhelm/releases/download/v0.1.12/OpenHelm_aarch64.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU3NCaW1GR3VSYVJmMk5LcExXbHI5cGdVSWVQb0lrMjhDRmV2Y2p0U2tLTHlPQ0tlK0ZvY3RRSHNpendTbCt0RkIzSmR3Y1BrTi9DcjNZa3d4UWIxMkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0MDM3NzE4CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpjby90QmxvZDQrbDlpQUQzQ3o3QnBMMHF5OEUwRkJHcy85TVVkdVJFWTdHY1FndFdReWR5QmpFeGlwcnpjcHFjS05RM1dUUEdlKzJsaGhYbjdSb1BEQT09Cg==",
-      "url": "https://github.com/openhelm/openhelm/releases/download/v0.1.11/OpenHelm_x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU3E0RjFVSWVYS05MVEZMdWtkU09FaU9uNnl4NjNFNEpRU1ZPYnM0ZlVNZU9aK1RxWGpZeEU0aWExZ0Y4WCtPb0x6ZlUwZnhwQ2xwYkpUR05XR3g0U0FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0MjEwMDU0CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpuY2xIU080Z2JtczRYQXBTKzhUbVJvWllXN1UvNTB3MnJWSkNKTHp1ang2WWVHaHlKOU9tUmNkemNwMmowSmJLZWxsd0JONk1CNlVCTm0vNTRTaTFDQT09Cg==",
+      "url": "https://github.com/openhelm/openhelm/releases/download/v0.1.12/OpenHelm_x64.app.tar.gz"
     }
   }
 }
