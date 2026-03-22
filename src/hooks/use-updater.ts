@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import { useUpdaterStore } from "@/stores/updater-store";
 import { agentClient } from "@/lib/agent-client";
 import type { SchedulerStatus } from "@openhelm/shared";
@@ -130,6 +131,8 @@ export function useUpdater(): UseUpdaterReturn {
       });
       setState((s) => ({ ...s, status: "ready" }));
       await update.install();
+      // Relaunch the app after successful install
+      await invoke("relaunch_app");
     } catch (err) {
       // Cancel the update preparation since install failed
       try {

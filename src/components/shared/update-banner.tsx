@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { UpdaterStatus } from "@/hooks/use-updater";
@@ -133,7 +134,7 @@ export function UpdateBanner({
             size="xs"
             className="h-6 px-2 text-xs"
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={onInstall}
+            onClick={() => void invoke("relaunch_app")}
           >
             Relaunch Now
           </Button>

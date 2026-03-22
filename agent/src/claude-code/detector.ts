@@ -267,9 +267,11 @@ export async function checkClaudeCodeHealth(): Promise<ClaudeCodeHealthResult> {
     const msg = err instanceof Error ? err.message : String(err);
     const stderr = (err as { stderr?: string })?.stderr?.trim() ?? "";
 
-    // Detect common auth-related error patterns
+    // Detect common auth-related error patterns.
+    // Only check stderr (not msg) — msg includes command args like
+    // "--no-session-persistence" which cause false positives.
     const isAuthError =
-      /not.*log.*in|auth|unauthenticated|unauthorized|expired|sign.?in|session/i.test(msg + stderr);
+      /not\s+logged\s+in|unauthenticated|unauthorized|session\s+expired|sign[\s-]?in\s+required|login\s+required|please\s+(log|sign)\s+in/i.test(stderr);
 
     return {
       healthy: false,

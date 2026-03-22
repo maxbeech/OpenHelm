@@ -133,6 +133,37 @@ describe("detectClaudeCode", () => {
   });
 });
 
+describe("auth error regex", () => {
+  // This regex must match real auth errors but NOT match incidental
+  // occurrences of words like "session" in command arguments.
+  const authRegex =
+    /not\s+logged\s+in|unauthenticated|unauthorized|session\s+expired|sign[\s-]?in\s+required|login\s+required|please\s+(log|sign)\s+in/i;
+
+  it("matches genuine auth error messages", () => {
+    expect(authRegex.test("Not logged in")).toBe(true);
+    expect(authRegex.test("Error: unauthenticated")).toBe(true);
+    expect(authRegex.test("401 Unauthorized")).toBe(true);
+    expect(authRegex.test("Session expired, please re-authenticate")).toBe(true);
+    expect(authRegex.test("Sign-in required")).toBe(true);
+    expect(authRegex.test("Login required")).toBe(true);
+    expect(authRegex.test("Please log in to continue")).toBe(true);
+    expect(authRegex.test("Please sign in")).toBe(true);
+  });
+
+  it("does NOT match --no-session-persistence in error messages", () => {
+    const timeoutMsg =
+      "Command timed out: claude --print --no-session-persistence --tools '' 'Reply with OK'";
+    expect(authRegex.test(timeoutMsg)).toBe(false);
+  });
+
+  it("does NOT match incidental substrings like 'auth' or 'session'", () => {
+    expect(authRegex.test("authentication successful")).toBe(false);
+    expect(authRegex.test("session started")).toBe(false);
+    expect(authRegex.test("authorization granted")).toBe(false);
+    expect(authRegex.test("expired timeout")).toBe(false);
+  });
+});
+
 describe("checkClaudeCodeHealth", () => {
   it("returns healthy=false when no claude_code_path is configured", async () => {
     // The test DB has no settings by default (unless detectClaudeCode populated it)

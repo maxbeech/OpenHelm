@@ -2,11 +2,18 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { UpdateBanner } from "./update-banner";
 
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+}));
+
 const baseProps = {
   updateVersion: null,
   downloadProgress: null,
   error: null,
+  activeRunCount: 0,
   onInstall: vi.fn(),
+  onForceInstall: vi.fn(),
+  onWaitAndInstall: vi.fn(),
   onDismiss: vi.fn(),
   onRetry: vi.fn(),
 };
@@ -76,13 +83,13 @@ describe("UpdateBanner", () => {
     expect(screen.getByRole("progressbar")).toBeTruthy();
   });
 
-  it("shows Relaunch Now when ready", () => {
-    const onInstall = vi.fn();
+  it("shows Relaunch Now when ready", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
     render(
-      <UpdateBanner {...baseProps} status="ready" onInstall={onInstall} />,
+      <UpdateBanner {...baseProps} status="ready" />,
     );
     fireEvent.click(screen.getByRole("button", { name: /relaunch/i }));
-    expect(onInstall).toHaveBeenCalledOnce();
+    expect(invoke).toHaveBeenCalledWith("relaunch_app");
   });
 
   it("shows error message and Retry link when error", () => {

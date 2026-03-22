@@ -22,7 +22,17 @@ export function ApplicationSection() {
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
 
   const { setShouldCheckUpdates } = useUpdaterStore();
-  const { status, updateVersion, error, checkForUpdate, installUpdate } = useUpdater();
+  const {
+    status,
+    updateVersion,
+    error,
+    activeRunCount,
+    checkForUpdate,
+    installUpdate,
+    forceInstallUpdate,
+    waitAndInstall,
+    dismissUpdate,
+  } = useUpdater();
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
@@ -163,8 +173,40 @@ export function ApplicationSection() {
               </Button>
             </div>
           )}
+          {status === "confirming" && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-muted-foreground">
+                {activeRunCount} active {activeRunCount === 1 ? "run" : "runs"} — runs will auto-resume after update.
+              </p>
+              <Button size="xs" className="h-6 px-2 text-xs" onClick={() => void forceInstallUpdate()}>
+                Update Now
+              </Button>
+              <Button variant="outline" size="xs" className="h-6 px-2 text-xs" onClick={waitAndInstall}>
+                Wait for Runs
+              </Button>
+              <Button variant="ghost" size="xs" className="h-6 px-2 text-xs" onClick={dismissUpdate}>
+                Later
+              </Button>
+            </div>
+          )}
+          {status === "waiting" && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                Waiting for {activeRunCount} {activeRunCount === 1 ? "run" : "runs"} to finish…
+              </p>
+              <Button size="xs" className="h-6 px-2 text-xs" onClick={() => void forceInstallUpdate()}>
+                Update Now
+              </Button>
+              <Button variant="ghost" size="xs" className="h-6 px-2 text-xs" onClick={dismissUpdate}>
+                Cancel
+              </Button>
+            </div>
+          )}
           {status === "downloading" && (
             <p className="text-xs text-muted-foreground">Downloading update…</p>
+          )}
+          {status === "ready" && (
+            <p className="text-xs text-muted-foreground">Installing update… relaunching shortly.</p>
           )}
           {status === "error" && (
             <p className="text-xs text-destructive">{error ?? "Update check failed"}</p>
