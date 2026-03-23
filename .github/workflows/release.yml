@@ -219,16 +219,16 @@ jobs:
           import json, sys
           manifest = {
             'version': sys.argv[1],
-            'notes': 'See https://github.com/openhelm/openhelm/releases/tag/' + sys.argv[4] + ' for details.',
+            'notes': 'See https://github.com/maxbeech/OpenHelm/releases/tag/' + sys.argv[4] + ' for details.',
             'pub_date': '$(date -u +%Y-%m-%dT%H:%M:%SZ)',
             'platforms': {
               'darwin-aarch64': {
                 'signature': sys.argv[2],
-                'url': 'https://github.com/openhelm/openhelm/releases/download/' + sys.argv[4] + '/OpenHelm_aarch64.app.tar.gz'
+                'url': 'https://github.com/maxbeech/OpenHelm/releases/download/' + sys.argv[4] + '/OpenHelm_aarch64.app.tar.gz'
               },
               'darwin-x86_64': {
                 'signature': sys.argv[3],
-                'url': 'https://github.com/openhelm/openhelm/releases/download/' + sys.argv[4] + '/OpenHelm_x64.app.tar.gz'
+                'url': 'https://github.com/maxbeech/OpenHelm/releases/download/' + sys.argv[4] + '/OpenHelm_x64.app.tar.gz'
               }
             }
           }
