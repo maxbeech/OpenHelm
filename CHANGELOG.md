@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.14] - 2026-03-23
 
 ### Fixed
 - Fix chat messages leaking across projects when switching: all chat events now include `projectId` and frontend filters events by active project; transient state (status text, streaming preview) is cleared on project switch
