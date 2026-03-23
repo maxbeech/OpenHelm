@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Fix chat messages leaking across projects when switching: all chat events now include `projectId` and frontend filters events by active project; transient state (status text, streaming preview) is cleared on project switch
+- Fix AI referencing wrong project's data in chat: context entities (goals, jobs, runs) are now validated against the current project; stale cross-project IDs from frontend selection state are discarded
+- Fix blank AI responses in chat when LLM returns only tool calls: handler now provides contextual fallback content; bubble component gracefully handles empty content with pending actions
+
 ## [0.1.13] - 2026-03-22
 
 ### Fixed

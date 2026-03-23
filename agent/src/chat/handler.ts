@@ -14,6 +14,7 @@ import {
   getMessage,
   updateMessagePendingActions,
   listMessagesForProject,
+  getProjectIdForMessage,
 } from "../db/queries/conversations.js";
 import { buildChatSystemPromptAsync } from "./system-prompt.js";
 import { parseLlmResponse, buildTextResponse } from "./response-parser.js";
@@ -70,16 +71,24 @@ export async function handleChatMessage(
   if (!project) throw new Error(`Project not found: ${projectId}`);
 
   // Resolve context entities for the system prompt
-  const viewingGoal = context?.viewingGoalId ? getGoal(context.viewingGoalId) : null;
-  const viewingJob = context?.viewingJobId ? getJob(context.viewingJobId) : null;
-  const viewingRun = context?.viewingRunId ? getRun(context.viewingRunId) : null;
+  let viewingGoal = context?.viewingGoalId ? getGoal(context.viewingGoalId) : null;
+  let viewingJob = context?.viewingJobId ? getJob(context.viewingJobId) : null;
+  let viewingRun = context?.viewingRunId ? getRun(context.viewingRunId) : null;
+
+  // Discard context entities that don't belong to this project (stale cross-project refs)
+  if (viewingGoal && viewingGoal.projectId !== projectId) viewingGoal = null;
+  if (viewingJob && viewingJob.projectId !== projectId) viewingJob = null;
+  if (viewingRun) {
+    const runJob = getJob(viewingRun.jobId);
+    if (!runJob || runJob.projectId !== projectId) viewingRun = null;
+  }
 
   const conv = getOrCreateConversation(projectId);
   const history = listMessagesForProject(projectId, MAX_HISTORY_MESSAGES);
 
   // Store user message
   const userMsg = createMessage({ conversationId: conv.id, role: "user", content });
-  emit("chat.messageCreated", userMsg);
+  emit("chat.messageCreated", { ...userMsg, projectId });
 
   const systemPrompt = await buildChatSystemPromptAsync({ project, viewingGoal, viewingJob, viewingRun });
 
@@ -91,7 +100,7 @@ export async function handleChatMessage(
   let finalTextSegments: string[] = [];
 
   for (let iter = 0; iter < MAX_TOOL_LOOP_ITERATIONS; iter++) {
-    emit("chat.status", { status: iter === 0 ? "thinking" : "analyzing" });
+    emit("chat.status", { status: iter === 0 ? "thinking" : "analyzing", projectId });
     const userMessage = buildLlmUserMessage(history, content, toolExchange || undefined);
     const rawResponse = await callLlmViaCli({
       model: "chat",
@@ -105,10 +114,10 @@ export async function handleChatMessage(
       onTextChunk: (text) => {
         // Strip <tool_call> XML blocks from the streaming preview — they're internal
         const stripped = text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "").trimEnd();
-        if (stripped) emit("chat.streaming", { text: stripped });
+        if (stripped) emit("chat.streaming", { text: stripped, projectId });
       },
       onToolUse: (toolName) => {
-        emit("chat.status", { status: "reading", tools: [toolName] });
+        emit("chat.status", { status: "reading", tools: [toolName], projectId });
       },
     });
     const parsed = parseLlmResponse(rawResponse);
@@ -125,11 +134,11 @@ export async function handleChatMessage(
     // Execute read tools immediately (status already emitted via onToolUse for native tools;
     // this covers app-level XML tool calls)
     if (readCalls.length > 0) {
-      emit("chat.status", { status: "reading", tools: readCalls.map((c) => c.tool) });
+      emit("chat.status", { status: "reading", tools: readCalls.map((c) => c.tool), projectId });
     }
     const readResults: ChatToolResult[] = readCalls.map((call) => {
       const result = executeReadTool(call, projectId);
-      emit("chat.toolExecuted", { callId: call.id, tool: call.tool, result: result.result });
+      emit("chat.toolExecuted", { callId: call.id, tool: call.tool, result: result.result, projectId });
       return result;
     });
     allToolResults.push(...readResults);
@@ -166,22 +175,32 @@ export async function handleChatMessage(
     if (readResults.length === 0) break;
   }
 
-  emit("chat.status", { status: "done" });
+  emit("chat.status", { status: "done", projectId });
   const finalContent = buildTextResponse(finalTextSegments);
+
+  // Fallback: if the LLM produced no text (only tool calls), provide a contextual summary
+  let displayContent = finalContent;
+  if (!displayContent) {
+    if (pendingActions.length > 0) {
+      displayContent = "Based on your request, here's what I'd suggest:";
+    } else if (allToolCalls.length > 0) {
+      displayContent = "I looked into this for you.";
+    }
+  }
 
   // Store assistant message
   const assistantMsg = createMessage({
     conversationId: conv.id,
     role: "assistant",
-    content: finalContent,
+    content: displayContent,
     toolCalls: allToolCalls.length > 0 ? allToolCalls : undefined,
     toolResults: allToolResults.length > 0 ? allToolResults : undefined,
     pendingActions: pendingActions.length > 0 ? pendingActions : undefined,
   });
 
-  emit("chat.messageCreated", assistantMsg);
+  emit("chat.messageCreated", { ...assistantMsg, projectId });
   if (pendingActions.length > 0) {
-    emit("chat.actionPending", { messageId: assistantMsg.id, actions: pendingActions });
+    emit("chat.actionPending", { messageId: assistantMsg.id, actions: pendingActions, projectId });
   }
 
   return [userMsg, assistantMsg];
@@ -224,13 +243,14 @@ export async function handleActionApproval(
 
   const updatedMsg = updateMessagePendingActions(messageId, updated);
 
-  emit("chat.actionResolved", { messageId, callId, status: "approved" });
+  emit("chat.actionResolved", { messageId, callId, status: "approved", projectId });
   return updatedMsg;
 }
 
 export function handleActionRejection(messageId: string, callId: string): ChatMessage {
   const msg = getMessage(messageId);
   if (!msg) throw new Error(`Message not found: ${messageId}`);
+  const projectId = getProjectIdForMessage(messageId);
 
   const pending = msg.pendingActions ?? [];
   const action = pending.find((a) => a.callId === callId);
@@ -239,7 +259,7 @@ export function handleActionRejection(messageId: string, callId: string): ChatMe
   const updated = pending.map((a) => a.callId === callId ? { ...a, status: "rejected" as const } : a);
   const updatedMsg = updateMessagePendingActions(messageId, updated);
 
-  emit("chat.actionResolved", { messageId, callId, status: "rejected" });
+  emit("chat.actionResolved", { messageId, callId, status: "rejected", projectId });
   return updatedMsg;
 }
 
@@ -276,6 +296,7 @@ export async function handleApproveAll(
 export function handleRejectAll(messageId: string): ChatMessage {
   const msg = getMessage(messageId);
   if (!msg) throw new Error(`Message not found: ${messageId}`);
+  const projectId = getProjectIdForMessage(messageId);
 
   const pending = msg.pendingActions ?? [];
   const pendingActions = pending.filter((a) => a.status === "pending");
@@ -287,7 +308,7 @@ export function handleRejectAll(messageId: string): ChatMessage {
   const updatedMsg = updateMessagePendingActions(messageId, updated);
 
   for (const a of pendingActions) {
-    emit("chat.actionResolved", { messageId, callId: a.callId, status: "rejected" });
+    emit("chat.actionResolved", { messageId, callId: a.callId, status: "rejected", projectId });
   }
 
   return updatedMsg;

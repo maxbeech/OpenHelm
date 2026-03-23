@@ -248,8 +248,8 @@ export async function checkClaudeCodeHealth(): Promise<ClaudeCodeHealthResult> {
 
     const { stdout, stderr } = await execFileAsync(
       pathSetting.value,
-      ["--print", "--output-format", "text", "--model", "claude-haiku-4-5-20251001", "--no-session-persistence", "--tools", "", "Reply with OK"],
-      { timeout: 30_000, env },
+      ["--print", "--output-format", "text", "--model", "claude-haiku-4-5-20251001", "--tools", ""],
+      { timeout: 30_000, env, input: "Reply with OK" },
     );
 
     const output = stdout.trim();

@@ -223,19 +223,22 @@ export default function App() {
   useAgentEvent("job.iconUpdated", handleJobIconUpdated);
   useAgentEvent("job.updated", handleJobUpdated);
 
-  // Chat event handlers
+  // Chat event handlers — filter by projectId so cross-project events are ignored
   const handleChatMessageCreated = useCallback(
-    (msg: ChatMessage) => {
+    (data: ChatMessage & { projectId?: string }) => {
+      const currentProject = useAppStore.getState().activeProjectId;
+      if (data.projectId && data.projectId !== currentProject) return;
+
       const existing = useChatStore
         .getState()
-        .messages.find((m) => m.id === msg.id);
+        .messages.find((m) => m.id === data.id);
       if (existing) {
-        updateMessageInStore(msg);
+        updateMessageInStore(data);
       } else {
-        addMessageToStore(msg);
+        addMessageToStore(data);
       }
       // Assistant message arrived — clear the streaming preview
-      if (msg.role === "assistant") {
+      if (data.role === "assistant") {
         clearStreamingText();
       }
     },
@@ -243,7 +246,10 @@ export default function App() {
   );
 
   const handleChatStatus = useCallback(
-    (data: { status: string; tools?: string[] }) => {
+    (data: { status: string; tools?: string[]; projectId?: string }) => {
+      const currentProject = useAppStore.getState().activeProjectId;
+      if (data.projectId && data.projectId !== currentProject) return;
+
       const { setStatusText } = useChatStore.getState();
       if (data.status === "done") {
         setStatusText(null);
@@ -266,17 +272,24 @@ export default function App() {
   );
 
   const handleChatStreaming = useCallback(
-    (data: { text: string }) => {
+    (data: { text: string; projectId?: string }) => {
+      const currentProject = useAppStore.getState().activeProjectId;
+      if (data.projectId && data.projectId !== currentProject) return;
       appendStreamingText(data.text);
     },
     [appendStreamingText],
   );
 
-  const handleChatActionResolved = useCallback(() => {
-    fetchGoals(activeProjectId);
-    fetchJobs(activeProjectId);
-    fetchRuns(activeProjectId);
-  }, [activeProjectId, fetchGoals, fetchJobs, fetchRuns]);
+  const handleChatActionResolved = useCallback(
+    (data: { projectId?: string }) => {
+      const currentProject = useAppStore.getState().activeProjectId;
+      if (data.projectId && data.projectId !== currentProject) return;
+      fetchGoals(activeProjectId);
+      fetchJobs(activeProjectId);
+      fetchRuns(activeProjectId);
+    },
+    [activeProjectId, fetchGoals, fetchJobs, fetchRuns],
+  );
 
   useAgentEvent("chat.messageCreated", handleChatMessageCreated);
   useAgentEvent("chat.status", handleChatStatus);
@@ -412,6 +425,10 @@ export default function App() {
 
   // Fetch data when project filter changes (null = All Projects)
   useEffect(() => {
+    // Clear transient chat state from previous project so it doesn't leak
+    useChatStore.getState().setStatusText(null);
+    useChatStore.getState().clearStreamingText();
+
     fetchGoals(activeProjectId);
     fetchJobs(activeProjectId);
     fetchRuns(activeProjectId);

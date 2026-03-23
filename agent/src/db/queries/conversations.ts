@@ -136,6 +136,18 @@ export function listMessagesForProject(
   return rows.map(rowToMessage).reverse();
 }
 
+/** Derive the projectId for a message by joining through its conversation. */
+export function getProjectIdForMessage(messageId: string): string | null {
+  const db = getDb();
+  const row = db
+    .select({ projectId: conversations.projectId })
+    .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+    .where(eq(messages.id, messageId))
+    .get();
+  return row?.projectId ?? null;
+}
+
 /** Delete all messages for a project's conversation (clear chat). */
 export function clearConversation(projectId: string): void {
   const db = getDb();

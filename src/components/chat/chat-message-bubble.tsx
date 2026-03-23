@@ -27,7 +27,7 @@ export function ChatMessageBubble({ message, projectId }: ChatMessageBubbleProps
             : "bg-muted text-foreground",
         )}
       >
-        {message.content && (
+        {message.content ? (
           isUser ? (
             <p className="whitespace-pre-wrap break-words leading-relaxed">
               {message.content}
@@ -37,7 +37,9 @@ export function ChatMessageBubble({ message, projectId }: ChatMessageBubbleProps
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
             </div>
           )
-        )}
+        ) : !isUser && message.pendingActions?.length ? (
+          <p className="text-xs text-muted-foreground">Suggested actions:</p>
+        ) : null}
 
         {/* Pending write-action group with batch approve/request change */}
         {message.pendingActions && message.pendingActions.length > 0 && (

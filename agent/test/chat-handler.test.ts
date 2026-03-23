@@ -389,8 +389,8 @@ describe("handleChatMessage — status events", () => {
 
     const statusCalls = emitMock.mock.calls.filter(([event]) => event === "chat.status");
     expect(statusCalls.length).toBeGreaterThanOrEqual(2); // thinking + done
-    expect(statusCalls[0][1]).toEqual({ status: "thinking" });
-    expect(statusCalls[statusCalls.length - 1][1]).toEqual({ status: "done" });
+    expect(statusCalls[0][1]).toMatchObject({ status: "thinking" });
+    expect(statusCalls[statusCalls.length - 1][1]).toMatchObject({ status: "done" });
   });
 
   it("emits reading status when read tools are executed", async () => {
@@ -509,5 +509,116 @@ describe("handleRejectAll", () => {
 
   it("throws when message not found", () => {
     expect(() => handleRejectAll("nonexistent")).toThrow("Message not found");
+  });
+});
+
+describe("handleChatMessage — projectId in all events (Bug 1)", () => {
+  it("includes projectId in every chat event", async () => {
+    const proj = createProject({ name: "EventPid Test", directoryPath: "/tmp/event-pid" });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `Let me check.\n<tool_call>{"tool":"list_goals","args":{}}</tool_call>`,
+    );
+    callLlmViaCliMock.mockResolvedValueOnce("Here you go.");
+
+    await handleChatMessage(proj.id, "Test events");
+
+    const chatEvents = emitMock.mock.calls.filter(([event]) =>
+      event.startsWith("chat."),
+    );
+    for (const [event, data] of chatEvents) {
+      expect(data).toHaveProperty("projectId", proj.id);
+    }
+  });
+
+  it("includes projectId in actionResolved from handleActionRejection", async () => {
+    const proj = createProject({ name: "RejectPid Test", directoryPath: "/tmp/reject-pid" });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `<tool_call>{"tool":"create_goal","args":{"name":"Pid Goal"}}</tool_call>`,
+    );
+
+    const msgs = await handleChatMessage(proj.id, "Create goal");
+    vi.clearAllMocks();
+    handleActionRejection(msgs[1].id, msgs[1].pendingActions![0].callId);
+
+    const resolved = emitMock.mock.calls.find(([event]) => event === "chat.actionResolved");
+    expect(resolved![1]).toHaveProperty("projectId", proj.id);
+  });
+
+  it("includes projectId in actionResolved from handleRejectAll", async () => {
+    const proj = createProject({ name: "RejectAllPid", directoryPath: "/tmp/rejectall-pid" });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `<tool_call>{"tool":"create_goal","args":{"name":"r"}}</tool_call>`,
+    );
+
+    const msgs = await handleChatMessage(proj.id, "Make it");
+    vi.clearAllMocks();
+    handleRejectAll(msgs[1].id);
+
+    const resolved = emitMock.mock.calls.find(([event]) => event === "chat.actionResolved");
+    expect(resolved![1]).toHaveProperty("projectId", proj.id);
+  });
+});
+
+describe("handleChatMessage — cross-project context validation (Bug 2)", () => {
+  it("discards viewingGoal that belongs to a different project", async () => {
+    const projA = createProject({ name: "Proj A", directoryPath: "/tmp/projA" });
+    const projB = createProject({ name: "Proj B", directoryPath: "/tmp/projB" });
+
+    // Create a goal in project A via chat
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `<tool_call>{"tool":"create_goal","args":{"name":"Goal in A"}}</tool_call>`,
+    );
+    const msgs = await handleChatMessage(projA.id, "Create goal");
+    await handleActionApproval(msgs[1].id, msgs[1].pendingActions![0].callId, projA.id);
+
+    const { listGoals } = await import("../src/db/queries/goals.js");
+    const goalsA = listGoals({ projectId: projA.id, status: "active" });
+    const goalInA = goalsA.find((g) => g.name === "Goal in A")!;
+
+    // Now send a message in project B with project A's goal as context
+    vi.clearAllMocks();
+    callLlmViaCliMock.mockResolvedValueOnce("I'll help with your project.");
+
+    await handleChatMessage(projB.id, "Help me", { viewingGoalId: goalInA.id });
+
+    // The system prompt should NOT include the cross-project goal
+    const llmCallArgs = callLlmViaCliMock.mock.calls[0][0];
+    expect(llmCallArgs.systemPrompt).not.toContain("Goal in A");
+  });
+});
+
+describe("handleChatMessage — empty content fallback (Bug 3)", () => {
+  it("provides fallback content when LLM returns only write tool calls", async () => {
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `<tool_call>{"tool":"create_goal","args":{"name":"Orphan Goal"}}</tool_call>`,
+    );
+
+    const msgs = await handleChatMessage(projectId, "Create a goal");
+    const assistant = msgs[1];
+
+    expect(assistant.content).toBeTruthy();
+    expect(assistant.content).toBe("Based on your request, here's what I'd suggest:");
+  });
+
+  it("provides fallback content when LLM returns only read tool calls with no final text", async () => {
+    // First call: only tool calls, no text
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `<tool_call>{"tool":"list_goals","args":{}}</tool_call>`,
+    );
+    // Second call: empty response
+    callLlmViaCliMock.mockResolvedValueOnce("");
+
+    const msgs = await handleChatMessage(projectId, "Show goals");
+    const assistant = msgs[1];
+
+    expect(assistant.content).toBeTruthy();
+    expect(assistant.content).toBe("I looked into this for you.");
+  });
+
+  it("preserves original content when LLM provides text", async () => {
+    callLlmViaCliMock.mockResolvedValueOnce("Here is my detailed response.");
+
+    const msgs = await handleChatMessage(projectId, "Tell me something");
+    expect(msgs[1].content).toBe("Here is my detailed response.");
   });
 });

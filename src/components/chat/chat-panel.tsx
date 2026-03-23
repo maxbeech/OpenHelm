@@ -2,6 +2,9 @@ import { AlertTriangle, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChatStore } from "@/stores/chat-store";
 import { useAppStore } from "@/stores/app-store";
+import { useGoalStore } from "@/stores/goal-store";
+import { useJobStore } from "@/stores/job-store";
+import { useRunStore } from "@/stores/run-store";
 import { useResizePanel } from "@/hooks/use-resize-panel";
 import { ChatMessageList } from "./chat-message-list";
 import { ChatInput } from "./chat-input";
@@ -35,12 +38,24 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   if (!panelOpen) return null;
 
   const handleSend = (content: string) => {
+    // Only include context IDs for entities loaded in the current project's stores
+    const { goals } = useGoalStore.getState();
+    const { jobs } = useJobStore.getState();
+    const { runs } = useRunStore.getState();
+
     const context: ChatContext = {
       viewingGoalId:
-        contentView === "goal-detail" ? selectedGoalId ?? undefined : undefined,
+        contentView === "goal-detail" && selectedGoalId && goals.some((g) => g.id === selectedGoalId)
+          ? selectedGoalId
+          : undefined,
       viewingJobId:
-        contentView === "job-detail" ? selectedJobId ?? undefined : undefined,
-      viewingRunId: selectedRunId ?? undefined,
+        contentView === "job-detail" && selectedJobId && jobs.some((j) => j.id === selectedJobId)
+          ? selectedJobId
+          : undefined,
+      viewingRunId:
+        selectedRunId && runs.some((r) => r.id === selectedRunId)
+          ? selectedRunId
+          : undefined,
     };
     sendMessage(projectId, content, context).catch(() => {});
   };
