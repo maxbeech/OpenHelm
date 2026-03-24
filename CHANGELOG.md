@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.16] - 2026-03-24
+
+### Fixed
+- Updated release workflow configuration
+
 ## [0.1.15] - 2026-03-24
 
 ### Fixed
