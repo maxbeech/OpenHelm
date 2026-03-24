@@ -44,13 +44,23 @@ If there are **untracked files**, ask the user: "There are untracked files in th
 
 Do not proceed until the working tree is clean.
 
-### 1. Bump version in the app
+### 1. Build the agent sidecar
+
+Rebuild the agent so the latest source is bundled into the Tauri binaries:
+
+```bash
+cd agent && npm run build
+```
+
+Verify the build succeeded (check for `dist/agent.js` and that it was copied to `src-tauri/binaries/`).
+
+### 2. Bump version in the app
 
 Edit `src-tauri/tauri.conf.json` — set `"version"` to the new version.
 
 Edit `agent/package.json` — set `"version"` to the new version.
 
-### 2. Update CHANGELOG.md
+### 3. Update CHANGELOG.md
 
 Prepend a new section at the top (after the `# Changelog` heading) in this format:
 ```
@@ -65,15 +75,15 @@ Prepend a new section at the top (after the `# Changelog` heading) in this forma
 
 Use `git log` to read the recent commits since the last tag to generate the changelog entries.
 
-### 3. Commit and push to main
+### 4. Commit and push to main
 
 ```bash
-git add src-tauri/tauri.conf.json agent/package.json CHANGELOG.md
+git add src-tauri/tauri.conf.json agent/package.json CHANGELOG.md src-tauri/binaries/
 git commit -m "Release v<version>"
 git push origin main
 ```
 
-### 4. Tag and push — this triggers CI
+### 5. Tag and push — this triggers CI
 
 ```bash
 git tag v<version>
@@ -82,11 +92,11 @@ git push origin v<version>
 
 Tell the user: "CI is now running. Both DMGs will be built, signed, notarized, and published to https://github.com/maxbeech/OpenHelm/releases/tag/v<version>. This takes ~7 minutes."
 
-### 5. Wait for CI to complete
+### 6. Wait for CI to complete
 
 Poll `gh run list -R maxbeech/OpenHelm --limit 1` every 30 seconds until the run status is `completed`. If it fails, show the failure details from `gh run view --log-failed`.
 
-### 6. Update the website download links
+### 7. Update the website download links
 
 Edit `/Users/maxbeech/Documents/Beech/Development/OpenHelm-Website/src/lib/release-config.ts`:
 
@@ -112,7 +122,7 @@ cd /Users/maxbeech/Documents/Beech/Development/OpenHelm-Website
 npx vercel --prod
 ```
 
-### 7. Done
+### 8. Done
 
 Report:
 - GitHub release URL: `https://github.com/maxbeech/OpenHelm/releases/tag/v<version>`
