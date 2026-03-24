@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.18] - 2026-03-24
+
+### Added
+- Token tracking for background jobs
+
+### Fixed
+- Add hourly background update check for improved reliability
+
 ## [0.1.17] - 2026-03-24
 
 ### Fixed
