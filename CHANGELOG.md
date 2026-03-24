@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.15] - 2026-03-24
+
+### Fixed
+- Fix updater manifest URLs to use correct repository path
+
 ## [0.1.14] - 2026-03-23
 
 ### Fixed
