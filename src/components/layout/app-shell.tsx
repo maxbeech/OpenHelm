@@ -47,11 +47,12 @@ export function AppShell({
     dismissUpdate,
   } = useUpdater();
 
-  // Trigger check once when the app signals it's ready
+  // Trigger check once when the app signals it's ready, then re-check every hour
   useEffect(() => {
-    if (shouldCheckUpdates) {
-      void checkForUpdate();
-    }
+    if (!shouldCheckUpdates) return;
+    void checkForUpdate();
+    const interval = setInterval(() => { void checkForUpdate(); }, 60 * 60 * 1_000);
+    return () => clearInterval(interval);
   }, [shouldCheckUpdates, checkForUpdate]);
 
   const showBanner =
