@@ -24,6 +24,21 @@ type PendingRequest = {
   timer: ReturnType<typeof setTimeout>;
 };
 
+/**
+ * Returns true for errors that are expected / benign and should not be
+ * reported to Sentry:
+ * - JSON-RPC -32601 (Method Not Found): the running agent binary predates a
+ *   method added in a newer frontend build. Callers handle these silently.
+ * - Dev-bridge send failures: the HTTP bridge at localhost:1421 is not running.
+ */
+function isExpectedIpcError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.message.startsWith("[-32601]") ||
+    (!isTauriContext() && err.message.startsWith("Failed to send request:"))
+  );
+}
+
 class AgentClient {
   private pending = new Map<string, PendingRequest>();
   private ready = false;
@@ -71,7 +86,13 @@ class AgentClient {
     try {
       return await this.sendRaw<T>(method, params);
     } catch (err) {
-      captureFrontendError(err, { ipcMethod: method }); // no params (could contain user data)
+      // Don't report expected/benign errors to Sentry:
+      // - [-32601] Method Not Found: agent binary predates this method (version mismatch);
+      //   callers already handle these gracefully.
+      // - Failed to send request (dev bridge): SSE bridge not running in dev mode.
+      if (!isExpectedIpcError(err)) {
+        captureFrontendError(err, { ipcMethod: method }); // no params (could contain user data)
+      }
       throw err;
     }
   }
