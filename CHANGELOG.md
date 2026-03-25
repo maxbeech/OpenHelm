@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0] - 2026-03-25
+
+### Added
+- Support for autopilot: AI-generated plans that run automatically on schedules
+- Credential management system for secure API key and token storage
+
+### Fixed
+- Suppress benign IPC errors from Sentry to reduce noise in error tracking (OPENHELM-6, OPENHELM-8)
+- Credential support and other stability improvements
+
 ## [0.1.18] - 2026-03-24
 
 ### Added
