@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.1] - 2026-03-27
+
+### Fixed
+- Resolve merge conflict and stabilize agent bundling for v0.2.1 release
+
 ## [0.2.0] - 2026-03-25
 
 ### Added
