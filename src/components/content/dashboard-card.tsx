@@ -87,7 +87,7 @@ export function DashboardCard({ item }: { item: DashboardItem }) {
 
   // Click card body: stay on Dashboard, open run in right panel
   const handleCardClick = () => {
-    if (!slideOut) selectRunPreserveView(item.runId);
+    if (!slideOut && item.runId) selectRunPreserveView(item.runId);
   };
 
   const timeAgo = formatRelativeTime(item.createdAt);
