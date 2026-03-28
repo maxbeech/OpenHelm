@@ -1,17 +1,19 @@
-import { AlertTriangle, Trash2, X } from "lucide-react";
+import { AlertTriangle, FolderOpen, Layers, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChatStore } from "@/stores/chat-store";
 import { useAppStore } from "@/stores/app-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
+import { useProjectStore } from "@/stores/project-store";
 import { useResizePanel } from "@/hooks/use-resize-panel";
 import { ChatMessageList } from "./chat-message-list";
 import { ChatInput } from "./chat-input";
 import type { ChatContext } from "@openhelm/shared";
 
 interface ChatPanelProps {
-  projectId: string;
+  /** null = "All Projects" thread */
+  projectId: string | null;
 }
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
@@ -28,6 +30,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
   const { selectedGoalId, selectedJobId, selectedRunId, contentView } =
     useAppStore();
+  const { projects } = useProjectStore();
   const { width, dragHandleProps } = useResizePanel({
     minWidth: 280,
     maxWidth: 600,
@@ -36,6 +39,11 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   });
 
   if (!panelOpen) return null;
+
+  // Derive the display label for the current thread
+  const projectName = projectId
+    ? projects.find((p) => p.id === projectId)?.name ?? "Project"
+    : null;
 
   const handleSend = (content: string) => {
     // Only include context IDs for entities loaded in the current project's stores
@@ -101,11 +109,30 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         </div>
       </div>
 
+      {/* Thread context indicator */}
+      <div className="flex items-center gap-2 border-b border-border/50 bg-muted/30 px-4 py-1.5">
+        {projectName ? (
+          <>
+            <FolderOpen className="size-3 text-muted-foreground" />
+            <span className="text-[11px] text-muted-foreground">
+              Thread: <span className="font-medium text-foreground">{projectName}</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <Layers className="size-3 text-muted-foreground" />
+            <span className="text-[11px] text-muted-foreground">
+              Thread: <span className="font-medium text-foreground">All Projects</span>
+            </span>
+          </>
+        )}
+      </div>
+
       {/* Messages */}
       <ChatMessageList
         messages={messages}
         sending={sending}
-        projectId={projectId}
+        projectId={projectId ?? "__all__"}
       />
 
       {/* Error banner */}

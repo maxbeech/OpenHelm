@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, max } from "drizzle-orm";
 import { getDb } from "../init.js";
 import { goals, jobs } from "../schema.js";
 import type {
@@ -7,12 +7,21 @@ import type {
   CreateGoalParams,
   UpdateGoalParams,
   ListGoalsParams,
+  BulkReorderParams,
 } from "@openhelm/shared";
 
 export function createGoal(params: CreateGoalParams): Goal {
   const db = getDb();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
+
+  // Auto-assign next sort_order for the project
+  const maxResult = db
+    .select({ maxOrder: max(goals.sortOrder) })
+    .from(goals)
+    .where(eq(goals.projectId, params.projectId))
+    .get();
+  const sortOrder = (maxResult?.maxOrder ?? -1) + 1;
 
   const row = db
     .insert(goals)
@@ -22,6 +31,7 @@ export function createGoal(params: CreateGoalParams): Goal {
       name: params.name,
       description: params.description ?? "",
       status: "active",
+      sortOrder,
       createdAt: now,
       updatedAt: now,
     })
@@ -49,8 +59,8 @@ export function listGoals(params: ListGoalsParams): Goal[] {
   }
 
   const query = conditions.length > 0
-    ? db.select().from(goals).where(and(...conditions))
-    : db.select().from(goals);
+    ? db.select().from(goals).where(and(...conditions)).orderBy(goals.sortOrder)
+    : db.select().from(goals).orderBy(goals.sortOrder);
 
   return query.all() as Goal[];
 }
@@ -95,4 +105,16 @@ export function deleteGoal(id: string): boolean {
   db.delete(jobs).where(eq(jobs.goalId, id)).run();
   const result = db.delete(goals).where(eq(goals.id, id)).run();
   return result.changes > 0;
+}
+
+/** Bulk-update sort_order for multiple goals */
+export function reorderGoals(params: BulkReorderParams): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+  for (const item of params.items) {
+    db.update(goals)
+      .set({ sortOrder: item.sortOrder, updatedAt: now })
+      .where(eq(goals.id, item.id))
+      .run();
+  }
 }

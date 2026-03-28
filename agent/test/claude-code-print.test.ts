@@ -356,4 +356,108 @@ describe("runClaudeCodePrint", () => {
     const result = await promise;
     expect(result.text).toBe("fallback text");
   });
+
+  it("should extract structured_output from result event when jsonSchema is set", async () => {
+    const schema = { type: "object", properties: { memories: { type: "array" } }, required: ["memories"] };
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      jsonSchema: schema,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    // Simulate real CLI output: assistant with prose + StructuredOutput tool call, then result with structured_output
+    const assistantText = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "text", text: "I extracted some memories." }] },
+    });
+    const assistantToolUse = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "tool_use", name: "StructuredOutput", id: "abc", input: { memories: [{ type: "semantic", content: "test" }] } }] },
+    });
+    const resultEvent = JSON.stringify({
+      type: "result",
+      result: "",
+      structured_output: { memories: [{ type: "semantic", content: "test" }] },
+    });
+    simulateProcess([assistantText, assistantToolUse, resultEvent], [], 0);
+
+    const result = await promise;
+    const parsed = JSON.parse(result.text);
+    expect(parsed.memories).toHaveLength(1);
+    expect(parsed.memories[0].content).toBe("test");
+  });
+
+  it("should extract StructuredOutput tool call when result has no structured_output", async () => {
+    const schema = { type: "object", properties: { answer: { type: "string" } } };
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      jsonSchema: schema,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const assistantToolUse = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "tool_use", name: "StructuredOutput", id: "abc", input: { answer: "42" } }] },
+    });
+    const resultEvent = JSON.stringify({ type: "result", result: "" });
+    simulateProcess([assistantToolUse, resultEvent], [], 0);
+
+    const result = await promise;
+    const parsed = JSON.parse(result.text);
+    expect(parsed.answer).toBe("42");
+  });
+
+  it("should fall back to text blocks in jsonSchema mode when no structured output exists", async () => {
+    const schema = { type: "object", properties: { answer: { type: "string" } } };
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      jsonSchema: schema,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    // Older CLI version might return JSON directly as text
+    const assistantText = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "text", text: '{"answer":"42"}' }] },
+    });
+    const resultEvent = JSON.stringify({ type: "result", result: "" });
+    simulateProcess([assistantText, resultEvent], [], 0);
+
+    const result = await promise;
+    const parsed = JSON.parse(result.text);
+    expect(parsed.answer).toBe("42");
+  });
+
+  it("should prefer structured_output over StructuredOutput tool call", async () => {
+    const schema = { type: "object", properties: { val: { type: "number" } } };
+    const promise = runClaudeCodePrint({
+      binaryPath: "/usr/bin/claude",
+      prompt: "Test",
+      jsonSchema: schema,
+    });
+
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+
+    const assistantToolUse = JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "tool_use", name: "StructuredOutput", id: "abc", input: { val: 1 } }] },
+    });
+    const resultEvent = JSON.stringify({
+      type: "result",
+      result: "",
+      structured_output: { val: 2 },
+    });
+    simulateProcess([assistantToolUse, resultEvent], [], 0);
+
+    const result = await promise;
+    const parsed = JSON.parse(result.text);
+    // structured_output takes priority over tool call
+    expect(parsed.val).toBe(2);
+  });
 });

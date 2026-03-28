@@ -18,6 +18,12 @@ import type {
   ClearChatParams,
 } from "@openhelm/shared";
 
+/** Normalise projectId: treat undefined and empty string as null ("All Projects"). */
+function normaliseProjectId(raw: unknown): string | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  return String(raw);
+}
+
 export function registerChatHandlers() {
   // chat.send returns immediately — messages and errors arrive via events.
   // This prevents frontend IPC timeouts on long-running LLM tool loops.
@@ -29,18 +35,18 @@ export function registerChatHandlers() {
   // is sent, causing the frontend to time out after REQUEST_TIMEOUT_MS (4 min).
   registerHandler("chat.send", (params) => {
     const p = params as SendChatMessageParams;
-    if (!p?.projectId) throw new Error("projectId is required");
+    const projectId = normaliseProjectId(p?.projectId);
     if (!p?.content?.trim()) throw new Error("content is required");
 
     setImmediate(() => {
-      handleChatMessage(p.projectId, p.content.trim(), p.context, p.model, p.modelEffort, p.permissionMode)
+      handleChatMessage(projectId, p.content.trim(), p.context, p.model, p.modelEffort, p.permissionMode)
         .catch((err) => {
           console.error("[chat] send failed:", err);
           emit("chat.error", {
-            projectId: p.projectId,
+            projectId,
             error: err instanceof Error ? err.message : String(err),
           });
-          emit("chat.status", { status: "done", projectId: p.projectId });
+          emit("chat.status", { status: "done", projectId });
         });
     });
 
@@ -77,14 +83,14 @@ export function registerChatHandlers() {
 
   registerHandler("chat.listMessages", (params) => {
     const p = params as ListChatMessagesParams;
-    if (!p?.projectId) throw new Error("projectId is required");
-    return listMessagesForProject(p.projectId, p.limit, p.beforeId);
+    const projectId = normaliseProjectId(p?.projectId);
+    return listMessagesForProject(projectId, p?.limit, p?.beforeId);
   });
 
   registerHandler("chat.clear", (params) => {
     const p = params as ClearChatParams;
-    if (!p?.projectId) throw new Error("projectId is required");
-    clearConversation(p.projectId);
+    const projectId = normaliseProjectId(p?.projectId);
+    clearConversation(projectId);
     return { cleared: true };
   });
 }

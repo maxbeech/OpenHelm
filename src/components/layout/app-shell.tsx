@@ -130,7 +130,7 @@ export function AppShell({
           {rightPanel}
         </div>
       )}
-      {activeProjectId && <ChatPanel projectId={activeProjectId} />}
+      <ChatPanel projectId={activeProjectId} />
     </div>
   );
 }

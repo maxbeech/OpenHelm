@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Bot } from "lucide-react";
+import { Bot, Pause } from "lucide-react";
 import { NodeIcon } from "@/components/shared/node-icon";
 import type {
   Job,
@@ -92,6 +92,8 @@ export function SidebarJobNode({
   // Last 5, reversed so newest on right (timeline reading order)
   const dots = recentRuns.slice(0, 5).reverse();
 
+  const isDisabled = !job.isEnabled;
+
   return (
     <button
       onClick={onSelect}
@@ -100,6 +102,7 @@ export function SidebarJobNode({
         isSelected
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+        isDisabled && !isSelected && "opacity-45",
       )}
     >
       {/* Row 1: Name + Model badge */}
@@ -113,6 +116,9 @@ export function SidebarJobNode({
         >
           {job.name}
         </span>
+        {isDisabled && (
+          <Pause className="size-3 shrink-0 fill-muted-foreground/50 text-muted-foreground/50" />
+        )}
         {job.source === "system" && (
           <Bot className="size-3 shrink-0 text-muted-foreground/60" />
         )}

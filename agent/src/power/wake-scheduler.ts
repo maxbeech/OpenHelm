@@ -29,6 +29,15 @@ const SUDOERS_FILE = "/etc/sudoers.d/openhelm-pmset";
 const scheduledWakes = new Map<string, Date>();
 
 /**
+ * Allowlist for usernames used in the osascript admin command.
+ * Prevents shell injection if the environment variable contains unusual characters.
+ * Note: macOS usernames may contain dots, hyphens, and underscores in addition to alphanumerics.
+ * We do NOT use `id -un` or scutil here because both require additional privileges or
+ * subprocess spawns that defeat the purpose of a quick env-var read.
+ */
+const SAFE_USERNAME_RE = /^[A-Za-z0-9._-]+$/;
+
+/**
  * Schedule a macOS wake event 2 minutes before the given fire time.
  * Replaces any existing wake event for this job.
  * Uses sudo (no dialog — sudoers entry was installed on first enable).
@@ -69,26 +78,35 @@ export async function cancelWake(jobId: string): Promise<void> {
 
 /**
  * Cancel all scheduled wake events (called on agent shutdown).
+ * Purges both the in-memory map AND all pmset entries to handle
+ * stale events from prior agent sessions.
  */
 export async function cancelAllWakes(): Promise<void> {
-  const entries = [...scheduledWakes.entries()];
   scheduledWakes.clear();
 
-  for (const [jobId, wakeAt] of entries) {
-    try {
-      await runPmset(["schedule", "cancel", "wakeorpoweron", formatPmsetDate(wakeAt)]);
-      console.error(`[wake-scheduler] cancelled wake for job ${jobId}`);
-    } catch (err) {
-      console.error(`[wake-scheduler] cancel all: job ${jobId} (non-fatal):`, err);
-    }
+  try {
+    await purgeAllPmsetWakes();
+  } catch (err) {
+    console.error("[wake-scheduler] cancel all: purge failed (non-fatal):", err);
   }
 }
 
 /**
  * Sync wake events with all enabled jobs that have a future nextFireAt.
  * Called on agent startup and when the feature is first enabled.
+ *
+ * First purges ALL existing pmset wakeorpoweron entries to prevent
+ * accumulation from prior agent sessions, then schedules fresh events.
  */
 export async function syncWakeEvents(): Promise<void> {
+  // Purge stale events from prior sessions before adding new ones
+  try {
+    await purgeAllPmsetWakes();
+  } catch (err) {
+    console.error("[wake-scheduler] purge before sync failed (non-fatal):", err);
+  }
+  scheduledWakes.clear();
+
   const enabledJobs = listJobs({ isEnabled: true });
   const now = new Date();
   let scheduled = 0;
@@ -123,6 +141,12 @@ export async function installSudoersEntry(): Promise<{
   const user = process.env.USER || process.env.LOGNAME;
   if (!user) {
     return { authorized: false, error: "Cannot determine current user" };
+  }
+
+  // Guard against shell injection — username is interpolated into an osascript
+  // admin command. Reject anything that isn't a plain alphanumeric macOS username.
+  if (!SAFE_USERNAME_RE.test(user)) {
+    return { authorized: false, error: `Username contains unsafe characters: ${user}` };
   }
 
   const entry = `${user} ALL=(root) NOPASSWD: /usr/bin/pmset`;
@@ -183,6 +207,49 @@ export async function checkWakeAuthorization(): Promise<{
 /** Number of currently tracked wake events. */
 export function getScheduledWakeCount(): number {
   return scheduledWakes.size;
+}
+
+// ── Purge ────────────────────────────────────────────────────────────────────
+
+/**
+ * Parse `pmset -g sched` output and cancel every `wakeorpoweron` entry
+ * that was created by `pmset` (our entries). This ensures stale events
+ * from prior agent sessions don't accumulate in the system scheduler.
+ *
+ * Each matching line looks like:
+ *   [3]  wakeorpoweron at 03/27/2026 11:15:20 by 'pmset'
+ */
+export async function purgeAllPmsetWakes(): Promise<number> {
+  const { stdout } = await execFileAsync(
+    "sudo",
+    ["-n", "/usr/bin/pmset", "-g", "sched"],
+    { timeout: 10_000 },
+  );
+
+  // Match lines like: wakeorpoweron at MM/DD/YYYY HH:MM:SS by 'pmset'
+  const lineRe = /wakeorpoweron\s+at\s+(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})\s+by\s+'pmset'/g;
+  const datetimes: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = lineRe.exec(stdout)) !== null) {
+    datetimes.push(match[1]);
+  }
+
+  if (datetimes.length === 0) return 0;
+
+  let cancelled = 0;
+  for (const datetime of datetimes) {
+    try {
+      await runPmset(["schedule", "cancel", "wakeorpoweron", datetime]);
+      cancelled++;
+    } catch {
+      // Event may have already fired — not fatal
+    }
+  }
+
+  console.error(
+    `[wake-scheduler] purged ${cancelled}/${datetimes.length} stale pmset wake event(s)`,
+  );
+  return cancelled;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

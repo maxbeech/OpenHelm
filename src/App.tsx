@@ -232,11 +232,14 @@ export default function App() {
   useAgentEvent("job.iconUpdated", handleJobIconUpdated);
   useAgentEvent("job.updated", handleJobUpdated);
 
-  // Chat event handlers — filter by projectId so cross-project events are ignored
+  // Chat event handlers — filter by projectId so cross-thread events are ignored.
+  // null projectId on both sides means "All Projects" thread.
   const handleChatMessageCreated = useCallback(
-    (data: ChatMessage & { projectId?: string }) => {
+    (data: ChatMessage & { projectId?: string | null }) => {
       const currentProject = useAppStore.getState().activeProjectId;
-      if (data.projectId && data.projectId !== currentProject) return;
+      // Match: both null (All Projects) OR same string
+      const eventProject = data.projectId ?? null;
+      if (eventProject !== currentProject) return;
 
       const existing = useChatStore
         .getState()
@@ -256,9 +259,9 @@ export default function App() {
   );
 
   const handleChatStatus = useCallback(
-    (data: { status: string; tools?: string[]; projectId?: string }) => {
+    (data: { status: string; tools?: string[]; projectId?: string | null }) => {
       const currentProject = useAppStore.getState().activeProjectId;
-      if (data.projectId && data.projectId !== currentProject) return;
+      if ((data.projectId ?? null) !== currentProject) return;
 
       const { setStatusText } = useChatStore.getState();
       if (data.status === "done") {
@@ -282,18 +285,18 @@ export default function App() {
   );
 
   const handleChatStreaming = useCallback(
-    (data: { text: string; projectId?: string }) => {
+    (data: { text: string; projectId?: string | null }) => {
       const currentProject = useAppStore.getState().activeProjectId;
-      if (data.projectId && data.projectId !== currentProject) return;
+      if ((data.projectId ?? null) !== currentProject) return;
       appendStreamingText(data.text);
     },
     [appendStreamingText],
   );
 
   const handleChatActionResolved = useCallback(
-    (data: { projectId?: string }) => {
+    (data: { projectId?: string | null }) => {
       const currentProject = useAppStore.getState().activeProjectId;
-      if (data.projectId && data.projectId !== currentProject) return;
+      if ((data.projectId ?? null) !== currentProject) return;
       fetchGoals(activeProjectId);
       fetchJobs(activeProjectId);
       fetchRuns(activeProjectId);
@@ -302,9 +305,9 @@ export default function App() {
   );
 
   const handleChatError = useCallback(
-    (data: { projectId?: string; error: string }) => {
+    (data: { projectId?: string | null; error: string }) => {
       const currentProject = useAppStore.getState().activeProjectId;
-      if (data.projectId && data.projectId !== currentProject) return;
+      if ((data.projectId ?? null) !== currentProject) return;
       useChatStore.setState({
         error: friendlyError(new Error(data.error), "Chat failed"),
         sending: false,
@@ -486,8 +489,9 @@ export default function App() {
     fetchCredentialCount(activeProjectId);
     fetchDashboardItems(activeProjectId ?? undefined);
     fetchDashboardCount(activeProjectId ?? undefined);
+    // Always fetch messages — null = "All Projects" thread
+    fetchMessages(activeProjectId);
     if (activeProjectId) {
-      fetchMessages(activeProjectId);
       api
         .setSetting({ key: "active_project", value: activeProjectId })
         .catch(() => {});

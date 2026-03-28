@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
-import { ChevronRight, Plus, Archive } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
-import { cn } from "@/lib/utils";
-import { NodeIcon } from "@/components/shared/node-icon";
 import { SidebarJobNode } from "./sidebar-job-node";
+import { SidebarGoalNode } from "./sidebar-goal-node";
+import { SortDropdown, applySortGoals, applySortJobs } from "./sidebar-sort";
+import { SidebarArchived } from "./sidebar-archived";
 
 interface SidebarTreeProps {
   projectId: string | null;
@@ -22,22 +23,21 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     selectGoal,
     selectJob,
     toggleGoalCollapsed,
+    goalSortMode,
+    jobSortMode,
+    setGoalSortMode,
+    setJobSortMode,
   } = useAppStore();
   const { goals, createGoal } = useGoalStore();
   const { jobs } = useJobStore();
   const { runs } = useRunStore();
 
-  const [showArchived, setShowArchived] = useState(false);
   const [addingGoal, setAddingGoal] = useState(false);
   const [newGoalInput, setNewGoalInput] = useState("");
-  const [addingJobForGoalId, setAddingJobForGoalId] = useState<string | null>(
-    null,
-  );
-  const [newJobInput, setNewJobInput] = useState("");
 
   const activeGoals = useMemo(
-    () => goals.filter((g) => g.status !== "archived"),
-    [goals],
+    () => applySortGoals(goals.filter((g) => g.status !== "archived"), goalSortMode),
+    [goals, goalSortMode],
   );
 
   const jobsByGoal = useMemo(() => {
@@ -48,8 +48,11 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(job);
     }
+    for (const [key, groupJobs] of map) {
+      map.set(key, applySortJobs(groupJobs, jobSortMode));
+    }
     return map;
-  }, [jobs]);
+  }, [jobs, jobSortMode]);
 
   const standaloneJobs = useMemo(
     () => jobsByGoal.get(null) ?? [],
@@ -105,20 +108,14 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     }
   };
 
-  const handleSubmitJobInput = (goalId: string) => {
-    const name = newJobInput.trim();
-    setNewJobInput("");
-    setAddingJobForGoalId(null);
-    if (name) onNewJobForGoal(goalId, name);
-  };
-
   return (
     <div className="flex-1 overflow-auto">
-      {/* GOALS section header — always sticky at top */}
+      {/* GOALS section header */}
       <div className="sticky top-0 z-20 flex h-[30px] items-center gap-1 bg-sidebar px-3">
         <span className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Goals
         </span>
+        <SortDropdown value={goalSortMode} onChange={setGoalSortMode} label="goals" />
         {projectId && (
           <button
             onClick={() => {
@@ -156,110 +153,38 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
 
       {/* Goal nodes */}
       <div className="pb-2">
-        {activeGoals.map((goal) => {
-          const goalJobs = jobsByGoal.get(goal.id) ?? [];
-          const isCollapsed = collapsedGoalIds.includes(goal.id);
-          const isSelected =
-            contentView === "goal-detail" && selectedGoalId === goal.id;
-
-          return (
-            <div key={goal.id} className="group mb-3">
-              {/* Goal header row — sticky below the GOALS header (~30px) */}
-              <div className="sticky top-[30px] z-10 bg-sidebar px-3">
-                <div className="flex items-center">
-                  <button
-                    onClick={() => toggleGoalCollapsed(goal.id)}
-                    className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                  >
-                    <ChevronRight
-                      className={cn(
-                        "size-3.5 transition-transform",
-                        !isCollapsed && "rotate-90",
-                      )}
-                    />
-                  </button>
-                  <button
-                    onClick={() => selectGoal(goal.id)}
-                    className={cn(
-                      "flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm transition-colors",
-                      isSelected
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                    )}
-                  >
-                    <NodeIcon icon={goal.icon} defaultIcon="flag" />
-                    <span className="truncate">
-                      {goal.name || goal.description}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAddingJobForGoalId(goal.id);
-                      setNewJobInput("");
-                    }}
-                    className="ml-0.5 shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-foreground group-hover:opacity-100"
-                    title="New job in this goal"
-                  >
-                    <Plus className="size-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Inline job name input */}
-              {addingJobForGoalId === goal.id && (
-                <div className="py-0.5 pl-8 pr-3">
-                  <input
-                    autoFocus
-                    value={newJobInput}
-                    onChange={(e) => setNewJobInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSubmitJobInput(goal.id);
-                      if (e.key === "Escape") {
-                        setNewJobInput("");
-                        setAddingJobForGoalId(null);
-                      }
-                    }}
-                    onBlur={() => {
-                      setNewJobInput("");
-                      setAddingJobForGoalId(null);
-                    }}
-                    placeholder="Job name..."
-                    className="w-full rounded-md bg-sidebar-accent px-2 py-1 text-xs text-sidebar-foreground outline-none ring-1 ring-primary/50"
-                  />
-                </div>
-              )}
-
-              {/* Nested jobs */}
-              {!isCollapsed &&
-                goalJobs.map((job) => (
-                  <SidebarJobNode
-                    key={job.id}
-                    job={job}
-                    recentRuns={recentRunsByJob.get(job.id) ?? []}
-                    isSelected={
-                      contentView === "job-detail" && selectedJobId === job.id
-                    }
-                    onSelect={() => selectJob(job.id)}
-                  />
-                ))}
-            </div>
-          );
-        })}
+        {activeGoals.map((goal) => (
+          <SidebarGoalNode
+            key={goal.id}
+            goal={goal}
+            goalJobs={jobsByGoal.get(goal.id) ?? []}
+            recentRunsByJob={recentRunsByJob}
+            isCollapsed={collapsedGoalIds.includes(goal.id)}
+            isSelected={contentView === "goal-detail" && selectedGoalId === goal.id}
+            contentView={contentView}
+            selectedJobId={selectedJobId}
+            onToggleCollapsed={() => toggleGoalCollapsed(goal.id)}
+            onSelectGoal={() => selectGoal(goal.id)}
+            onSelectJob={selectJob}
+            onNewJobForGoal={onNewJobForGoal}
+          />
+        ))}
 
         {/* Standalone jobs (no goal) */}
         {standaloneJobs.length > 0 && (
           <div className="mt-3 border-t border-sidebar-border pt-3">
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Jobs
-            </p>
+            <div className="mb-1 flex items-center gap-1 px-3">
+              <p className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Jobs
+              </p>
+              <SortDropdown value={jobSortMode} onChange={setJobSortMode} label="jobs" />
+            </div>
             {standaloneJobs.map((job) => (
               <SidebarJobNode
                 key={job.id}
                 job={job}
                 recentRuns={recentRunsByJob.get(job.id) ?? []}
-                isSelected={
-                  contentView === "job-detail" && selectedJobId === job.id
-                }
+                isSelected={contentView === "job-detail" && selectedJobId === job.id}
                 onSelect={() => selectJob(job.id)}
               />
             ))}
@@ -268,70 +193,18 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
 
         {/* Archived section */}
         {hasArchived && (
-          <div className="mt-3 border-t border-sidebar-border pt-3">
-            <button
-              onClick={() => setShowArchived((v) => !v)}
-              className="flex w-full items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-sidebar-foreground"
-            >
-              <ChevronRight
-                className={cn(
-                  "size-3 transition-transform",
-                  showArchived && "rotate-90",
-                )}
-              />
-              <Archive className="size-3" />
-              Archived ({archivedCount})
-            </button>
-            {showArchived && (
-              <div className="opacity-60">
-                {archivedGoals.map((goal) => {
-                  const goalArchivedJobs = archivedJobsByGoal.get(goal.id) ?? [];
-                  const isSelected =
-                    contentView === "goal-detail" && selectedGoalId === goal.id;
-                  return (
-                    <div key={goal.id}>
-                      <button
-                        onClick={() => selectGoal(goal.id)}
-                        className={cn(
-                          "flex w-full items-center gap-1.5 rounded-md px-3 py-1 text-sm transition-colors",
-                          isSelected
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                        )}
-                      >
-                        <NodeIcon icon={goal.icon} defaultIcon="flag" />
-                        <span className="truncate">
-                          {goal.name || goal.description}
-                        </span>
-                      </button>
-                      {goalArchivedJobs.map((job) => (
-                        <SidebarJobNode
-                          key={job.id}
-                          job={job}
-                          recentRuns={recentRunsByJob.get(job.id) ?? []}
-                          isSelected={
-                            contentView === "job-detail" && selectedJobId === job.id
-                          }
-                          onSelect={() => selectJob(job.id)}
-                        />
-                      ))}
-                    </div>
-                  );
-                })}
-                {archivedStandaloneJobs.map((job) => (
-                  <SidebarJobNode
-                    key={job.id}
-                    job={job}
-                    recentRuns={recentRunsByJob.get(job.id) ?? []}
-                    isSelected={
-                      contentView === "job-detail" && selectedJobId === job.id
-                    }
-                    onSelect={() => selectJob(job.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <SidebarArchived
+            archivedGoals={archivedGoals}
+            archivedStandaloneJobs={archivedStandaloneJobs}
+            archivedJobsByGoal={archivedJobsByGoal}
+            recentRunsByJob={recentRunsByJob}
+            contentView={contentView}
+            selectedGoalId={selectedGoalId}
+            selectedJobId={selectedJobId}
+            selectGoal={selectGoal}
+            selectJob={selectJob}
+            archivedCount={archivedCount}
+          />
         )}
       </div>
     </div>

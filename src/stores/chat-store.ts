@@ -49,13 +49,13 @@ interface ChatState {
   setChatModel: (model: ChatModelValue) => void;
   setChatEffort: (effort: ChatEffortValue) => void;
   setChatPermissionMode: (mode: ChatPermissionModeValue) => void;
-  fetchMessages: (projectId: string) => Promise<void>;
-  sendMessage: (projectId: string, content: string, context?: ChatContext) => Promise<void>;
+  fetchMessages: (projectId: string | null) => Promise<void>;
+  sendMessage: (projectId: string | null, content: string, context?: ChatContext) => Promise<void>;
   approveAction: (messageId: string, callId: string, projectId: string) => Promise<void>;
   rejectAction: (messageId: string, callId: string) => Promise<void>;
   approveAll: (messageId: string, projectId: string) => Promise<void>;
   rejectAll: (messageId: string) => Promise<void>;
-  clearChat: (projectId: string) => Promise<void>;
+  clearChat: (projectId: string | null) => Promise<void>;
   addMessageToStore: (message: ChatMessage) => void;
   updateMessageInStore: (message: ChatMessage) => void;
 }

@@ -1,4 +1,4 @@
-import { eq, desc, lt, and } from "drizzle-orm";
+import { eq, desc, lt, and, isNull, or } from "drizzle-orm";
 import { getDb } from "../init.js";
 import { conversations, messages } from "../schema.js";
 import type {
@@ -12,7 +12,7 @@ import type {
 function rowToConversation(row: typeof conversations.$inferSelect): Conversation {
   return {
     id: row.id,
-    projectId: row.projectId,
+    projectId: row.projectId ?? null,
     channel: row.channel as Conversation["channel"],
     title: row.title ?? null,
     createdAt: row.createdAt,
@@ -33,13 +33,20 @@ function rowToMessage(row: typeof messages.$inferSelect): ChatMessage {
   };
 }
 
-/** Get the single active conversation for a project, or create one. */
-export function getOrCreateConversation(projectId: string): Conversation {
+/** Build the WHERE clause for finding a conversation by projectId (null-safe). */
+function projectIdCondition(projectId: string | null) {
+  return projectId === null
+    ? isNull(conversations.projectId)
+    : eq(conversations.projectId, projectId);
+}
+
+/** Get the single active conversation for a project (or "All Projects" when null), or create one. */
+export function getOrCreateConversation(projectId: string | null): Conversation {
   const db = getDb();
   const existing = db
     .select()
     .from(conversations)
-    .where(eq(conversations.projectId, projectId))
+    .where(projectIdCondition(projectId))
     .get();
   if (existing) return rowToConversation(existing);
 
@@ -103,9 +110,9 @@ export function getMessage(id: string): ChatMessage | null {
   return row ? rowToMessage(row) : null;
 }
 
-/** List messages for a project's conversation, newest-first with optional pagination. */
+/** List messages for a conversation thread, newest-first with optional pagination. */
 export function listMessagesForProject(
-  projectId: string,
+  projectId: string | null,
   limit = 100,
   beforeId?: string,
 ): ChatMessage[] {
@@ -113,7 +120,7 @@ export function listMessagesForProject(
   const conv = db
     .select()
     .from(conversations)
-    .where(eq(conversations.projectId, projectId))
+    .where(projectIdCondition(projectId))
     .get();
   if (!conv) return [];
 
@@ -121,7 +128,16 @@ export function listMessagesForProject(
 
   if (beforeId) {
     const ref = db.select().from(messages).where(eq(messages.id, beforeId)).get();
-    if (ref) conditions.push(lt(messages.createdAt, ref.createdAt));
+    if (ref) {
+      // Use id as a tiebreaker so pagination is stable when two messages share
+      // the same createdAt timestamp (possible under rapid concurrent inserts).
+      conditions.push(
+        or(
+          lt(messages.createdAt, ref.createdAt),
+          and(eq(messages.createdAt, ref.createdAt), lt(messages.id, ref.id))!,
+        )!,
+      );
+    }
   }
 
   const rows = db
@@ -148,13 +164,13 @@ export function getProjectIdForMessage(messageId: string): string | null {
   return row?.projectId ?? null;
 }
 
-/** Delete all messages for a project's conversation (clear chat). */
-export function clearConversation(projectId: string): void {
+/** Delete all messages for a conversation thread (clear chat). */
+export function clearConversation(projectId: string | null): void {
   const db = getDb();
   const conv = db
     .select()
     .from(conversations)
-    .where(eq(conversations.projectId, projectId))
+    .where(projectIdCondition(projectId))
     .get();
   if (!conv) return;
   db.delete(messages).where(eq(messages.conversationId, conv.id)).run();

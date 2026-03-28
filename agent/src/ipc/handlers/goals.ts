@@ -8,6 +8,7 @@ import type {
   CreateGoalParams,
   UpdateGoalParams,
   ListGoalsParams,
+  BulkReorderParams,
 } from "@openhelm/shared";
 
 export function registerGoalHandlers() {
@@ -70,5 +71,12 @@ export function registerGoalHandlers() {
     const { id } = params as { id: string };
     if (!id) throw new Error("id is required");
     return { deleted: goalQueries.deleteGoal(id) };
+  });
+
+  registerHandler("goals.reorder", (params) => {
+    const p = params as BulkReorderParams;
+    if (!p?.items?.length) throw new Error("items array is required");
+    goalQueries.reorderGoals(p);
+    return { ok: true };
   });
 }

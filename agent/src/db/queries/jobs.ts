@@ -1,4 +1,4 @@
-import { eq, and, lte, isNotNull } from "drizzle-orm";
+import { eq, and, lte, isNotNull, isNull, max } from "drizzle-orm";
 import { getDb } from "../init.js";
 import { jobs } from "../schema.js";
 import {
@@ -11,6 +11,7 @@ import type {
   CreateJobParams,
   UpdateJobParams,
   ListJobsParams,
+  BulkReorderParams,
 } from "@openhelm/shared";
 // Lazy import to avoid circular dependencies; power module may not be initialized yet
 function cancelWakeLazy(jobId: string): void {
@@ -66,6 +67,7 @@ function rowToJob(row: typeof jobs.$inferSelect): Job {
     silenceTimeoutMinutes: row.silenceTimeoutMinutes ?? null,
     source: (row.source ?? "user") as Job["source"],
     systemCategory: row.systemCategory ?? null,
+    sortOrder: row.sortOrder ?? 0,
   } as Job;
 }
 
@@ -81,6 +83,19 @@ export function createJob(params: CreateJobParams): Job {
   const nextFireAt = isEnabled
     ? computeNextFireAt(params.scheduleType, params.scheduleConfig)
     : null;
+
+  // Auto-assign next sort_order within the goal (or standalone jobs in the project).
+  // For standalone jobs (no goalId), exclude goal-attached jobs from the MAX() query
+  // so standalone sort_order values don't get inflated by jobs in other groups.
+  const sortConditions = params.goalId
+    ? eq(jobs.goalId, params.goalId)
+    : and(eq(jobs.projectId, params.projectId), isNull(jobs.goalId));
+  const maxResult = db
+    .select({ maxOrder: max(jobs.sortOrder) })
+    .from(jobs)
+    .where(sortConditions!)
+    .get();
+  const sortOrder = (maxResult?.maxOrder ?? -1) + 1;
 
   const row = db
     .insert(jobs)
@@ -102,6 +117,7 @@ export function createJob(params: CreateJobParams): Job {
       silenceTimeoutMinutes: params.silenceTimeoutMinutes ?? null,
       source: params.source ?? "user",
       systemCategory: params.systemCategory ?? null,
+      sortOrder,
       createdAt: now,
       updatedAt: now,
     })
@@ -137,8 +153,9 @@ export function listJobs(params?: ListJobsParams): Job[] {
           .select()
           .from(jobs)
           .where(and(...conditions))
+          .orderBy(jobs.sortOrder)
           .all()
-      : db.select().from(jobs).all();
+      : db.select().from(jobs).orderBy(jobs.sortOrder).all();
 
   return rows.map(rowToJob);
 }
@@ -365,4 +382,16 @@ export function deleteJob(id: string): boolean {
     cancelWakeLazy(id);
   }
   return result.changes > 0;
+}
+
+/** Bulk-update sort_order for multiple jobs */
+export function reorderJobs(params: BulkReorderParams): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+  for (const item of params.items) {
+    db.update(jobs)
+      .set({ sortOrder: item.sortOrder, updatedAt: now })
+      .where(eq(jobs.id, item.id))
+      .run();
+  }
 }

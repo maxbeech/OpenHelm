@@ -11,6 +11,8 @@ import {
   Pause,
   Target,
   Flag,
+  Bot,
+  Loader2,
 } from "lucide-react";
 import {
   GoalStatusBadge,
@@ -25,7 +27,7 @@ import { useJobStore } from "@/stores/job-store";
 import { useRunStore } from "@/stores/run-store";
 import { useAppStore } from "@/stores/app-store";
 import { formatSchedule, formatRelativeTime, formatTokenCount } from "@/lib/format";
-import { getJobTokenStats } from "@/lib/api";
+import { getJobTokenStats, generateAutopilotForGoal } from "@/lib/api";
 import { useAgentEvent } from "@/hooks/use-agent-event";
 import type { GoalStatus, JobTokenStat } from "@openhelm/shared";
 
@@ -54,6 +56,7 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [tokenStats, setTokenStats] = useState<JobTokenStat[]>([]);
+  const [generatingAutopilot, setGeneratingAutopilot] = useState(false);
 
   const goal = goals.find((g) => g.id === goalId);
   const goalJobs = useMemo(
@@ -85,6 +88,28 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
     if (terminal.includes(data.status)) fetchTokenStatsRef.current();
   }, []);
   useAgentEvent("run.statusChanged", handleRunStatusChanged);
+
+  // Reload jobs when autopilot creates system jobs
+  const handleSystemJobsCreated = useCallback((data: { goalId: string }) => {
+    if (data.goalId === goalId && activeProjectId) {
+      fetchJobs(activeProjectId);
+      setGeneratingAutopilot(false);
+    }
+  }, [goalId, activeProjectId, fetchJobs]);
+  useAgentEvent("autopilot.systemJobsCreated", handleSystemJobsCreated);
+
+  const handleGenerateAutopilot = async () => {
+    if (!activeProjectId) return;
+    setGeneratingAutopilot(true);
+    try {
+      await generateAutopilotForGoal(goalId, activeProjectId);
+      await fetchJobs(activeProjectId);
+    } catch (err) {
+      console.error("Failed to generate autopilot jobs:", err);
+    } finally {
+      setGeneratingAutopilot(false);
+    }
+  };
 
   const handleStatusChange = async (status: GoalStatus) => {
     await updateGoalStatus(goalId, status);
@@ -189,16 +214,31 @@ export function GoalDetailView({ goalId, onNewJob }: GoalDetailViewProps) {
       )}
 
       {/* System Jobs section */}
+      <div className="mb-4 mt-6 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            System Jobs ({systemJobs.length})
+          </h3>
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">Autopilot</span>
+        </div>
+        {systemJobs.length === 0 && goal.status === "active" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleGenerateAutopilot}
+            disabled={generatingAutopilot}
+          >
+            {generatingAutopilot ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Bot className="size-3.5" />
+            )}
+            {generatingAutopilot ? "Generating..." : "Generate"}
+          </Button>
+        )}
+      </div>
       {systemJobs.length > 0 && (
-        <>
-          <div className="mb-4 mt-6 flex items-center gap-2">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              System Jobs ({systemJobs.length})
-            </h3>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">Autopilot</span>
-          </div>
-          <JobsTable jobs={systemJobs} tokenStats={tokenStats} getLastRunForJob={getLastRunForJob} selectJob={selectJob} />
-        </>
+        <JobsTable jobs={systemJobs} tokenStats={tokenStats} getLastRunForJob={getLastRunForJob} selectJob={selectJob} />
       )}
 
       <Separator className="my-6" />

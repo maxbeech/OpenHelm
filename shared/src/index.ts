@@ -67,6 +67,7 @@ export interface Goal {
   description: string;
   status: GoalStatus;
   icon: string | null;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,6 +140,7 @@ export interface Job {
   silenceTimeoutMinutes: number | null;
   source: JobSource;
   systemCategory: string | null;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -369,6 +371,24 @@ export interface ListGoalsParams {
   status?: GoalStatus;
 }
 
+/** Sort mode for sidebar ordering */
+export type SortMode = "custom" | "alpha_asc" | "created_asc" | "created_desc";
+
+export interface ReorderGoalParams {
+  id: string;
+  sortOrder: number;
+}
+
+export interface ReorderJobParams {
+  id: string;
+  sortOrder: number;
+}
+
+export interface BulkReorderParams {
+  /** Array of { id, sortOrder } pairs */
+  items: { id: string; sortOrder: number }[];
+}
+
 // ─── Chat Types ───
 
 export type MessageRole = "user" | "assistant" | "system" | "tool_result";
@@ -377,7 +397,8 @@ export type ChatChannel = "app";
 
 export interface Conversation {
   id: string;
-  projectId: string;
+  /** NULL = "All Projects" thread; non-null = project-specific thread */
+  projectId: string | null;
   channel: ChatChannel;
   title: string | null;
   createdAt: string;
@@ -423,7 +444,8 @@ export interface ChatContext {
 }
 
 export interface SendChatMessageParams {
-  projectId: string;
+  /** NULL = "All Projects" thread */
+  projectId: string | null;
   content: string;
   context?: ChatContext;
   model?: string;
@@ -452,13 +474,15 @@ export interface RejectAllChatActionsParams {
 }
 
 export interface ListChatMessagesParams {
-  projectId: string;
+  /** NULL = "All Projects" thread */
+  projectId: string | null;
   limit?: number;
   beforeId?: string;
 }
 
 export interface ClearChatParams {
-  projectId: string;
+  /** NULL = "All Projects" thread */
+  projectId: string | null;
 }
 
 // ─── Claude Code Integration Types ───

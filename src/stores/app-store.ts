@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { SortMode } from "@openhelm/shared";
 
 // Navigation model — run detail is a side panel, not a content view
 export type ContentView =
@@ -31,6 +32,10 @@ interface AppState {
   page: Page;
   filter: NavigationFilter;
 
+  // Sidebar sorting
+  goalSortMode: SortMode;
+  jobSortMode: SortMode;
+
   // Existing — null means "All Projects"
   activeProjectId: string | null;
   onboardingComplete: boolean;
@@ -49,6 +54,10 @@ interface AppState {
   // Legacy (maps to new actions)
   setPage: (page: Page, filter?: NavigationFilter) => void;
 
+  // Sorting
+  setGoalSortMode: (mode: SortMode) => void;
+  setJobSortMode: (mode: SortMode) => void;
+
   // Existing
   setActiveProjectId: (id: string | null) => void;
   setOnboardingComplete: (complete: boolean) => void;
@@ -64,6 +73,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   page: "goals",
   filter: {},
+
+  goalSortMode: "custom",
+  jobSortMode: "custom",
 
   activeProjectId: null,
   onboardingComplete: false,
@@ -163,6 +175,9 @@ export const useAppStore = create<AppState>((set) => ({
       set({ page, filter });
     }
   },
+
+  setGoalSortMode: (mode) => set({ goalSortMode: mode }),
+  setJobSortMode: (mode) => set({ jobSortMode: mode }),
 
   // When switching project filter, don't change contentView — stay on dashboard
   setActiveProjectId: (id) =>

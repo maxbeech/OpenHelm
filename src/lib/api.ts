@@ -36,6 +36,7 @@ import type {
   UpdateCredentialParams,
   ListCredentialsParams,
   ListCredentialsByScopeParams,
+  BulkReorderParams,
   ClaudeCodeDetectionResult,
   DetectClaudeCodeParams,
   VerifyClaudeCodeParams,
@@ -120,6 +121,10 @@ export function deleteGoal(id: string): Promise<{ deleted: boolean }> {
   return agentClient.request<{ deleted: boolean }>("goals.delete", { id });
 }
 
+export function reorderGoals(params: BulkReorderParams): Promise<{ ok: boolean }> {
+  return agentClient.request<{ ok: boolean }>("goals.reorder", params);
+}
+
 // ─── Jobs ───
 
 export function createJob(params: CreateJobParams): Promise<Job> {
@@ -148,6 +153,10 @@ export function unarchiveJob(id: string): Promise<Job> {
 
 export function deleteJob(id: string): Promise<{ deleted: boolean }> {
   return agentClient.request<{ deleted: boolean }>("jobs.delete", { id });
+}
+
+export function reorderJobs(params: BulkReorderParams): Promise<{ ok: boolean }> {
+  return agentClient.request<{ ok: boolean }>("jobs.reorder", params);
 }
 
 // ─── Runs ───

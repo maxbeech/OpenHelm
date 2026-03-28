@@ -192,33 +192,52 @@ function parseStreamJsonLine(line: string, config: PrintConfig): void {
 
 /**
  * Extract the final result text from collected stream-json lines.
- * @param preferAssistantText - When true (jsonSchema mode), skip the result
- *   event's prose summary and extract directly from assistant text blocks.
+ * @param preferAssistantText - When true (jsonSchema mode), extract structured
+ *   output from the result event or StructuredOutput tool calls, falling back
+ *   to assistant text blocks.
  */
 function extractResultFromStreamJson(lines: string[], preferAssistantText = false): string {
-  if (!preferAssistantText) {
+  // For jsonSchema mode: the CLI returns structured output via a
+  // StructuredOutput tool call and/or a `structured_output` field in the
+  // result event — NOT as a text block in the assistant message.
+  if (preferAssistantText) {
+    // 1. Check `structured_output` in the result event (highest priority)
     for (const line of lines) {
       let event: Record<string, unknown>;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        continue;
+      try { event = JSON.parse(line); } catch { continue; }
+      if (event.type === "result" && event.structured_output != null) {
+        return JSON.stringify(event.structured_output);
       }
+    }
+    // 2. Check for StructuredOutput tool_use blocks in assistant messages
+    for (const line of lines) {
+      let event: Record<string, unknown>;
+      try { event = JSON.parse(line); } catch { continue; }
+      if (event.type !== "assistant") continue;
+      const message = event.message as Record<string, unknown> | undefined;
+      const content = message?.content;
+      if (!Array.isArray(content)) continue;
+      for (const block of content as Array<Record<string, unknown>>) {
+        if (block.type === "tool_use" && block.name === "StructuredOutput" && block.input != null) {
+          return JSON.stringify(block.input);
+        }
+      }
+    }
+  } else {
+    // Non-jsonSchema: use the result event's prose summary
+    for (const line of lines) {
+      let event: Record<string, unknown>;
+      try { event = JSON.parse(line); } catch { continue; }
       if (event.type === "result" && typeof event.result === "string") {
         return event.result;
       }
     }
   }
-  // Primary path for jsonSchema / fallback for plain text: concatenate all
-  // text blocks from assistant events (these contain the actual LLM response)
+  // Fallback: concatenate all text blocks from assistant events
   const parts: string[] = [];
   for (const line of lines) {
     let event: Record<string, unknown>;
-    try {
-      event = JSON.parse(line);
-    } catch {
-      continue;
-    }
+    try { event = JSON.parse(line); } catch { continue; }
     if (event.type !== "assistant") continue;
     const message = event.message as Record<string, unknown> | undefined;
     const content = message?.content;

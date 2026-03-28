@@ -23,6 +23,8 @@ import sql0018 from "./migrations/0018_add_credentials.sql";
 import sql0019 from "./migrations/0019_add_autopilot.sql";
 import sql0020 from "./migrations/0020_add_credential_scope_bindings.sql";
 import sql0021 from "./migrations/0021_add_run_credentials_pk.sql";
+import sql0022 from "./migrations/0022_chat_nullable_project.sql";
+import sql0023 from "./migrations/0023_add_sort_order.sql";
 
 export interface MigrationEntry {
   idx: number;
@@ -53,4 +55,6 @@ export const MIGRATIONS: MigrationEntry[] = [
   { idx: 19, tag: "0019_add_autopilot", sql: sql0019 },
   { idx: 20, tag: "0020_add_credential_scope_bindings", sql: sql0020 },
   { idx: 21, tag: "0021_add_run_credentials_pk", sql: sql0021 },
+  { idx: 22, tag: "0022_chat_nullable_project", sql: sql0022 },
+  { idx: 23, tag: "0023_add_sort_order", sql: sql0023 },
 ];

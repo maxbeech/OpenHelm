@@ -7,7 +7,7 @@ import { getGoal, listGoals, updateGoal, createGoal } from "../db/queries/goals.
 import { getJob, listJobs, createJob, updateJob, archiveJob } from "../db/queries/jobs.js";
 import { listRuns, createRun } from "../db/queries/runs.js";
 import { listRunLogs } from "../db/queries/run-logs.js";
-import { listMemories, createMemory, updateMemory, deleteMemory } from "../db/queries/memories.js";
+import { listMemories, listAllMemories, createMemory, updateMemory, deleteMemory } from "../db/queries/memories.js";
 import { generateEmbedding } from "../memory/embeddings.js";
 import { jobQueue } from "../scheduler/queue.js";
 import { executor } from "../executor/index.js";
@@ -31,19 +31,21 @@ function fail(call: ChatToolCall, error: string): ToolExecutionResult {
 }
 
 /** Execute a read (non-mutating) tool immediately. */
-export function executeReadTool(call: ChatToolCall, projectId: string): ToolExecutionResult {
+export function executeReadTool(call: ChatToolCall, projectId: string | null): ToolExecutionResult {
   const a = call.args;
+  // null → undefined so query functions treat it as "no filter" (all projects)
+  const pid = projectId ?? undefined;
   try {
     switch (call.tool) {
       case "list_goals":
-        return ok(call, listGoals({ projectId, status: a.status as any }));
+        return ok(call, listGoals({ projectId: pid, status: a.status as any }));
 
       case "list_jobs":
-        return ok(call, listJobs({ projectId, goalId: a.goalId as string | undefined }));
+        return ok(call, listJobs({ projectId: pid, goalId: a.goalId as string | undefined }));
 
       case "list_runs":
         return ok(call, listRuns({
-          projectId,
+          projectId: pid,
           jobId: a.jobId as string | undefined,
           limit: (a.limit as number | undefined) ?? 10,
         }));
@@ -66,12 +68,10 @@ export function executeReadTool(call: ChatToolCall, projectId: string): ToolExec
       }
 
       case "list_memories":
-        return ok(call, listMemories({
-          projectId,
-          type: a.type as any,
-          tag: a.tag as string | undefined,
-          isArchived: false,
-        }));
+        return ok(call, pid
+          ? listMemories({ projectId: pid, type: a.type as any, tag: a.tag as string | undefined, isArchived: false })
+          : listAllMemories({ type: a.type as any, tag: a.tag as string | undefined, isArchived: false }),
+        );
 
       default:
         return fail(call, `Unknown read tool: ${call.tool}`);
@@ -82,13 +82,18 @@ export function executeReadTool(call: ChatToolCall, projectId: string): ToolExec
 }
 
 /** Execute a write (mutating) tool after user confirmation. */
-export async function executeWriteTool(call: ChatToolCall, projectId: string): Promise<ToolExecutionResult> {
+export async function executeWriteTool(call: ChatToolCall, projectId: string | null): Promise<ToolExecutionResult> {
   const a = call.args;
+  // Write tools that create project-scoped entities need a real projectId
+  const needsProject = ["create_goal", "create_job", "save_memory"];
+  if (!projectId && needsProject.includes(call.tool)) {
+    return fail(call, "Cannot create project-scoped entities in the All Projects thread — switch to a specific project first.");
+  }
   try {
     switch (call.tool) {
       case "create_goal":
         return ok(call, createGoal({
-          projectId,
+          projectId: projectId!,
           name: a.name as string,
           description: a.description as string | undefined,
         }));
@@ -112,7 +117,7 @@ export async function executeWriteTool(call: ChatToolCall, projectId: string): P
           scheduleConfig = { expression: (a.cronExpression as string) ?? "0 9 * * 1" };
         }
         return ok(call, createJob({
-          projectId,
+          projectId: projectId!,
           goalId: a.goalId as string | undefined,
           name: a.name as string,
           prompt: a.prompt as string,
@@ -150,7 +155,7 @@ export async function executeWriteTool(call: ChatToolCall, projectId: string): P
         let embedding: number[] | undefined;
         try { embedding = await generateEmbedding(a.content as string); } catch { /* skip */ }
         const mem = createMemory({
-          projectId,
+          projectId: projectId!,
           type: (a.type as any) ?? "semantic",
           content: a.content as string,
           sourceType: "chat",

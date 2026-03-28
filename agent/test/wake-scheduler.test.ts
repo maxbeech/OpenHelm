@@ -22,18 +22,22 @@ import {
   cancelWake,
   cancelAllWakes,
   syncWakeEvents,
+  purgeAllPmsetWakes,
   checkWakeAuthorization,
   installSudoersEntry,
   getScheduledWakeCount,
 } from "../src/power/wake-scheduler.js";
 import { listJobs } from "../src/db/queries/jobs.js";
 
-/** Make execFile succeed with empty output. */
-function mockExecFileSuccess() {
+/** Make execFile succeed with empty output (or custom stdout for `-g sched`). */
+function mockExecFileSuccess(schedOutput = "") {
   (execFile as Mock).mockImplementation(
     (_cmd: string, _args: string[], _opts: unknown, cb: (err: null, out: { stdout: string; stderr: string }) => void) => {
       const callback = typeof _opts === "function" ? _opts : cb;
-      (callback as Function)(null, { stdout: "", stderr: "" });
+      const args = Array.isArray(_args) ? _args : [];
+      // Return schedule output when pmset -g sched is called
+      const stdout = args.includes("-g") && args.includes("sched") ? schedOutput : "";
+      (callback as Function)(null, { stdout, stderr: "" });
       return {} as unknown;
     },
   );
@@ -50,7 +54,18 @@ function mockExecFileError(message: string) {
   );
 }
 
+/** Sample pmset -g sched output with stale OpenHelm entries. */
+const SAMPLE_SCHED_OUTPUT = `Scheduled power events:
+ [0]  wake at 03/27/2026 10:40:00 by 'com.apple.alarm.user-invisible'
+ [1]  wakeorpoweron at 03/27/2026 11:15:20 by 'pmset'
+ [2]  wakeorpoweron at 03/28/2026 08:58:00 by 'pmset'
+ [3]  wakeorpoweron at 03/28/2026 08:58:00 by 'pmset'
+`;
+
 beforeEach(async () => {
+  // cancelAllWakes now calls purgeAllPmsetWakes (which runs pmset -g sched),
+  // so we need the mock set up before calling it
+  mockExecFileSuccess();
   await cancelAllWakes();
   vi.clearAllMocks();
 });
@@ -157,7 +172,7 @@ describe("cancelWake", () => {
 });
 
 describe("cancelAllWakes", () => {
-  it("cancels all tracked wakes", async () => {
+  it("clears in-memory map and purges pmset entries", async () => {
     mockExecFileSuccess();
 
     const fireAt = new Date(Date.now() + 10 * 60_000);
@@ -170,18 +185,23 @@ describe("cancelAllWakes", () => {
 
     await cancelAllWakes();
     expect(getScheduledWakeCount()).toBe(0);
-    // One cancel call per wake (each is a separate sudo call, but no dialogs)
-    expect(execFile).toHaveBeenCalledTimes(2);
+    // 1 call: pmset -g sched (purge finds 0 entries in empty output)
+    expect(execFile).toHaveBeenCalledTimes(1);
   });
 
-  it("is a no-op when no wakes are tracked", async () => {
+  it("purges stale pmset entries even with empty in-memory map", async () => {
+    // Simulate pmset returning stale entries from a prior session
+    mockExecFileSuccess(SAMPLE_SCHED_OUTPUT);
+
     await cancelAllWakes();
-    expect(execFile).not.toHaveBeenCalled();
+    expect(getScheduledWakeCount()).toBe(0);
+    // 1 pmset -g sched + 3 cancel calls (3 wakeorpoweron entries by 'pmset')
+    expect(execFile).toHaveBeenCalledTimes(4);
   });
 });
 
 describe("syncWakeEvents", () => {
-  it("schedules wakes for all enabled jobs with future nextFireAt", async () => {
+  it("purges stale entries then schedules wakes for enabled jobs", async () => {
     mockExecFileSuccess();
 
     const futureDate = new Date(Date.now() + 60 * 60_000).toISOString();
@@ -194,10 +214,15 @@ describe("syncWakeEvents", () => {
     await syncWakeEvents();
 
     expect(getScheduledWakeCount()).toBe(2);
-    // Each uses sudo pmset (no osascript dialog)
-    expect(execFile).toHaveBeenCalledTimes(2);
-    const [cmd] = (execFile as Mock).mock.calls[0] as [string];
-    expect(cmd).toBe("sudo");
+    // 1 purge (pmset -g sched) + 2 schedule calls = 3 total
+    expect(execFile).toHaveBeenCalledTimes(3);
+    // First call is the purge (pmset -g sched)
+    const [purgeCmd, purgeArgs] = (execFile as Mock).mock.calls[0] as [string, string[]];
+    expect(purgeCmd).toBe("sudo");
+    expect(purgeArgs).toContain("-g");
+    // Second call is a schedule
+    const [schedCmd] = (execFile as Mock).mock.calls[1] as [string];
+    expect(schedCmd).toBe("sudo");
   });
 
   it("skips jobs whose nextFireAt is in the past or within wake lead time", async () => {
@@ -212,7 +237,48 @@ describe("syncWakeEvents", () => {
 
     await syncWakeEvents();
     expect(getScheduledWakeCount()).toBe(0);
-    expect(execFile).not.toHaveBeenCalled();
+    // 1 call for purge (pmset -g sched), 0 schedule calls
+    expect(execFile).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("purgeAllPmsetWakes", () => {
+  it("parses pmset output and cancels all wakeorpoweron entries by pmset", async () => {
+    mockExecFileSuccess(SAMPLE_SCHED_OUTPUT);
+
+    const count = await purgeAllPmsetWakes();
+
+    // 3 wakeorpoweron entries by 'pmset' in sample output
+    expect(count).toBe(3);
+    // 1 pmset -g sched + 3 cancel calls = 4 total
+    expect(execFile).toHaveBeenCalledTimes(4);
+    // Verify cancel calls have correct datetimes
+    const cancelArgs = (execFile as Mock).mock.calls.slice(1).map(
+      (call: unknown[]) => (call[1] as string[]),
+    );
+    for (const args of cancelArgs) {
+      expect(args).toContain("cancel");
+      expect(args).toContain("wakeorpoweron");
+    }
+  });
+
+  it("ignores non-pmset wake entries (Apple system wakes)", async () => {
+    const onlyAppleWakes = `Scheduled power events:
+ [0]  wake at 03/27/2026 10:40:00 by 'com.apple.alarm.user-invisible'
+`;
+    mockExecFileSuccess(onlyAppleWakes);
+
+    const count = await purgeAllPmsetWakes();
+    expect(count).toBe(0);
+    // Only the -g sched call, no cancel calls
+    expect(execFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 0 when no scheduled events exist", async () => {
+    mockExecFileSuccess("Scheduled power events:\n");
+
+    const count = await purgeAllPmsetWakes();
+    expect(count).toBe(0);
   });
 });
 

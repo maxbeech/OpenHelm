@@ -6,7 +6,7 @@
  * Selected items are shown as removable tags.
  */
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronDown, X, Search } from "lucide-react";
+import { ChevronDown, X, Search, Folder, Target, Zap } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -214,10 +214,25 @@ export function ScopeMultiSelect({ projects, goals, jobs, value, onChange }: Pro
     [projects, goals, jobs],
   );
 
+  // Compute effective job count: a project/goal binding covers all child jobs
+  const effectiveJobCount = useMemo(() => {
+    let count = 0;
+    for (const binding of value) {
+      if (binding.scopeType === "job") {
+        count += 1;
+      } else if (binding.scopeType === "goal") {
+        count += jobs.filter((j) => j.goalId === binding.scopeId).length;
+      } else if (binding.scopeType === "project") {
+        count += jobs.filter((j) => j.projectId === binding.scopeId).length;
+      }
+    }
+    return count;
+  }, [value, jobs]);
+
   const triggerLabel =
     value.length === 0
       ? "Global (all projects)"
-      : `${value.length} scope${value.length === 1 ? "" : "s"} selected`;
+      : `${effectiveJobCount} job${effectiveJobCount === 1 ? "" : "s"} selected`;
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -279,6 +294,7 @@ export function ScopeMultiSelect({ projects, goals, jobs, value, onChange }: Pro
                         onCheckedChange={() => toggleProject(project)}
                         className="shrink-0"
                       />
+                      <Folder className="size-3.5 shrink-0 text-muted-foreground" />
                       <span className="text-sm font-medium truncate">{project.name}</span>
                     </label>
 
@@ -297,6 +313,7 @@ export function ScopeMultiSelect({ projects, goals, jobs, value, onChange }: Pro
                               onCheckedChange={() => toggleGoal(goal)}
                               className="shrink-0"
                             />
+                            <Target className="size-3.5 shrink-0 text-muted-foreground" />
                             <span className="text-sm truncate text-foreground/80">{goal.name || goal.id}</span>
                           </label>
 
@@ -313,6 +330,7 @@ export function ScopeMultiSelect({ projects, goals, jobs, value, onChange }: Pro
                                   onCheckedChange={() => toggleJob(job)}
                                   className="shrink-0"
                                 />
+                                <Zap className="size-3 shrink-0 text-muted-foreground" />
                                 <span className="text-xs truncate text-muted-foreground">{job.name}</span>
                               </label>
                             );
@@ -334,6 +352,7 @@ export function ScopeMultiSelect({ projects, goals, jobs, value, onChange }: Pro
                             onCheckedChange={() => toggleJob(job)}
                             className="shrink-0"
                           />
+                          <Zap className="size-3 shrink-0 text-muted-foreground" />
                           <span className="text-xs truncate text-muted-foreground">{job.name}</span>
                         </label>
                       );

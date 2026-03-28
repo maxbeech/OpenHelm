@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { Target, Briefcase, Play, AlertTriangle, LayoutDashboard, ChevronDown, ChevronUp, RotateCcw, Bot, Check, X } from "lucide-react";
+import { Target, Briefcase, Play, AlertTriangle, LayoutDashboard, ChevronDown, ChevronUp, RefreshCw, PlayCircle, Bot, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useGoalStore } from "@/stores/goal-store";
@@ -17,6 +17,7 @@ import * as api from "@/lib/api";
 import type { DashboardItem, Run, AutopilotProposal } from "@openhelm/shared";
 
 const DEFAULT_VISIBLE_GROUPS = 3;
+const DEFAULT_VISIBLE_RUNS = 10;
 
 export function DashboardView() {
   const { items, loading, dismissAll } = useDashboardStore();
@@ -28,6 +29,7 @@ export function DashboardView() {
   const { triggerRun } = useRunStore();
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [dismissingAll, setDismissingAll] = useState(false);
+  const [visibleRunCount, setVisibleRunCount] = useState(DEFAULT_VISIBLE_RUNS);
   const [proposals, setProposals] = useState<AutopilotProposal[]>([]);
 
   const fetchProposals = useCallback(async () => {
@@ -69,8 +71,9 @@ export function DashboardView() {
     return { runningCount: running, recentSuccessCount: recentSuccess };
   }, [runs]);
 
-  // Recent runs: last 15, across all projects
-  const recentRuns = useMemo(() => runs.slice(0, 15), [runs]);
+  // Recent runs: paginated, across all projects
+  const recentRuns = useMemo(() => runs.slice(0, visibleRunCount), [runs, visibleRunCount]);
+  const hasMoreRuns = runs.length > visibleRunCount;
 
   // Group items by jobId, sorted by most recent alert in each group
   const alertGroups = useMemo(() => {
@@ -247,10 +250,19 @@ export function DashboardView() {
                 jobs={jobs}
                 projects={projects}
                 onSelect={() => selectRunPreserveView(run.id)}
-                onRerun={() => triggerRun(run.jobId)}
-                onFreshRun={() => triggerRun(run.jobId)}
+                onRetry={() => triggerRun(run.jobId)}
+                onNewRun={() => triggerRun(run.jobId)}
               />
             ))}
+            {hasMoreRuns && (
+              <button
+                className="flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setVisibleRunCount((v) => v + 10)}
+              >
+                <ChevronDown className="size-3.5" />
+                View more
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -303,19 +315,21 @@ function RecentRunRow({
   jobs,
   projects,
   onSelect,
-  onRerun,
-  onFreshRun,
+  onRetry,
+  onNewRun,
 }: {
   run: Run;
   jobs: { id: string; name: string; projectId: string }[];
   projects: { id: string; name: string }[];
   onSelect: () => void;
-  onRerun: () => void;
-  onFreshRun: () => void;
+  onRetry: () => void;
+  onNewRun: () => void;
 }) {
   const job = jobs.find((j) => j.id === run.jobId);
   const project = job ? projects.find((p) => p.id === job.projectId) : null;
   const timeAgo = formatRelativeTime(run.createdAt);
+  const isFailed = run.status === "failed" || run.status === "permanent_failure";
+  const isTerminal = ["succeeded", "failed", "permanent_failure", "cancelled"].includes(run.status);
 
   return (
     <div className="group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent">
@@ -332,23 +346,29 @@ function RecentRunRow({
           </span>
         )}
       </button>
-      {/* Hover action CTAs */}
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
-          onClick={(e) => { e.stopPropagation(); onRerun(); }}
-          title="Retry — pick up where it left off"
-          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-        >
-          <RotateCcw className="size-3.5" />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onFreshRun(); }}
-          title="Fresh run"
-          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-        >
-          <Play className="size-3.5" />
-        </button>
-      </div>
+      {/* Hover action CTAs — only shown for terminal runs */}
+      {isTerminal && (
+        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {isFailed && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRetry(); }}
+              title="Retry failed run"
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-destructive transition-colors hover:bg-background hover:text-destructive"
+            >
+              <RefreshCw className="size-3" />
+              Retry
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onNewRun(); }}
+            title="Start a new run"
+            className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          >
+            <PlayCircle className="size-3" />
+            Run
+          </button>
+        </div>
+      )}
       <RunStatusBadge status={run.status} />
       {(run.inputTokens != null || run.outputTokens != null) && (
         <span className="shrink-0 text-[11px] text-muted-foreground font-mono tabular-nums">

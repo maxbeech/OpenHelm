@@ -87,11 +87,21 @@ export async function extractMemories(ctx: ExtractionContext): Promise<Memory[]>
     }
   } catch {
     console.error("[extractor] failed to parse LLM output:", rawText.slice(0, 300));
+    emit("memory.extractionFailed", {
+      projectId: ctx.projectId,
+      source: ctx.sourceType,
+      reason: "JSON parse failure",
+    });
     return [];
   }
 
   if (!parsed.memories || !Array.isArray(parsed.memories)) {
     console.error("[extractor] no memories array in response:", JSON.stringify(parsed).slice(0, 200));
+    emit("memory.extractionFailed", {
+      projectId: ctx.projectId,
+      source: ctx.sourceType,
+      reason: "Invalid response structure",
+    });
     return [];
   }
   console.error(`[extractor] LLM extracted ${parsed.memories.length} candidate memories`);
@@ -106,13 +116,11 @@ export async function extractMemories(ctx: ExtractionContext): Promise<Memory[]>
     }
   }
 
-  if (results.length > 0) {
-    emit("memory.extracted", {
-      projectId: ctx.projectId,
-      count: results.length,
-      source: ctx.sourceType,
-    });
-  }
+  emit("memory.extracted", {
+    projectId: ctx.projectId,
+    count: results.length,
+    source: ctx.sourceType,
+  });
 
   return results;
 }
@@ -123,6 +131,12 @@ async function processExtractedMemory(
 ): Promise<Memory | null> {
   // Clamp importance to 0-10
   const importance = Math.max(0, Math.min(10, Math.round(ext.importance)));
+
+  if (ext.action === "update" && !ext.mergeTargetId) {
+    // The LLM returned action:"update" without a mergeTargetId — can't update without
+    // knowing which memory to target. Fall through to create a new memory instead.
+    console.error("[extractor] 'update' action missing mergeTargetId — falling through to create");
+  }
 
   if (ext.action === "update" && ext.mergeTargetId) {
     let embedding: number[] | undefined;

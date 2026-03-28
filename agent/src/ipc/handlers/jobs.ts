@@ -7,6 +7,7 @@ import type {
   CreateJobParams,
   UpdateJobParams,
   ListJobsParams,
+  BulkReorderParams,
 } from "@openhelm/shared";
 
 export function registerJobHandlers() {
@@ -69,5 +70,12 @@ export function registerJobHandlers() {
     const { id } = params as { id: string };
     if (!id) throw new Error("id is required");
     return { deleted: jobQueries.deleteJob(id) };
+  });
+
+  registerHandler("jobs.reorder", (params) => {
+    const p = params as BulkReorderParams;
+    if (!p?.items?.length) throw new Error("items array is required");
+    jobQueries.reorderJobs(p);
+    return { ok: true };
   });
 }

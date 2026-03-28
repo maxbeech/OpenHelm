@@ -35,6 +35,7 @@ export const goals = sqliteTable("goals", {
     .notNull()
     .default("active"),
   icon: text("icon"),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -69,6 +70,7 @@ export const jobs = sqliteTable("jobs", {
   silenceTimeoutMinutes: integer("silence_timeout_minutes"),
   source: text("source").notNull().default("user"),
   systemCategory: text("system_category"),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -114,11 +116,11 @@ export const runs = sqliteTable("runs", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
-/** A conversation thread for the AI chat sidebar (one per project for v1) */
+/** A conversation thread for the AI chat sidebar (one per project, plus one for "All Projects") */
 export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
+  /** NULL = "All Projects" thread; non-null = project-specific thread */
   projectId: text("project_id")
-    .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   /** Channel source — 'app' for the desktop UI, extensible for WhatsApp/Slack/etc. */
   channel: text("channel").notNull().default("app"),

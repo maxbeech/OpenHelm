@@ -6,6 +6,9 @@ CREATE TABLE run_credentials_new (
   injection_method TEXT NOT NULL CHECK(injection_method IN ('env', 'prompt')),
   PRIMARY KEY (run_id, credential_id, injection_method)
 );
+--> statement-breakpoint
 INSERT OR IGNORE INTO run_credentials_new SELECT * FROM run_credentials;
+--> statement-breakpoint
 DROP TABLE run_credentials;
+--> statement-breakpoint
 ALTER TABLE run_credentials_new RENAME TO run_credentials;

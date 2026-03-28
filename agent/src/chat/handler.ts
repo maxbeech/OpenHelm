@@ -16,7 +16,7 @@ import {
   listMessagesForProject,
   getProjectIdForMessage,
 } from "../db/queries/conversations.js";
-import { buildChatSystemPromptAsync } from "./system-prompt.js";
+import { buildChatSystemPromptAsync, buildAllProjectsSystemPromptAsync } from "./system-prompt.js";
 import { parseLlmResponse, buildTextResponse } from "./response-parser.js";
 import { isWriteTool, describeAction } from "./tools.js";
 import { executeReadTool, executeWriteTool } from "./tool-executor.js";
@@ -61,27 +61,30 @@ function buildLlmUserMessage(
 }
 
 export async function handleChatMessage(
-  projectId: string,
+  projectId: string | null,
   content: string,
   context?: ChatContext,
   modelOverride?: string,
   effort?: "low" | "medium" | "high",
   permissionMode?: string,
 ): Promise<ChatMessage[]> {
-  const project = getProject(projectId);
-  if (!project) throw new Error(`Project not found: ${projectId}`);
+  // Resolve project — null means "All Projects" thread
+  const project = projectId ? getProject(projectId) : null;
+  if (projectId && !project) throw new Error(`Project not found: ${projectId}`);
 
-  // Resolve context entities for the system prompt
+  // Resolve context entities for the system prompt (only when scoped to a project)
   let viewingGoal = context?.viewingGoalId ? getGoal(context.viewingGoalId) : null;
   let viewingJob = context?.viewingJobId ? getJob(context.viewingJobId) : null;
   let viewingRun = context?.viewingRunId ? getRun(context.viewingRunId) : null;
 
   // Discard context entities that don't belong to this project (stale cross-project refs)
-  if (viewingGoal && viewingGoal.projectId !== projectId) viewingGoal = null;
-  if (viewingJob && viewingJob.projectId !== projectId) viewingJob = null;
-  if (viewingRun) {
-    const runJob = getJob(viewingRun.jobId);
-    if (!runJob || runJob.projectId !== projectId) viewingRun = null;
+  if (project) {
+    if (viewingGoal && viewingGoal.projectId !== projectId) viewingGoal = null;
+    if (viewingJob && viewingJob.projectId !== projectId) viewingJob = null;
+    if (viewingRun) {
+      const runJob = getJob(viewingRun.jobId);
+      if (!runJob || runJob.projectId !== projectId) viewingRun = null;
+    }
   }
 
   const conv = getOrCreateConversation(projectId);
@@ -94,7 +97,9 @@ export async function handleChatMessage(
   // Emit early "thinking" so the UI shows feedback during async prompt build
   emit("chat.status", { status: "thinking", projectId });
 
-  const systemPrompt = await buildChatSystemPromptAsync({ project, viewingGoal, viewingJob, viewingRun });
+  const systemPrompt = project
+    ? await buildChatSystemPromptAsync({ project, viewingGoal, viewingJob, viewingRun })
+    : await buildAllProjectsSystemPromptAsync();
 
   // Tool loop
   const allToolCalls: ChatToolCall[] = [];
@@ -141,7 +146,7 @@ export async function handleChatMessage(
       systemPrompt,
       userMessage,
       disableTools: false,
-      workingDirectory: project.directoryPath,
+      workingDirectory: project?.directoryPath,
       permissionMode: permissionMode || "plan",
       preferRawText: true,
       onTextChunk: (text) => {
@@ -270,6 +275,10 @@ export async function handleActionApproval(
     updated = updated.map((a, i) => {
       // Only update jobs between this goal and the next goal
       if (i > thisIdx && i < endIdx && a.tool === "create_job" && a.status === "pending" && a.args.goalId) {
+        // The system prompt instructs the LLM to use the sentinel string "pending"
+        // as a placeholder goalId for jobs whose goal hasn't been created yet.
+        // If getGoal returns null (i.e. no real goal with this ID exists, including
+        // the "pending" sentinel), rewrite the goalId to the newly created goal's real ID.
         const existing = getGoal(a.args.goalId as string);
         if (!existing) {
           return { ...a, args: { ...a.args, goalId: createdGoalId } };
@@ -316,6 +325,14 @@ export async function handleApproveAll(
   const pending = msg.pendingActions ?? [];
   const pendingCallIds = pending
     .filter((a) => a.status === "pending")
+    // Sort so create_goal actions run before create_job actions. This ensures
+    // the FK-linking logic in handleActionApproval can resolve the real goal ID
+    // even if the LLM emitted jobs before their parent goal in its response.
+    .sort((a, b) => {
+      if (a.tool === "create_goal" && b.tool !== "create_goal") return -1;
+      if (b.tool === "create_goal" && a.tool !== "create_goal") return 1;
+      return 0;
+    })
     .map((a) => a.callId);
 
   if (pendingCallIds.length === 0) throw new Error("No pending actions to approve");
@@ -326,8 +343,10 @@ export async function handleApproveAll(
     current = await handleActionApproval(messageId, callId, projectId);
   }
 
-  // Trigger autopilot system job generation for any goals that were created
-  triggerAutopilotForCreatedGoals(pending, projectId);
+  // Trigger autopilot system job generation for any goals that were created.
+  // Use current.pendingActions (not the original `pending`) because FK-linking
+  // during approval rewrites job goalIds to point at the newly created goals.
+  triggerAutopilotForCreatedGoals(current.pendingActions ?? [], projectId);
 
   return current;
 }
@@ -358,27 +377,27 @@ export function handleRejectAll(messageId: string): ChatMessage {
 
 /**
  * After approving all chat actions, trigger autopilot for any created goals.
- * Finds create_goal actions that have sibling create_job actions (meaning
- * the goal now has jobs) and triggers system job generation.
+ * Extracts goal IDs from approved create_job actions (which were FK-linked
+ * to real goal IDs during approval) and triggers system job generation for
+ * each unique goal that has at least one job.
  */
 function triggerAutopilotForCreatedGoals(
   actions: PendingAction[],
   projectId: string,
 ): void {
-  const goalActions = actions.filter((a) => a.tool === "create_goal" && a.status === "approved");
-  const jobActions = actions.filter((a) => a.tool === "create_job" && a.status === "approved");
+  const hasGoalCreations = actions.some((a) => a.tool === "create_goal" && a.status === "approved");
+  if (!hasGoalCreations) return;
 
-  if (goalActions.length === 0 || jobActions.length === 0) return;
+  // Collect unique goal IDs from approved job actions (FK-linked by handleActionApproval)
+  const goalIdsWithJobs = new Set(
+    actions
+      .filter((a) => a.tool === "create_job" && a.status === "approved" && a.args.goalId)
+      .map((a) => a.args.goalId as string),
+  );
 
-  // For each created goal, check if it has associated jobs
-  for (const ga of goalActions) {
-    const goalId = ga.args.goalId as string | undefined;
-    if (!goalId) continue;
-    const hasJobs = jobActions.some((ja) => ja.args.goalId === goalId);
-    if (hasJobs) {
-      generateAndHandleSystemJobs(goalId, projectId).catch((err) =>
-        console.error("[chat] autopilot generation failed:", err),
-      );
-    }
+  for (const goalId of goalIdsWithJobs) {
+    generateAndHandleSystemJobs(goalId, projectId).catch((err) =>
+      console.error("[chat] autopilot generation failed:", err),
+    );
   }
 }

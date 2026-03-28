@@ -7,6 +7,7 @@ import { TOOLS } from "./tools.js";
 import { getConfiguredMcpServers } from "../claude-code/mcp-config.js";
 import { retrieveMemories } from "../memory/retriever.js";
 import { buildChatMemorySection } from "../memory/prompt-builder.js";
+import { listProjects } from "../db/queries/projects.js";
 import type { Project, Goal, Job, Run } from "@openhelm/shared";
 
 export interface ChatSystemContext {
@@ -167,8 +168,14 @@ Directory: ${ctx.project.directoryPath}${ctx.project.description ? `\nDescriptio
     buildNativeToolsSection(),
     buildMcpSection(),
     buildToolsSection(),
+    buildRulesSection(),
+  ].filter(Boolean);
 
-    `## Rules
+  return sections.join("\n\n");
+}
+
+function buildRulesSection(): string {
+  return `## Rules
 - Never fabricate data — call a read tool first if you need information.
 - Before creating a goal or job, check what already exists by calling list_goals or list_jobs. If the user's request maps to an existing entity, use update_goal or update_job instead of creating a duplicate. Only create new entities when nothing suitable exists.
 - When the user is viewing a specific goal or job (shown in Current View), default to modifying that entity unless they explicitly ask for something new.
@@ -176,7 +183,44 @@ Directory: ${ctx.project.directoryPath}${ctx.project.description ? `\nDescriptio
 - If a job fails, help diagnose the prompt or project environment. Don't modify OpenHelm.
 - Keep responses concise. Use bullet points for lists.
 - You are synchronous. You cannot send follow-up messages, monitor progress, or check back later. Each response is complete and final. Never say "while that runs" or "I'll check on that."
-- Write actions do not execute until the user explicitly approves them. Do not describe proposed actions as already happening or running.`,
+- Write actions do not execute until the user explicitly approves them. Do not describe proposed actions as already happening or running.`;
+}
+
+/**
+ * Build the system prompt for the "All Projects" thread.
+ * Lists all projects so the LLM is aware of them, but has no single active project.
+ */
+export async function buildAllProjectsSystemPromptAsync(): Promise<string> {
+  const projects = listProjects();
+  const projectList = projects.length > 0
+    ? projects.map((p) => `- **${p.name}** (id: ${p.id}) — ${p.directoryPath}`).join("\n")
+    : "No projects configured yet.";
+
+  const sections = [
+    `## You are the OpenHelm AI Assistant
+
+OpenHelm runs Claude Code tasks on a schedule. Users define:
+- Goals: high-level outcomes (e.g. "Improve test coverage")
+- Jobs: scheduled Claude Code prompts that work toward goals
+- Runs: individual executions of jobs (with logs and status)
+
+Help users manage their projects: answer questions, create or update goals and jobs, diagnose failures, and have natural conversations about their work.
+
+Be concise and action-oriented. Propose write actions with the appropriate tool and a brief explanation.`,
+
+    `## Context: All Projects
+The user is viewing all projects at once. There is no single active project.
+When using read tools (list_goals, list_jobs, list_runs) results span all projects.
+
+Available projects:
+${projectList}
+
+When creating goals or jobs, you must reference a specific project — ask the user which project if unclear.`,
+
+    buildNativeToolsSection(),
+    buildMcpSection(),
+    buildToolsSection(),
+    buildRulesSection(),
   ].filter(Boolean);
 
   return sections.join("\n\n");

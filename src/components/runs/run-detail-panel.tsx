@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Ban, TerminalSquare, Brain, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Ban, TerminalSquare, Brain, ChevronDown, ChevronRight, RefreshCw, PlayCircle } from "lucide-react";
 import { useRunStore } from "@/stores/run-store";
 import { useAppStore } from "@/stores/app-store";
 import { RunStatusBanner } from "./run-status-banner";
@@ -19,7 +19,7 @@ interface RunDetailPanelProps {
 }
 
 export function RunDetailPanel({ run, jobName, onClose }: RunDetailPanelProps) {
-  const { cancelRun } = useRunStore();
+  const { cancelRun, triggerRun } = useRunStore();
   const { selectJob, selectRunPreserveView } = useAppStore();
   const { logs, loading: logsLoading } = useRunLogs(run.id);
   const [cancelling, setCancelling] = useState(false);
@@ -35,6 +35,7 @@ export function RunDetailPanel({ run, jobName, onClose }: RunDetailPanelProps) {
   const isRunning = run.status === "running";
   const isCancellable = run.status === "running" || run.status === "queued";
   const isTerminal = ["succeeded", "failed", "permanent_failure", "cancelled"].includes(run.status);
+  const isFailed = run.status === "failed" || run.status === "permanent_failure";
   const canOpenInTerminal = isTerminal && !!run.sessionId;
 
   const handleCancel = async () => {
@@ -63,6 +64,26 @@ export function RunDetailPanel({ run, jobName, onClose }: RunDetailPanelProps) {
           <p className="text-xs text-muted-foreground">Run {run.id.slice(0, 8)}</p>
         </div>
         <div className="flex items-center gap-1">
+          {isTerminal && isFailed && (
+            <button
+              onClick={() => triggerRun(run.jobId)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-destructive hover:bg-accent hover:text-destructive"
+              title="Retry failed run"
+            >
+              <RefreshCw className="size-3.5" />
+              Retry
+            </button>
+          )}
+          {isTerminal && (
+            <button
+              onClick={() => triggerRun(run.jobId)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Start a new run"
+            >
+              <PlayCircle className="size-3.5" />
+              New run
+            </button>
+          )}
           {canOpenInTerminal && (
             <button
               onClick={handleOpenInTerminal}

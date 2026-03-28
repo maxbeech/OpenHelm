@@ -157,6 +157,7 @@ New step 6 (`src/components/onboarding/steps/autopilot-step.tsx`) added before p
 - User jobs displayed under "Jobs (N)" subsection
 - System jobs displayed under "System Jobs (N)" subsection with an "Autopilot" badge
 - Both sections use a shared `JobsTable` helper component
+- When no system jobs exist and goal is active, a "Generate" button (Bot icon) triggers `generateAutopilotForGoal` to create system jobs on demand
 
 ### Dashboard View
 `src/components/content/dashboard-view.tsx`:

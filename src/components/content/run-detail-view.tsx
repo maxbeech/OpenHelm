@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Ban, TerminalSquare, X } from "lucide-react";
+import { Ban, TerminalSquare, X, RefreshCw, PlayCircle } from "lucide-react";
 import { useRunStore } from "@/stores/run-store";
 import { useJobStore } from "@/stores/job-store";
 import { useAppStore } from "@/stores/app-store";
@@ -16,7 +16,7 @@ interface RunDetailViewProps {
 }
 
 export function RunDetailView({ runId }: RunDetailViewProps) {
-  const { runs, cancelRun } = useRunStore();
+  const { runs, cancelRun, triggerRun } = useRunStore();
   const { jobs } = useJobStore();
   const { clearSelectedRun, selectJob, selectRunPreserveView } = useAppStore();
   const { logs, loading: logsLoading } = useRunLogs(runId);
@@ -54,6 +54,7 @@ export function RunDetailView({ runId }: RunDetailViewProps) {
     "permanent_failure",
     "cancelled",
   ].includes(run.status);
+  const isFailed = run.status === "failed" || run.status === "permanent_failure";
   const canOpenInTerminal = isTerminal && !!run.sessionId;
 
   const handleOpenInTerminal = async () => {
@@ -84,6 +85,26 @@ export function RunDetailView({ runId }: RunDetailViewProps) {
           </p>
         </div>
         <div className="flex items-center gap-1">
+          {isTerminal && isFailed && (
+            <button
+              onClick={() => triggerRun(run.jobId)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-destructive hover:bg-accent hover:text-destructive"
+              title="Retry failed run"
+            >
+              <RefreshCw className="size-3.5" />
+              Retry
+            </button>
+          )}
+          {isTerminal && (
+            <button
+              onClick={() => triggerRun(run.jobId)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Start a new run"
+            >
+              <PlayCircle className="size-3.5" />
+              New run
+            </button>
+          )}
           {canOpenInTerminal && (
             <button
               onClick={handleOpenInTerminal}

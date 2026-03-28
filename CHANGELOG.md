@@ -1,9 +1,41 @@
 # Changelog
 
-## [0.2.1] - 2026-03-27
+## [Unreleased]
 
 ### Fixed
+- Security: validate username against an allowlist regex before interpolating into the osascript admin shell command in `wake-scheduler.ts`, preventing shell injection if `$USER` contains unusual characters
+- Bug: `handleApproveAll` now sorts `create_goal` actions before `create_job` actions so FK links are valid even when the LLM emitted jobs before their parent goal
+- Bug: standalone job sort-order query now excludes goal-attached jobs from the `MAX()` calculation, preventing inflated `sortOrder` values for standalone jobs
+- Bug: chat message pagination (`beforeId`) now uses `id` as a tiebreaker when two messages share the same `createdAt` timestamp, preventing messages from being silently skipped
+- Bug: memory extractor now logs a warning when the LLM returns `action:"update"` without a `mergeTargetId` (previously fell through to create silently)
+- UX: inline job name input in sidebar goal nodes now submits on blur (consistent with goal name input behaviour)
+- Code clarity: added comments documenting the `"pending"` sentinel goalId convention and the username injection guard
+
+## [0.2.2] - 2026-03-27
+
+### Added
+- Sidebar sorting: goals and jobs can now be sorted by alphabetical, date created (ascending/descending), or custom order via sort dropdown buttons
+- sort_order column on goals and jobs tables with auto-assignment and bulk reorder IPC methods (goals.reorder, jobs.reorder)
+- Disabled jobs are now visually dimmed (reduced opacity) with a pause icon indicator in the sidebar
+- Extracted sidebar-tree.tsx into smaller subcomponents (sidebar-goal-node, sidebar-sort, sidebar-archived) to stay within file size limits
+
+## [0.2.1] - 2026-03-27
+
+### Added
+- Per-project chat threads: each project now has its own independent conversation history, and switching projects switches the chat thread
+- "All Projects" chat thread: a separate conversation thread is available when viewing all projects, with cross-project read tool access
+- Visual thread indicator in the chat panel header showing which project (or "All Projects") the current thread belongs to
+- Chat button and panel are now always visible, even when "All Projects" filter is selected
+
+### Fixed
+- Fix autopilot system jobs never being generated after goal creation via chat (goalId was extracted from wrong field in pending actions)
+- Fix automatic memory extraction never creating memories — CLI structured output (via `--json-schema`) was returned as a `StructuredOutput` tool call / `structured_output` field, but the parser only looked for text blocks, silently returning empty results. This also affected all other `jsonSchema` callers (assessment, plan generation, failure analysis, correction evaluation).
+- Fix migration 0021 missing statement-breakpoint markers, causing test DB initialization to fail
 - Resolve merge conflict and stabilize agent bundling for v0.2.1 release
+
+### Added
+- "Generate" button on goal detail view to trigger autopilot system job creation for existing goals
+- Emit `memory.extractionFailed` event on extraction parse failures for better diagnostics
 
 ## [0.2.0] - 2026-03-25
 
