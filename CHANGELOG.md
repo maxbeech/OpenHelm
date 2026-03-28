@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.2] - 2026-03-28
 
 ### Fixed
 - Security: validate username against an allowlist regex before interpolating into the osascript admin shell command in `wake-scheduler.ts`, preventing shell injection if `$USER` contains unusual characters
@@ -10,14 +10,6 @@
 - Bug: memory extractor now logs a warning when the LLM returns `action:"update"` without a `mergeTargetId` (previously fell through to create silently)
 - UX: inline job name input in sidebar goal nodes now submits on blur (consistent with goal name input behaviour)
 - Code clarity: added comments documenting the `"pending"` sentinel goalId convention and the username injection guard
-
-## [0.2.2] - 2026-03-27
-
-### Added
-- Sidebar sorting: goals and jobs can now be sorted by alphabetical, date created (ascending/descending), or custom order via sort dropdown buttons
-- sort_order column on goals and jobs tables with auto-assignment and bulk reorder IPC methods (goals.reorder, jobs.reorder)
-- Disabled jobs are now visually dimmed (reduced opacity) with a pause icon indicator in the sidebar
-- Extracted sidebar-tree.tsx into smaller subcomponents (sidebar-goal-node, sidebar-sort, sidebar-archived) to stay within file size limits
 
 ## [0.2.1] - 2026-03-27
 
