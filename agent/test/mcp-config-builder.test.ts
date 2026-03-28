@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { existsSync, readFileSync, mkdtempSync, rmSync } from "fs";
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -88,8 +88,69 @@ describe("removeMcpConfigFile", () => {
   });
 });
 
+describe("writeMcpConfigFile (happy path)", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "mcp-write-test-"));
+    process.env.OPENHELM_DATA_DIR = tempDir;
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+    delete process.env.OPENHELM_DATA_DIR;
+  });
+
+  it("writes valid JSON config and returns the file path", async () => {
+    // vi.mock factory is still registered after resetModules — re-import picks it up
+    const { getBrowserMcpPaths: freshGetPaths } =
+      await import("../src/mcp-servers/browser-setup.js");
+    vi.mocked(freshGetPaths).mockReturnValue({
+      pythonPath: "/venv/bin/python",
+      serverModule: "/server.py",
+      cwd: "/browser",
+    });
+
+    const { writeMcpConfigFile: freshWrite } =
+      await import("../src/mcp-servers/mcp-config-builder.js");
+
+    const configPath = freshWrite("run-abc");
+
+    expect(configPath).not.toBeNull();
+    expect(configPath).toContain("run-run-abc.json");
+    expect(existsSync(configPath!)).toBe(true);
+
+    const parsed = JSON.parse(readFileSync(configPath!, "utf8"));
+    expect(parsed.mcpServers["openhelm-browser"].command).toBe("/venv/bin/python");
+    expect(parsed.mcpServers["openhelm-browser"].args).toContain("/server.py");
+    expect(parsed.mcpServers["openhelm-browser"].cwd).toBe("/browser");
+  });
+});
+
 describe("cleanupOrphanedConfigs", () => {
   it("does not throw when config directory does not exist", () => {
     expect(() => cleanupOrphanedConfigs()).not.toThrow();
+  });
+
+  it("removes run-*.json files from the mcp-configs directory", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "mcp-cleanup-test-"));
+    const configDir = join(tempDir, "mcp-configs");
+    mkdirSync(configDir);
+    writeFileSync(join(configDir, "run-111.json"), "{}");
+    writeFileSync(join(configDir, "run-222.json"), "{}");
+
+    process.env.OPENHELM_DATA_DIR = tempDir;
+    vi.resetModules();
+    const { cleanupOrphanedConfigs: freshCleanup } =
+      await import("../src/mcp-servers/mcp-config-builder.js");
+
+    freshCleanup();
+
+    expect(existsSync(join(configDir, "run-111.json"))).toBe(false);
+    expect(existsSync(join(configDir, "run-222.json"))).toBe(false);
+
+    delete process.env.OPENHELM_DATA_DIR;
+    rmSync(tempDir, { recursive: true, force: true });
   });
 });
