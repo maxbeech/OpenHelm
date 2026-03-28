@@ -33,6 +33,7 @@ function rowToCredential(row: typeof credentials.$inferSelect): Credential {
     type: row.type as Credential["type"],
     envVarName: row.envVarName,
     allowPromptInjection: !!row.allowPromptInjection,
+    allowBrowserInjection: !!row.allowBrowserInjection,
     scopeType: row.scopeType as Credential["scopeType"],
     scopeId: row.scopeId ?? null,
     scopes: loadBindings(row.id),
@@ -95,6 +96,7 @@ export function createCredential(params: CreateCredentialParams): Credential {
       type: params.type,
       envVarName,
       allowPromptInjection: params.allowPromptInjection ?? false,
+      allowBrowserInjection: params.allowBrowserInjection ?? false,
       scopeType,
       scopeId,
       isEnabled: true,
@@ -253,6 +255,7 @@ export function updateCredential(params: UpdateCredentialParams): Credential {
       ...(params.name !== undefined && { name: params.name }),
       ...(envVarName !== undefined && { envVarName }),
       ...(params.allowPromptInjection !== undefined && { allowPromptInjection: params.allowPromptInjection }),
+      ...(params.allowBrowserInjection !== undefined && { allowBrowserInjection: params.allowBrowserInjection }),
       ...(newScopeType !== undefined && { scopeType: newScopeType }),
       ...(newScopeId !== undefined && { scopeId: newScopeId }),
       ...(params.isEnabled !== undefined && { isEnabled: params.isEnabled }),
@@ -457,7 +460,7 @@ export function setScopeBindingsForEntity(params: {
 
 export interface RunCredentialEntry {
   credentialId: string;
-  injectionMethod: "env" | "prompt";
+  injectionMethod: "env" | "prompt" | "browser";
 }
 
 export function saveRunCredentials(runId: string, entries: RunCredentialEntry[]): void {

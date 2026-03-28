@@ -9,6 +9,14 @@ vi.mock("../src/mcp-servers/browser-setup.js", () => ({
   setupBrowserMcpVenv: vi.fn(),
 }));
 
+// Mock child_process for focusBrowser tests
+vi.mock("child_process", () => ({
+  execFileSync: vi.fn(),
+}));
+
+import { execFileSync } from "child_process";
+const mockExecFileSync = vi.mocked(execFileSync);
+
 import {
   isVenvReady,
   isSourceAvailable,
@@ -105,5 +113,38 @@ describe("browserMcp.setup", () => {
 
     expect(res.error).toBeDefined();
     expect(res.error!.message).toContain("Python 3.10+");
+  });
+});
+
+describe("browserMcp.focusBrowser", () => {
+  it("returns success:true when osascript succeeds", async () => {
+    mockExecFileSync.mockReturnValue(Buffer.from(""));
+
+    const res = await handleRequest({
+      id: "7",
+      method: "browserMcp.focusBrowser",
+    });
+
+    expect(res.error).toBeUndefined();
+    expect((res.result as any).success).toBe(true);
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      "osascript",
+      ["-e", 'tell application "Google Chrome" to activate'],
+      { timeout: 5_000 },
+    );
+  });
+
+  it("returns success:false when osascript fails", async () => {
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error("osascript failed");
+    });
+
+    const res = await handleRequest({
+      id: "8",
+      method: "browserMcp.focusBrowser",
+    });
+
+    expect(res.error).toBeUndefined();
+    expect((res.result as any).success).toBe(false);
   });
 });

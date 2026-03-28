@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type Mocked } from "vitest";
 import { isVenvReady } from "../src/mcp-servers/browser-setup.js";
-import { writeMcpConfigFile, BROWSER_MCP_PREAMBLE } from "../src/mcp-servers/mcp-config-builder.js";
+import { writeMcpConfigFile, BROWSER_MCP_PREAMBLE, BROWSER_CAPTCHA_PREAMBLE } from "../src/mcp-servers/mcp-config-builder.js";
 import { setupTestDb } from "./helpers.js";
 import { createProject } from "../src/db/queries/projects.js";
 import { createJob, getJob } from "../src/db/queries/jobs.js";
@@ -1137,6 +1137,7 @@ describe("Executor browser MCP preamble", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     expect(capturedPrompt).toContain(BROWSER_MCP_PREAMBLE);
+    expect(capturedPrompt).toContain(BROWSER_CAPTCHA_PREAMBLE);
     expect(capturedPrompt).toContain("navigate to example.com");
     expect(capturedPrompt.startsWith(BROWSER_MCP_PREAMBLE)).toBe(true);
   });
@@ -1167,6 +1168,7 @@ describe("Executor browser MCP preamble", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     expect(capturedPrompt).not.toContain(BROWSER_MCP_PREAMBLE);
+    expect(capturedPrompt).not.toContain(BROWSER_CAPTCHA_PREAMBLE);
     expect(capturedPrompt).toBe("navigate to example.com");
   });
 });

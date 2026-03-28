@@ -151,7 +151,15 @@ try {
 // Process any re-enqueued runs from crash recovery
 executor.processNext();
 
-// 8. Fatal error handlers — log and report to Sentry.
+// 8. Prevent stdout pipe errors from crashing the agent.
+// When the Tauri read-end closes or the pipe buffer breaks, Node.js emits an
+// 'error' event on process.stdout. Without a handler this becomes an uncaught
+// exception and kills the process.
+process.stdout.on("error", (err) => {
+  console.error("[agent] stdout pipe error:", err.message);
+});
+
+// 9. Fatal error handlers — log and report to Sentry.
 // uncaughtException: truly broken state → exit.
 // unhandledRejection: a forgotten .catch() → log + notify but keep running.
 // Killing the agent on every unhandled rejection is too aggressive for a
@@ -169,7 +177,12 @@ process.on("uncaughtException", (err) => {
   } catch {
     // emit itself failed — nothing more we can do
   }
-  process.exit(1);
+  // Give Sentry time to flush the event before exiting.
+  // Sentry.close() resolves (or times out) within the given ms.
+  import("@sentry/node")
+    .then((Sentry) => Sentry.close(2000))
+    .catch(() => {})
+    .finally(() => process.exit(1));
 });
 
 process.on("unhandledRejection", (reason) => {

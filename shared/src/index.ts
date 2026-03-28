@@ -679,7 +679,7 @@ export interface RegenerateSystemJobsParams {
 
 // ─── Dashboard Types ───
 
-export type DashboardItemType = "permanent_failure" | "human_in_loop" | "autopilot_limit";
+export type DashboardItemType = "permanent_failure" | "human_in_loop" | "autopilot_limit" | "captcha_intervention";
 export type DashboardItemStatus = "open" | "resolved" | "dismissed";
 
 export interface DashboardItem {
@@ -808,6 +808,8 @@ export interface Credential {
   envVarName: string;
   /** When true, the value is also injected into the prompt context (sent to Anthropic) */
   allowPromptInjection: boolean;
+  /** When true, credential is injected directly into the browser MCP (no env var, no prompt) */
+  allowBrowserInjection: boolean;
   /** Legacy single-scope field — "global" for global credentials, "scoped" when bindings are used */
   scopeType: CredentialScope;
   scopeId: string | null;
@@ -833,6 +835,8 @@ export interface CreateCredentialParams {
   type: CredentialType;
   /** Whether the value may also be injected into the prompt (default: false) */
   allowPromptInjection?: boolean;
+  /** Whether the credential is injected only into the browser MCP (default: false) */
+  allowBrowserInjection?: boolean;
   value: CredentialValue;
   /** Legacy single-scope (kept for backward compat) */
   scopeType?: CredentialScope;
@@ -845,6 +849,7 @@ export interface UpdateCredentialParams {
   id: string;
   name?: string;
   allowPromptInjection?: boolean;
+  allowBrowserInjection?: boolean;
   value?: CredentialValue;
   /** Legacy single-scope (kept for backward compat) */
   scopeType?: CredentialScope;

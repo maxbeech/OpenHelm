@@ -41,6 +41,7 @@ export function CredentialView() {
       name: string;
       type: CredentialType;
       allowPromptInjection?: boolean;
+      allowBrowserInjection?: boolean;
       value: CredentialValue;
       scopes: CredentialScopeBinding[];
     }) => {
@@ -55,6 +56,7 @@ export function CredentialView() {
       id: string;
       name?: string;
       allowPromptInjection?: boolean;
+      allowBrowserInjection?: boolean;
       value?: CredentialValue;
       scopeType?: CredentialScope;
       scopeId?: string;

@@ -4,7 +4,11 @@ import { broadcastEvent } from "./dev-server.js";
 /** Write a JSON message to stdout (IPC channel) and SSE clients */
 export function send(msg: object) {
   const line = JSON.stringify(msg);
-  process.stdout.write(line + "\n");
+  try {
+    process.stdout.write(line + "\n");
+  } catch {
+    // stdout pipe broken (Tauri read-end closed) — nothing we can do
+  }
   broadcastEvent(line);
 }
 

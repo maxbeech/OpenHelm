@@ -396,7 +396,10 @@ export default function App() {
 
   // Start agent client
   useEffect(() => {
-    const onReady = () => setAgentReady(true);
+    const onReady = () => {
+      setAgentReady(true);
+      setAgentTimeout(false); // Reset timeout flag on reconnect (sidecar auto-restarted)
+    };
     const onTerminated = () => {
       console.error("Agent sidecar terminated unexpectedly");
       setAgentReady(false);

@@ -25,7 +25,7 @@ beforeEach(() => {
 describe("buildMcpConfig", () => {
   it("returns null when browser venv is not ready", () => {
     mockGetBrowserMcpPaths.mockReturnValue(null);
-    expect(buildMcpConfig()).toBeNull();
+    expect(buildMcpConfig("run-1")).toBeNull();
   });
 
   it("returns valid config when browser venv is ready", () => {
@@ -35,7 +35,7 @@ describe("buildMcpConfig", () => {
       cwd: "/path/to/browser",
     });
 
-    const config = buildMcpConfig();
+    const config = buildMcpConfig("run-1");
     expect(config).not.toBeNull();
     expect(config!.mcpServers).toHaveProperty("openhelm-browser");
 
@@ -45,6 +45,46 @@ describe("buildMcpConfig", () => {
     expect(entry.args).toContain("--transport");
     expect(entry.args).toContain("stdio");
     expect(entry.cwd).toBe("/path/to/browser");
+  });
+
+  it("includes --run-id arg with the provided run ID", () => {
+    mockGetBrowserMcpPaths.mockReturnValue({
+      pythonPath: "/path/to/.venv/bin/python",
+      serverModule: "/path/to/src/server.py",
+      cwd: "/path/to/browser",
+    });
+
+    const config = buildMcpConfig("test-run-xyz");
+    const args = config!.mcpServers["openhelm-browser"].args;
+    expect(args).toContain("--run-id");
+    expect(args).toContain("test-run-xyz");
+  });
+
+  it("includes --credentials-file arg when credentialsFilePath is provided", () => {
+    mockGetBrowserMcpPaths.mockReturnValue({
+      pythonPath: "/path/to/.venv/bin/python",
+      serverModule: "/path/to/src/server.py",
+      cwd: "/path/to/browser",
+    });
+
+    const config = buildMcpConfig("run-1", "/tmp/creds.json");
+    expect(config).not.toBeNull();
+
+    const args = config!.mcpServers["openhelm-browser"].args;
+    expect(args).toContain("--credentials-file");
+    expect(args).toContain("/tmp/creds.json");
+  });
+
+  it("does not include --credentials-file when no path provided", () => {
+    mockGetBrowserMcpPaths.mockReturnValue({
+      pythonPath: "/path/to/.venv/bin/python",
+      serverModule: "/path/to/src/server.py",
+      cwd: "/path/to/browser",
+    });
+
+    const config = buildMcpConfig("run-1");
+    const args = config!.mcpServers["openhelm-browser"].args;
+    expect(args).not.toContain("--credentials-file");
   });
 });
 

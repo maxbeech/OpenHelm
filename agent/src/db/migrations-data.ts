@@ -26,6 +26,7 @@ import sql0021 from "./migrations/0021_add_run_credentials_pk.sql";
 import sql0022 from "./migrations/0022_chat_nullable_project.sql";
 import sql0023 from "./migrations/0023_add_sort_order.sql";
 import sql0024 from "./migrations/0024_nullable_inbox_run_id.sql";
+import sql0025 from "./migrations/0025_add_browser_injection.sql";
 
 export interface MigrationEntry {
   idx: number;
@@ -59,4 +60,5 @@ export const MIGRATIONS: MigrationEntry[] = [
   { idx: 22, tag: "0022_chat_nullable_project", sql: sql0022 },
   { idx: 23, tag: "0023_add_sort_order", sql: sql0023 },
   { idx: 24, tag: "0024_nullable_inbox_run_id", sql: sql0024 },
+  { idx: 25, tag: "0025_add_browser_injection", sql: sql0025 },
 ];

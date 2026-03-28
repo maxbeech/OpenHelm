@@ -119,6 +119,15 @@ class AgentClient {
   private handleSidecarDeath() {
     console.error("[agent-client] sidecar process terminated");
     this.connected = false;
+    this.ready = false;
+
+    // Create a new ready promise so requests block until the sidecar restarts.
+    // The Rust auto-restart mechanism will re-spawn the agent and the new
+    // agent.ready event will resolve this promise via markReady().
+    this.readyPromise = new Promise((resolve) => {
+      this.readyResolve = resolve;
+    });
+
     // Reject all pending requests immediately instead of waiting for timeout
     for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer);
@@ -213,6 +222,7 @@ class AgentClient {
   private markReady() {
     if (this.ready) return;
     this.ready = true;
+    this.connected = true; // Restore connected state (handles auto-restart reconnection)
     if (this.readyResolve) {
       this.readyResolve();
       this.readyResolve = null;

@@ -15,6 +15,12 @@ from persistent_storage import persistent_storage
 from dynamic_hook_system import dynamic_hook_system
 from platform_utils import get_platform_info, check_browser_executable, merge_browser_args
 from process_cleanup import process_cleanup
+from macos_background import (
+    is_macos,
+    free_port as macos_free_port,
+    launch_browser_background,
+    find_pid_on_port,
+)
 
 
 class BrowserManager:
@@ -28,11 +34,12 @@ class BrowserManager:
         """
         Spawn a new browser instance with given options.
 
-        Args:
-            options (BrowserOptions): Options for browser configuration.
+        On macOS (non-headless, background=True) uses a two-phase launch:
+        1. Chrome is launched via ``open -g -n -a`` so it never steals focus.
+        2. nodriver connects to the already-running instance via CDP.
 
-        Returns:
-            BrowserInstance: The spawned browser instance.
+        Falls back to normal nodriver launch if the background launch fails
+        or on non-macOS platforms.
         """
         instance_id = str(uuid.uuid4())
 
@@ -45,27 +52,17 @@ class BrowserManager:
 
         try:
             platform_info = get_platform_info()
-            
-            # Detect the best available browser executable (Chrome, Chromium, or Edge)
             browser_executable = check_browser_executable()
             if not browser_executable:
-                raise Exception("No compatible browser found (Chrome, Chromium, or Microsoft Edge)")
-            
-            # Identify browser type for logging
-            browser_type = "Unknown"
-            if 'edge' in browser_executable.lower() or 'msedge' in browser_executable.lower():
-                browser_type = "Microsoft Edge"
-            elif 'chromium' in browser_executable.lower():
-                browser_type = "Chromium"
-            elif 'chrome' in browser_executable.lower():
-                browser_type = "Google Chrome"
-            
+                raise Exception("No compatible browser found")
+
+            browser_type = self._identify_browser_type(browser_executable)
             debug_logger.log_info(
-                "browser_manager",
-                "spawn_browser",
-                f"Platform: {platform_info['system']} | Root: {platform_info['is_root']} | Container: {platform_info['is_container']} | Sandbox: {options.sandbox} | Browser: {browser_type} ({browser_executable})"
+                "browser_manager", "spawn_browser",
+                f"Platform: {platform_info['system']} | Sandbox: {options.sandbox} "
+                f"| Background: {options.background} | Browser: {browser_type}"
             )
-            
+
             config = uc.Config(
                 headless=options.headless,
                 user_data_dir=options.user_data_dir,
@@ -74,33 +71,33 @@ class BrowserManager:
                 browser_args=merge_browser_args()
             )
 
+            # --- Two-phase background launch (macOS only) ---
+            used_background = await self._try_background_launch(
+                config, browser_executable, options
+            )
+
             browser = await uc.start(config=config)
             tab = browser.main_tab
 
-            if hasattr(browser, '_process') and browser._process:
+            # --- Process tracking ---
+            if used_background:
+                pid = await find_pid_on_port(config.port, retries=5, delay=0.2)
+                if pid:
+                    process_cleanup.track_browser_process_by_pid(instance_id, pid)
+                else:
+                    debug_logger.log_warning(
+                        "browser_manager", "spawn_browser",
+                        f"Could not find PID for background browser {instance_id}"
+                    )
+            elif hasattr(browser, '_process') and browser._process:
                 process_cleanup.track_browser_process(instance_id, browser._process)
             else:
-                debug_logger.log_warning("browser_manager", "spawn_browser", 
-                                       f"Browser {instance_id} has no process to track")
+                debug_logger.log_warning(
+                    "browser_manager", "spawn_browser",
+                    f"Browser {instance_id} has no process to track"
+                )
 
-            if options.user_agent:
-                await tab.send(uc.cdp.emulation.set_user_agent_override(
-                    user_agent=options.user_agent
-                ))
-
-            if options.extra_headers:
-                await tab.send(uc.cdp.network.set_extra_http_headers(
-                    headers=options.extra_headers
-                ))
-
-            await tab.set_window_size(
-                left=0,
-                top=0, 
-                width=options.viewport_width,
-                height=options.viewport_height
-            )
-            print(f"[DEBUG] Set viewport to {options.viewport_width}x{options.viewport_height}", file=sys.stderr)
-
+            await self._configure_tab(tab, options)
             await self._setup_dynamic_hooks(tab, instance_id)
 
             async with self._lock:
@@ -127,6 +124,94 @@ class BrowserManager:
             raise Exception(f"Failed to spawn browser: {str(e)}")
 
         return instance
+
+    # ------------------------------------------------------------------
+    # Background launch helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _identify_browser_type(executable: str) -> str:
+        lower = executable.lower()
+        if 'edge' in lower or 'msedge' in lower:
+            return "Microsoft Edge"
+        if 'chromium' in lower:
+            return "Chromium"
+        if 'chrome' in lower:
+            return "Google Chrome"
+        return "Unknown"
+
+    async def _try_background_launch(
+        self,
+        config,
+        browser_executable: str,
+        options: BrowserOptions,
+    ) -> bool:
+        """Attempt macOS background launch.  Returns True on success.
+
+        On success ``config.host`` / ``config.port`` are set so nodriver
+        connects to the already-running Chrome instead of spawning one.
+        """
+        if not (is_macos() and not options.headless and options.background):
+            return False
+
+        try:
+            port = macos_free_port()
+            config.host = "127.0.0.1"
+            config.port = port
+
+            # Build the exact arg list nodriver would normally use
+            chrome_args = config()
+
+            pid = await launch_browser_background(
+                browser_executable, chrome_args, port
+            )
+
+            if pid is None:
+                debug_logger.log_warning(
+                    "browser_manager", "_try_background_launch",
+                    "Background launch failed — falling back to standard launch"
+                )
+                config.host = None
+                config.port = None
+                return False
+
+            debug_logger.log_info(
+                "browser_manager", "_try_background_launch",
+                f"Background launch OK (PID {pid}, port {port})"
+            )
+            return True
+
+        except Exception as e:
+            debug_logger.log_warning(
+                "browser_manager", "_try_background_launch",
+                f"Background launch error: {e}"
+            )
+            config.host = None
+            config.port = None
+            return False
+
+    @staticmethod
+    async def _configure_tab(tab, options: BrowserOptions):
+        """Apply user-agent, headers, and viewport to a connected tab."""
+        if options.user_agent:
+            await tab.send(uc.cdp.emulation.set_user_agent_override(
+                user_agent=options.user_agent
+            ))
+
+        if options.extra_headers:
+            await tab.send(uc.cdp.network.set_extra_http_headers(
+                headers=options.extra_headers
+            ))
+
+        await tab.set_window_size(
+            left=0, top=0,
+            width=options.viewport_width,
+            height=options.viewport_height,
+        )
+        print(
+            f"[DEBUG] Set viewport to {options.viewport_width}x{options.viewport_height}",
+            file=sys.stderr,
+        )
     
     async def _setup_dynamic_hooks(self, tab: Tab, instance_id: str):
         """Setup dynamic hook system for browser instance."""

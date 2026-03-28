@@ -108,6 +108,36 @@ class ProcessCleanup:
                                  f"Failed to track process for {instance_id}: {e}")
             return False
     
+    def track_browser_process_by_pid(self, instance_id: str, pid: int) -> bool:
+        """Track a browser process by raw PID.
+
+        Used when Chrome was launched externally (e.g. via macOS ``open``
+        command) and we only have the PID, not a process object.
+        """
+        try:
+            if not psutil.pid_exists(pid):
+                debug_logger.log_warning(
+                    "process_cleanup", "track_process_by_pid",
+                    f"PID {pid} does not exist",
+                )
+                return False
+
+            self.browser_processes[instance_id] = pid
+            self.tracked_pids.add(pid)
+            self._save_tracked_pids()
+
+            debug_logger.log_info(
+                "process_cleanup", "track_process_by_pid",
+                f"Tracking browser PID {pid} for instance {instance_id}",
+            )
+            return True
+        except Exception as e:
+            debug_logger.log_error(
+                "process_cleanup", "track_process_by_pid",
+                f"Failed to track PID {pid} for {instance_id}: {e}",
+            )
+            return False
+
     def untrack_browser_process(self, instance_id: str) -> bool:
         """Stop tracking a browser process.
         

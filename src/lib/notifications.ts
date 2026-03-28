@@ -42,7 +42,9 @@ export async function notifyDashboardItem(item: DashboardItem): Promise<void> {
     const title =
       item.type === "permanent_failure"
         ? "Run Failed Permanently"
-        : "Run Stalled";
+        : item.type === "captcha_intervention"
+          ? "CAPTCHA Detected"
+          : "Run Stalled";
     await sendNativeNotification(title, item.title);
   } catch (err) {
     console.error("[notifications] notifyDashboardItem invoke failed:", err);

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Eye, EyeOff, Pencil, Trash2, Globe, Folder, Target, Briefcase, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2, Globe, Folder, Target, Briefcase, ShieldAlert, ShieldCheck, Monitor } from "lucide-react";
 import { CredentialTypeBadge } from "./credential-type-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,10 +63,15 @@ export function CredentialCard({ credential, onEdit, onDelete }: CredentialCardP
           <ScopeIcon className="mr-1 size-2.5" />
           {scopeLabels[credential.scopeType]}
         </Badge>
-        {credential.allowPromptInjection ? (
+        {credential.allowBrowserInjection ? (
+          <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-500/20">
+            <Monitor className="mr-1 size-2.5" />
+            Browser
+          </Badge>
+        ) : credential.allowPromptInjection ? (
           <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/20">
             <ShieldAlert className="mr-1 size-2.5" />
-            Prompt Access
+            Env + Prompt
           </Badge>
         ) : (
           <Badge variant="outline" className="text-[10px] text-green-400 border-green-500/20">

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { AlertTriangle, Clock } from "lucide-react";
+import { AlertTriangle, Clock, Monitor } from "lucide-react";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useProjectStore } from "@/stores/project-store";
 import { useRunStore } from "@/stores/run-store";
@@ -7,6 +7,7 @@ import { useAppStore } from "@/stores/app-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import * as api from "@/lib/api";
 import type { DashboardItem } from "@openhelm/shared";
 
 const MAX_DESC_LENGTH = 500;
@@ -29,6 +30,7 @@ export function DashboardCard({ item }: { item: DashboardItem }) {
   const project = projects.find((p) => p.id === item.projectId);
   const run = runs.find((r) => r.id === item.runId);
   const isFailure = item.type === "permanent_failure";
+  const isCaptcha = item.type === "captcha_intervention";
 
   const rawDescription = run?.summary?.trim() || item.message;
   const description =
@@ -118,6 +120,8 @@ export function DashboardCard({ item }: { item: DashboardItem }) {
           <div className="flex items-start gap-3">
             {isFailure ? (
               <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+            ) : isCaptcha ? (
+              <Monitor className="mt-0.5 size-5 shrink-0 text-blue-500" />
             ) : (
               <Clock className="mt-0.5 size-5 shrink-0 text-amber-500" />
             )}
@@ -171,6 +175,16 @@ export function DashboardCard({ item }: { item: DashboardItem }) {
             </div>
           ) : (
             <div className="flex gap-2 flex-wrap">
+              {isCaptcha && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => api.focusBrowserWindow().catch(() => {})}
+                >
+                  <Monitor className="mr-1.5 size-3.5" />
+                  Focus Browser
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="secondary"

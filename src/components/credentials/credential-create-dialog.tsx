@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { ShieldAlert, AlertTriangle } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ShieldAlert, AlertTriangle, Globe, Shield } from "lucide-react";
 import { useGoalStore } from "@/stores/goal-store";
 import { useJobStore } from "@/stores/job-store";
 import { useProjectStore } from "@/stores/project-store";
@@ -33,6 +33,7 @@ interface Props {
     name: string;
     type: CredentialType;
     allowPromptInjection?: boolean;
+    allowBrowserInjection?: boolean;
     value: CredentialValue;
     scopes: CredentialScopeBinding[];
   }) => void | Promise<void>;
@@ -45,7 +46,7 @@ export function CredentialCreateDialog({ open, onOpenChange, projectId, onSave }
 
   const [name, setName] = useState("");
   const [type, setType] = useState<CredentialType>("username_password");
-  const [allowPromptInjection, setAllowPromptInjection] = useState(false);
+  const [injectionMode, setInjectionMode] = useState<"env" | "prompt" | "browser">("env");
   const [value, setValue] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -54,7 +55,7 @@ export function CredentialCreateDialog({ open, onOpenChange, projectId, onSave }
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
-    setName(""); setType("username_password"); setAllowPromptInjection(false);
+    setName(""); setType("username_password"); setInjectionMode("env");
     setValue(""); setUsername(""); setPassword(""); setScopes([]); setSaveError(null);
   }, []);
 
@@ -72,7 +73,14 @@ export function CredentialCreateDialog({ open, onOpenChange, projectId, onSave }
 
     setSaveError(null);
     try {
-      await onSave({ name: name.trim(), type, allowPromptInjection, value: credValue, scopes });
+      await onSave({
+        name: name.trim(),
+        type,
+        allowPromptInjection: injectionMode === "prompt",
+        allowBrowserInjection: injectionMode === "browser",
+        value: credValue,
+        scopes,
+      });
       reset();
       onOpenChange(false);
     } catch (err) {
@@ -80,7 +88,7 @@ export function CredentialCreateDialog({ open, onOpenChange, projectId, onSave }
     } finally {
       setSaving(false);
     }
-  }, [canSave, name, type, allowPromptInjection, value, username, password, scopes, onSave, reset, onOpenChange]);
+  }, [canSave, name, type, injectionMode, value, username, password, scopes, onSave, reset, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
@@ -149,57 +157,57 @@ export function CredentialCreateDialog({ open, onOpenChange, projectId, onSave }
             </div>
           )}
 
-          {/* Prompt access toggle */}
+          {/* Injection mode */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Allow prompt access</Label>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Also inject credential value into the prompt text
-                </p>
-              </div>
-              <Switch checked={allowPromptInjection} onCheckedChange={setAllowPromptInjection} />
-            </div>
+            <Label>Injection Mode</Label>
+            <RadioGroup value={injectionMode} onValueChange={(v) => setInjectionMode(v as "env" | "prompt" | "browser")}>
+              {/* Env only */}
+              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "env" ? "border-green-500/40 bg-green-500/5" : "border-border"}`}>
+                <RadioGroupItem value="env" className="mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Shield className="size-3.5 text-green-400" />
+                    <span className="text-xs font-medium">Environment variable</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Set as env var. Claude Code can read via shell commands. Value is{" "}
+                    <strong className="text-green-300/80">not sent to Anthropic</strong>.
+                  </p>
+                </div>
+              </label>
 
-            {allowPromptInjection ? (
-              <div className="space-y-2">
-                <div className="flex gap-2 rounded-md border border-red-500/30 bg-red-500/5 p-2.5">
-                  <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-red-400" />
-                  <p className="text-[11px] text-red-300/80">
-                    <strong>Elevated risk:</strong> The credential value will be included in the prompt text and{" "}
-                    <strong>sent to Anthropic&apos;s servers</strong>. Enable only if Claude Code needs to
-                    type or paste the value directly.
+              {/* Env + Prompt */}
+              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "prompt" ? "border-amber-500/40 bg-amber-500/5" : "border-border"}`}>
+                <RadioGroupItem value="prompt" className="mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldAlert className="size-3.5 text-amber-400" />
+                    <span className="text-xs font-medium">Environment variable + prompt</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Set as env var AND included in the prompt text.{" "}
+                    <strong className="text-red-300/80">Value is sent to Anthropic&apos;s servers.</strong>
                   </p>
                 </div>
-                <div className="rounded-md border border-border bg-muted/30 p-2.5 space-y-1">
-                  <p className="text-[11px] font-medium text-foreground/80">Use prompt access when Claude needs to:</p>
-                  <ul className="space-y-0.5 text-[11px] text-muted-foreground list-disc list-inside">
-                    <li>Log in to a website by typing a password into a form</li>
-                    <li>Paste an API key directly into a config file as literal text</li>
-                    <li>Reference the value by name in shell commands it writes</li>
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex gap-2 rounded-md border border-green-500/20 bg-green-500/5 p-2.5">
-                  <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-green-400" />
-                  <p className="text-[11px] text-green-300/80">
-                    Credential will be set as an environment variable only. The value is{" "}
-                    <strong>not automatically sent to Anthropic</strong>, but Claude Code can still read it via
-                    shell commands (e.g. <code className="text-[10px]">echo $VAR</code>).
+              </label>
+
+              {/* Browser only */}
+              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "browser" ? "border-blue-500/40 bg-blue-500/5" : "border-border"}`}>
+                <RadioGroupItem value="browser" className="mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Globe className="size-3.5 text-blue-400" />
+                    <span className="text-xs font-medium">Browser only</span>
+                    <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">Most secure</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Injected directly into the browser. Claude Code{" "}
+                    <strong className="text-blue-300/80">never sees the value</strong>.
+                    Only works for browser-based tasks (login forms, cookies, auth headers).
                   </p>
                 </div>
-                <div className="rounded-md border border-border bg-muted/30 p-2.5 space-y-1">
-                  <p className="text-[11px] font-medium text-foreground/80">Environment variable is enough when:</p>
-                  <ul className="space-y-0.5 text-[11px] text-muted-foreground list-disc list-inside">
-                    <li>Your code reads it via <code className="text-[10px]">process.env.OPENHELM_*</code></li>
-                    <li>A CLI tool picks it up automatically (e.g. <code className="text-[10px]">AWS_ACCESS_KEY_ID</code>)</li>
-                    <li>Claude calls an API using the env var without needing to know its value</li>
-                  </ul>
-                </div>
-              </div>
-            )}
+              </label>
+            </RadioGroup>
           </div>
 
           {/* Scope */}

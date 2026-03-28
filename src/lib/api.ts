@@ -287,6 +287,12 @@ export function stopAllRuns(): Promise<{ stoppedActive: number; clearedQueued: n
   return agentClient.request<{ stoppedActive: number; clearedQueued: number }>("executor.stopAll");
 }
 
+// ─── Browser MCP ───
+
+export function focusBrowserWindow(): Promise<{ success: boolean }> {
+  return agentClient.request<{ success: boolean }>("browserMcp.focusBrowser");
+}
+
 // ─── Chat ───
 
 export function sendChatMessage(

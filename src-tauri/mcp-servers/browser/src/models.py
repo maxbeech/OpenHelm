@@ -93,6 +93,10 @@ class BrowserOptions(BaseModel):
     extra_headers: Dict[str, str] = Field(default_factory=dict, description="Extra HTTP headers")
     user_data_dir: Optional[str] = Field(default=None, description="Path to user data directory")
     sandbox: bool = Field(default=True, description="Enable browser sandbox mode")
+    background: bool = Field(
+        default=True,
+        description="Launch browser in background without stealing focus (macOS only)",
+    )
 
 
 class NavigationOptions(BaseModel):

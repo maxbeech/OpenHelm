@@ -40,8 +40,41 @@ from response_handler import response_handler
 from platform_utils import validate_browser_environment, get_platform_info
 from process_cleanup import process_cleanup
 from tool_timeout import with_timeout
+from captcha_detector import CaptchaDetector
+from intervention import write_intervention_request
 
 DISABLED_SECTIONS = set()
+
+# Browser-injectable credentials loaded from --credentials-file (never logged, held in memory only)
+_browser_credentials: Dict[str, dict] = {}  # keyed by credential name
+_credentials_file_path: Optional[str] = None  # set by --credentials-file arg
+_run_id: Optional[str] = None  # set by --run-id arg (OpenHelm run context)
+
+
+def _load_browser_credentials():
+    """Load credentials from the temp file and immediately delete it."""
+    global _browser_credentials
+    if not _credentials_file_path:
+        return
+    try:
+        with open(_credentials_file_path, "r") as f:
+            data = json.load(f)
+        # Immediately delete the file — it should never persist on disk
+        try:
+            os.unlink(_credentials_file_path)
+        except OSError:
+            pass
+        creds = data.get("credentials", [])
+        for cred in creds:
+            name = cred.get("name")
+            if name:
+                _browser_credentials[name] = cred
+        names = list(_browser_credentials.keys())
+        print(f"[browser-mcp] Loaded {len(names)} browser credential(s): {', '.join(names)}", file=sys.stderr)
+    except FileNotFoundError:
+        print("[browser-mcp] Credentials file not found (may have been already consumed)", file=sys.stderr)
+    except Exception as e:
+        print(f"[browser-mcp] Failed to load credentials file: {e}", file=sys.stderr)
 
 def is_section_enabled(section: str) -> bool:
     """Check if a tool section is enabled."""
@@ -68,6 +101,8 @@ async def app_lifespan(server):
         server (Any): The server instance for which the lifespan is being managed.
     """
     debug_logger.log_info("server", "startup", "Starting Browser Automation MCP Server...")
+    # Load browser-injectable credentials from temp file and immediately delete it
+    _load_browser_credentials()
     try:
         yield
     finally:
@@ -119,6 +154,7 @@ browser_manager = BrowserManager()
 network_interceptor = NetworkInterceptor()
 dom_handler = DOMHandler()
 cdp_function_executor = CDPFunctionExecutor()
+captcha_detector = CaptchaDetector()
 
 @section_tool("browser-management")
 async def spawn_browser(
@@ -130,7 +166,8 @@ async def spawn_browser(
     block_resources: List[str] = None,
     extra_headers: Dict[str, str] = None,
     user_data_dir: Optional[str] = None,
-    sandbox: Optional[Any] = None
+    sandbox: Optional[Any] = None,
+    background: bool = True,
 ) -> Dict[str, Any]:
     """
     Spawn a new browser instance.
@@ -145,13 +182,14 @@ async def spawn_browser(
         extra_headers (Dict[str, str]): Additional HTTP headers.
         user_data_dir (Optional[str]): Path to user data directory for persistent sessions.
         sandbox (Optional[Any]): Enable browser sandbox. Accepts bool, string ('true'/'false'), int (1/0), or None for auto-detect.
+        background (bool): Launch in background without stealing focus (macOS only, default True).
 
     Returns:
         Dict[str, Any]: Instance information including instance_id.
     """
     try:
         from platform_utils import is_running_as_root, is_running_in_container
-        
+
         if sandbox is None:
             sandbox = not (is_running_as_root() or is_running_in_container())
         elif isinstance(sandbox, str):
@@ -160,7 +198,7 @@ async def spawn_browser(
             sandbox = bool(sandbox)
         elif not isinstance(sandbox, bool):
             sandbox = bool(sandbox)
-        
+
         options = BrowserOptions(
             headless=headless,
             user_agent=user_agent,
@@ -170,7 +208,8 @@ async def spawn_browser(
             block_resources=block_resources or [],
             extra_headers=extra_headers or {},
             user_data_dir=user_data_dir,
-            sandbox=sandbox
+            sandbox=sandbox,
+            background=background,
         )
         instance = await browser_manager.spawn_browser(options)
         tab = await browser_manager.get_tab(instance.instance_id)
@@ -1057,6 +1096,212 @@ async def clear_cookies(
     if not tab:
         raise Exception(f"Instance not found: {instance_id}")
     return await network_interceptor.clear_cookies(tab, url)
+
+
+# ─── Credential injection tools ─────────────────────────────────────────────
+# These tools allow Claude Code to use pre-loaded credentials by NAME without
+# ever seeing the actual secret values. Credentials are loaded from a temp file
+# on server startup and held in memory only.
+
+
+@section_tool("credentials")
+async def list_browser_credentials() -> List[Dict[str, str]]:
+    """
+    List browser credentials that have been pre-loaded for this session.
+
+    Returns names and types only — never actual secret values.
+
+    Returns:
+        List[Dict[str, str]]: List of available credentials with name and type.
+    """
+    return [
+        {"name": cred.get("name", ""), "type": cred.get("type", "")}
+        for cred in _browser_credentials.values()
+    ]
+
+
+@section_tool("credentials")
+async def auto_login(
+    instance_id: str,
+    credential_name: str,
+    username_selector: str = 'input[type="email"], input[name="username"], input[name="email"], input[name="login"], input[id="username"], input[id="email"], input[id="login"]',
+    password_selector: str = 'input[type="password"]',
+    submit_selector: str = 'button[type="submit"], input[type="submit"]',
+    delay_ms: int = 80,
+) -> Dict[str, Any]:
+    """
+    Fill a login form using a pre-loaded credential and submit it.
+
+    The credential value is never returned or logged — only success/failure.
+    Works with username_password type credentials only.
+
+    Args:
+        instance_id (str): Browser instance ID.
+        credential_name (str): Name of the pre-loaded credential to use.
+        username_selector (str): CSS selector(s) for the username/email field.
+        password_selector (str): CSS selector(s) for the password field.
+        submit_selector (str): CSS selector(s) for the submit button.
+        delay_ms (int): Delay between keystrokes in milliseconds (human-like typing).
+
+    Returns:
+        Dict[str, Any]: Result with success status and message (never includes credential values).
+    """
+    cred = _browser_credentials.get(credential_name)
+    if not cred:
+        available = list(_browser_credentials.keys())
+        return {
+            "success": False,
+            "error": f"No browser credential named '{credential_name}' is available.",
+            "available_credentials": available,
+        }
+
+    if cred.get("type") != "username_password":
+        return {
+            "success": False,
+            "error": f"Credential '{credential_name}' is type '{cred.get('type')}', but auto_login requires 'username_password'.",
+        }
+
+    tab = await browser_manager.get_tab(instance_id)
+    if not tab:
+        raise Exception(f"Instance not found: {instance_id}")
+
+    username = cred.get("username", "")
+    password = cred.get("password", "")
+
+    # Type username
+    try:
+        await dom_handler.type_text(tab, username_selector, username, True, delay_ms, False, False)
+    except Exception as e:
+        return {"success": False, "error": f"Failed to fill username field: {str(e)}"}
+
+    # Type password
+    try:
+        await dom_handler.type_text(tab, password_selector, password, True, delay_ms, False, False)
+    except Exception as e:
+        return {"success": False, "error": f"Failed to fill password field: {str(e)}"}
+
+    # Click submit
+    try:
+        await dom_handler.click_element(tab, submit_selector, None, 10000)
+    except Exception:
+        # Submit button not found is non-fatal — some forms auto-submit
+        pass
+
+    return {"success": True, "message": f"Login form submitted for '{credential_name}'."}
+
+
+@section_tool("credentials")
+async def inject_auth_cookie(
+    instance_id: str,
+    credential_name: str,
+    cookie_name: str,
+    domain: str,
+    path: str = "/",
+    secure: bool = True,
+    http_only: bool = True,
+    same_site: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Set an authentication cookie using a pre-loaded credential's token value.
+
+    The credential value is never returned or logged — only success/failure.
+    Works with token type credentials only.
+
+    Args:
+        instance_id (str): Browser instance ID.
+        credential_name (str): Name of the pre-loaded credential to use.
+        cookie_name (str): Cookie name to set (e.g. 'session', 'auth_token').
+        domain (str): Cookie domain (e.g. '.example.com').
+        path (str): Cookie path (default '/').
+        secure (bool): Set the Secure flag (default True).
+        http_only (bool): Set the HttpOnly flag (default True).
+        same_site (Optional[str]): SameSite attribute ('Strict', 'Lax', or 'None').
+
+    Returns:
+        Dict[str, Any]: Result with success status and message (never includes credential values).
+    """
+    cred = _browser_credentials.get(credential_name)
+    if not cred:
+        available = list(_browser_credentials.keys())
+        return {
+            "success": False,
+            "error": f"No browser credential named '{credential_name}' is available.",
+            "available_credentials": available,
+        }
+
+    if cred.get("type") != "token":
+        return {
+            "success": False,
+            "error": f"Credential '{credential_name}' is type '{cred.get('type')}', but inject_auth_cookie requires 'token'.",
+        }
+
+    tab = await browser_manager.get_tab(instance_id)
+    if not tab:
+        raise Exception(f"Instance not found: {instance_id}")
+
+    cookie = {
+        "name": cookie_name,
+        "value": cred.get("value", ""),
+        "domain": domain,
+        "path": path,
+        "secure": secure,
+        "http_only": http_only,
+    }
+    if same_site:
+        cookie["same_site"] = same_site
+
+    result = await network_interceptor.set_cookie(tab, cookie)
+    if result:
+        return {"success": True, "message": f"Auth cookie '{cookie_name}' set for domain '{domain}'."}
+    return {"success": False, "error": f"Failed to set cookie '{cookie_name}' on domain '{domain}'."}
+
+
+@section_tool("credentials")
+async def inject_auth_header(
+    instance_id: str,
+    credential_name: str,
+    header_name: str = "Authorization",
+    prefix: str = "Bearer ",
+) -> Dict[str, Any]:
+    """
+    Add an authorization header to all future requests using a pre-loaded credential's token value.
+
+    The credential value is never returned or logged — only success/failure.
+    Works with token type credentials only.
+
+    Args:
+        instance_id (str): Browser instance ID.
+        credential_name (str): Name of the pre-loaded credential to use.
+        header_name (str): Header name (default 'Authorization').
+        prefix (str): Value prefix (default 'Bearer '). Set to '' for no prefix.
+
+    Returns:
+        Dict[str, Any]: Result with success status and message (never includes credential values).
+    """
+    cred = _browser_credentials.get(credential_name)
+    if not cred:
+        available = list(_browser_credentials.keys())
+        return {
+            "success": False,
+            "error": f"No browser credential named '{credential_name}' is available.",
+            "available_credentials": available,
+        }
+
+    if cred.get("type") != "token":
+        return {
+            "success": False,
+            "error": f"Credential '{credential_name}' is type '{cred.get('type')}', but inject_auth_header requires 'token'.",
+        }
+
+    tab = await browser_manager.get_tab(instance_id)
+    if not tab:
+        raise Exception(f"Instance not found: {instance_id}")
+
+    header_value = f"{prefix}{cred.get('value', '')}"
+    result = await network_interceptor.modify_headers(tab, {header_name: header_value})
+    if result:
+        return {"success": True, "message": f"Header '{header_name}' set for all future requests."}
+    return {"success": False, "error": f"Failed to set header '{header_name}'."}
 
 
 @mcp.resource("browser://{instance_id}/state")
@@ -2736,6 +2981,67 @@ def validate_hook_function(function_code: str) -> Dict[str, Any]:
     return dynamic_hook_ai.validate_hook_function(function_code=function_code)
 
 
+# ── CAPTCHA Detection & User Intervention ──
+
+@section_tool("captcha")
+async def detect_captcha(instance_id: str) -> Dict[str, Any]:
+    """
+    Inspect the current page for CAPTCHA or robot-check challenges.
+
+    Checks the DOM for known CAPTCHA patterns (reCAPTCHA v2/v3, hCaptcha,
+    Cloudflare Turnstile, Cloudflare challenge pages, generic CAPTCHA elements)
+    and returns whether a blocking challenge was detected.
+
+    Use this after navigation or when a page appears to show a verification
+    challenge. The auto_solve_hint field suggests how to attempt solving:
+    - "click_checkbox": Try clicking the CAPTCHA checkbox element
+    - "wait": Wait 10-15 seconds (Cloudflare often auto-resolves)
+    - "image_challenge": Take a screenshot and analyze visually
+    - "unknown": Unrecognized CAPTCHA type
+    - "none": No action needed (e.g. invisible reCAPTCHA v3)
+
+    Args:
+        instance_id (str): Browser instance ID
+
+    Returns:
+        Dict with: detected (bool), captcha_type, selectors, is_blocking,
+        auto_solve_hint, details
+    """
+    tab = await browser_manager.get_tab(instance_id)
+    return await captcha_detector.detect(tab)
+
+
+@section_tool("captcha")
+async def request_user_help(
+    instance_id: str,
+    reason: str,
+) -> Dict[str, Any]:
+    """
+    Request the user to manually solve a CAPTCHA or robot check.
+
+    Takes a screenshot and creates an intervention request that triggers a
+    dashboard alert with native notification in OpenHelm. The user should then
+    open the visible Chrome browser window and solve the CAPTCHA manually.
+
+    After calling this tool, poll every 30 seconds by taking a screenshot and
+    checking if the CAPTCHA is gone. Output a status message each time like
+    "Waiting for user to solve CAPTCHA on [url]..." to prevent silence timeout.
+    Give up after 5 minutes of waiting.
+
+    Args:
+        instance_id (str): Browser instance ID
+        reason (str): What the user needs to do (e.g. "Solve reCAPTCHA on login page")
+
+    Returns:
+        Dict with request_id, screenshot_path, and polling instructions
+    """
+    return await write_intervention_request(
+        run_id=_run_id,
+        instance_id=instance_id,
+        reason=reason,
+        browser_manager=browser_manager,
+    )
+
 
 if __name__ == "__main__":
     import argparse
@@ -2748,6 +3054,11 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="0.0.0.0",
                       help="Host for HTTP transport")
     
+    parser.add_argument("--credentials-file", type=str, default=None,
+                      help="Path to JSON file containing browser-injectable credentials (read and deleted on startup)")
+    parser.add_argument("--run-id", type=str, default=None,
+                      help="OpenHelm run ID for intervention request context")
+
     parser.add_argument("--disable-browser-management", action="store_true",
                       help="Disable browser management tools (spawn, navigate, close, etc.)")
     parser.add_argument("--disable-element-interaction", action="store_true",
@@ -2770,7 +3081,9 @@ if __name__ == "__main__":
                       help="Disable debug and system tools")
     parser.add_argument("--disable-dynamic-hooks", action="store_true",
                       help="Disable dynamic network hook system")
-    
+    parser.add_argument("--disable-captcha", action="store_true",
+                      help="Disable CAPTCHA detection and intervention tools")
+
     parser.add_argument("--minimal", action="store_true",
                       help="Enable only core browser management and element interaction (disable everything else)")
     parser.add_argument("--list-sections", action="store_true",
@@ -2791,6 +3104,8 @@ if __name__ == "__main__":
         print("  tabs: Tab management (5 tools)")
         print("  debugging: Debug and system tools (6 tools)")
         print("  dynamic-hooks: AI-powered network hook system (12 tools)")
+        print("  credentials: Secure browser credential injection (4 tools)")
+        print("  captcha: CAPTCHA detection and user intervention (2 tools)")
         print("\nUse --disable-<section-name> to disable specific sections")
         print("Use --minimal to enable only core functionality")
         sys.exit(0)
@@ -2825,9 +3140,18 @@ if __name__ == "__main__":
     if args.disable_dynamic_hooks:
         DISABLED_SECTIONS.add("dynamic-hooks")
     
+    if args.disable_captcha:
+        DISABLED_SECTIONS.add("captcha")
+
+    if args.credentials_file:
+        _credentials_file_path = args.credentials_file
+
+    if args.run_id:
+        _run_id = args.run_id
+
     if DISABLED_SECTIONS:
         print(f"Disabled tool sections: {', '.join(sorted(DISABLED_SECTIONS))}", file=sys.stderr)
-    
+
     if args.transport == "http":
         mcp.run(transport="http", host=args.host, port=args.port)
     else:

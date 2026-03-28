@@ -22,6 +22,37 @@ export const BROWSER_MCP_PREAMBLE =
   "they include per-operation timeout protection. Only use a different browser " +
   "MCP if the task explicitly requests one.\n\n";
 
+/**
+ * Prepended to job prompts to instruct Claude on CAPTCHA handling.
+ * Covers detection, auto-solve attempts, alternative reasoning, and
+ * user intervention request with polling loop.
+ */
+export const BROWSER_CAPTCHA_PREAMBLE =
+  "CAPTCHA Handling: When browsing, be alert for robot checks. After navigating " +
+  "or if a page looks like a verification challenge:\n" +
+  "1. Call mcp__openhelm-browser__detect_captcha to confirm the type.\n" +
+  "2. If auto_solve_hint suggests it can be solved:\n" +
+  "   - Checkbox CAPTCHAs (reCAPTCHA v2, hCaptcha): click the checkbox element.\n" +
+  "   - Cloudflare Turnstile: wait 10-15 seconds (often auto-resolves).\n" +
+  "   - Image challenges: take a screenshot, analyze the images using your vision,\n" +
+  "     and click the correct ones. Retry up to 3 times if needed.\n" +
+  "   - Text CAPTCHAs: take a screenshot, read the distorted text, type it in.\n" +
+  "   - Verify success by taking another screenshot.\n" +
+  "3. If unsolvable, consider alternatives:\n" +
+  "   - Different URL or API endpoint without CAPTCHA protection.\n" +
+  "   - Alternative method to accomplish the same goal.\n" +
+  "4. If no alternatives exist, call mcp__openhelm-browser__request_user_help\n" +
+  "   explaining what needs to be done. Then poll every 30 seconds: take a\n" +
+  "   screenshot and check if the CAPTCHA is gone. Output 'Waiting for user to\n" +
+  "   solve CAPTCHA on [url]...' each time. Give up after 5 minutes.\n\n";
+
+export const BROWSER_CREDENTIALS_PREAMBLE =
+  "Browser credentials are pre-loaded securely into the browser MCP server. " +
+  "Use mcp__openhelm-browser__list_browser_credentials to see what is available, " +
+  "then mcp__openhelm-browser__auto_login, mcp__openhelm-browser__inject_auth_cookie, " +
+  "or mcp__openhelm-browser__inject_auth_header to use them. " +
+  "Never ask the user for credential values — they are already loaded.\n\n";
+
 const MCP_CONFIG_DIR = join(
   process.env.OPENHELM_DATA_DIR ?? join(homedir(), ".openhelm"),
   "mcp-configs",
@@ -40,15 +71,23 @@ export interface McpConfigFile {
 /**
  * Build the MCP config object for a run.
  * Returns null if no MCP servers are available (venv not set up).
+ *
+ * @param runId — OpenHelm run ID, passed as `--run-id` for intervention context.
+ * @param credentialsFilePath — path to a temp JSON file containing browser-injectable credentials.
+ *   Passed as `--credentials-file` arg to the browser MCP server.
  */
-export function buildMcpConfig(): McpConfigFile | null {
+export function buildMcpConfig(runId: string, credentialsFilePath?: string): McpConfigFile | null {
   const servers: Record<string, McpServerEntry> = {};
 
   const browserPaths = getBrowserMcpPaths();
   if (browserPaths) {
+    const args = [browserPaths.serverModule, "--transport", "stdio", "--run-id", runId];
+    if (credentialsFilePath) {
+      args.push("--credentials-file", credentialsFilePath);
+    }
     servers["openhelm-browser"] = {
       command: browserPaths.pythonPath,
-      args: [browserPaths.serverModule, "--transport", "stdio"],
+      args,
       cwd: browserPaths.cwd,
     };
   }
@@ -60,9 +99,11 @@ export function buildMcpConfig(): McpConfigFile | null {
 /**
  * Write the MCP config to a file and return the path.
  * Returns null if no MCP servers are available.
+ *
+ * @param credentialsFilePath — forwarded to buildMcpConfig for browser credential injection.
  */
-export function writeMcpConfigFile(runId: string): string | null {
-  const config = buildMcpConfig();
+export function writeMcpConfigFile(runId: string, credentialsFilePath?: string): string | null {
+  const config = buildMcpConfig(runId, credentialsFilePath);
   if (!config) return null;
 
   mkdirSync(MCP_CONFIG_DIR, { recursive: true });

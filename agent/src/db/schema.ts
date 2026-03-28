@@ -163,7 +163,7 @@ export const dashboardItems = sqliteTable("inbox_items", {
   projectId: text("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
-  type: text("type", { enum: ["permanent_failure", "human_in_loop", "autopilot_limit"] }).notNull(),
+  type: text("type", { enum: ["permanent_failure", "human_in_loop", "autopilot_limit", "captcha_intervention"] }).notNull(),
   status: text("status", { enum: ["open", "resolved", "dismissed"] })
     .notNull()
     .default("open"),
@@ -242,6 +242,8 @@ export const credentials = sqliteTable("credentials", {
   envVarName: text("env_var_name").notNull(),
   /** When true, value is also injected into prompt context (sent to Anthropic) */
   allowPromptInjection: integer("allow_prompt_injection", { mode: "boolean" }).notNull().default(false),
+  /** When true, credential is injected directly into the browser MCP (no env var, no prompt) */
+  allowBrowserInjection: integer("allow_browser_injection", { mode: "boolean" }).notNull().default(false),
   scopeType: text("scope_type", { enum: ["global", "project", "goal", "job"] }).notNull().default("global"),
   scopeId: text("scope_id"),
   isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
@@ -277,7 +279,7 @@ export const runCredentials = sqliteTable(
     credentialId: text("credential_id")
       .notNull()
       .references(() => credentials.id, { onDelete: "cascade" }),
-    injectionMethod: text("injection_method", { enum: ["env", "prompt"] }).notNull(),
+    injectionMethod: text("injection_method", { enum: ["env", "prompt", "browser"] }).notNull(),
   },
   (t) => [{ primaryKey: [t.runId, t.credentialId, t.injectionMethod] }],
 );

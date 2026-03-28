@@ -48,6 +48,7 @@ import {
   onRunFinished,
   scheduleWake,
 } from "../power/index.js";
+import { InterventionWatcher, cleanupOrphanedInterventions } from "./intervention-watcher.js";
 
 const DEFAULT_MAX_CONCURRENCY = 2;
 const DEFAULT_TIMEOUT_MS = 0; // No limit (silence timeout catches stuck processes)
@@ -152,6 +153,9 @@ export class Executor {
 
   /** Recover from agent crash or update restart on startup */
   recoverFromCrash(): void {
+    // Clean up orphaned intervention files from previous crashes
+    cleanupOrphanedInterventions();
+
     // Check if this restart was caused by a planned app update
     const updatePending = getSetting("update_pending");
     const isUpdateRestart = updatePending?.value === "true";
@@ -266,6 +270,10 @@ export class Executor {
       onRunStarted();
     }
 
+    // Start watching for CAPTCHA intervention requests from browser MCP
+    const interventionWatcher = new InterventionWatcher(runId, jobId, job.projectId);
+    interventionWatcher.start();
+
     // Determine if this is a resumable corrective run
     const run = getRun(runId);
     let parentSessionId: string | null = null;
@@ -321,19 +329,21 @@ export class Executor {
     }
 
     // ── Credential injection ──
-    // All credentials are always injected as environment variables so Claude Code
-    // can use them via shell commands. A hint section is appended to the prompt
-    // listing the env var names (without values) so Claude Code knows they exist.
-    // If allowPromptInjection is true, the actual value is also appended to the
-    // prompt and will be sent to Anthropic's servers.
+    // Credentials are partitioned by injection mode:
+    // - ENV: injected as environment variables (Claude Code can read via shell)
+    // - PROMPT: also injected into the prompt text (sent to Anthropic)
+    // - BROWSER: injected into the browser MCP server only (Claude Code never sees values)
     const additionalEnv: Record<string, string> = {};
     const credentialAudit: RunCredentialEntry[] = [];
     const allSecrets: string[] = [];
+    let browserCredentialsFilePath: string | undefined;
 
     if (!isResumable) {
       try {
         const applicableCreds = resolveCredentialsForJob(jobId);
         const credentialHints: string[] = [];
+        const browserCredentialHints: string[] = [];
+        const browserCredentials: import("../credentials/browser-credentials.js").BrowserCredential[] = [];
 
         for (const cred of applicableCreds) {
           let raw: string | null = null;
@@ -346,39 +356,87 @@ export class Executor {
           if (!raw) continue;
 
           const value = JSON.parse(raw) as CredentialValue;
+          // Always add to redactor (catches leaks in logs regardless of injection mode)
           allSecrets.push(...extractSecretStrings(value));
 
-          // Always inject as environment variable(s)
-          if (value.type === "username_password") {
-            additionalEnv[cred.envVarName + "_USERNAME"] = value.username;
-            additionalEnv[cred.envVarName + "_PASSWORD"] = value.password;
-            credentialHints.push(
-              `- $${cred.envVarName}_USERNAME / $${cred.envVarName}_PASSWORD — "${cred.name}" (username & password)`,
-            );
+          if (cred.allowBrowserInjection) {
+            // Browser-only injection — NO env var, NO prompt
+            if (value.type === "username_password") {
+              browserCredentials.push({
+                name: cred.name,
+                type: "username_password",
+                username: value.username,
+                password: value.password,
+              });
+              browserCredentialHints.push(
+                `- "${cred.name}" (username_password) — use auto_login`,
+              );
+            } else {
+              browserCredentials.push({
+                name: cred.name,
+                type: "token",
+                value: value.value,
+              });
+              browserCredentialHints.push(
+                `- "${cred.name}" (token) — use inject_auth_cookie or inject_auth_header`,
+              );
+            }
+            credentialAudit.push({ credentialId: cred.id, injectionMethod: "browser" });
           } else {
-            additionalEnv[cred.envVarName] = value.value;
-            credentialHints.push(`- $${cred.envVarName} — "${cred.name}" (token)`);
-          }
-          credentialAudit.push({ credentialId: cred.id, injectionMethod: "env" });
+            // Env injection (default)
+            if (value.type === "username_password") {
+              additionalEnv[cred.envVarName + "_USERNAME"] = value.username;
+              additionalEnv[cred.envVarName + "_PASSWORD"] = value.password;
+              credentialHints.push(
+                `- $${cred.envVarName}_USERNAME / $${cred.envVarName}_PASSWORD — "${cred.name}" (username & password)`,
+              );
+            } else {
+              additionalEnv[cred.envVarName] = value.value;
+              credentialHints.push(`- $${cred.envVarName} — "${cred.name}" (token)`);
+            }
+            credentialAudit.push({ credentialId: cred.id, injectionMethod: "env" });
 
-          // Optionally also inject value into prompt context
-          if (cred.allowPromptInjection) {
-            const valueStr = value.type === "username_password"
-              ? `Username: ${value.username}, Password: ${value.password}`
-              : value.value;
-            effectivePrompt += `\n\n---\n\nCredential "${cred.name}": ${valueStr}`;
-            credentialAudit.push({ credentialId: cred.id, injectionMethod: "prompt" });
+            // Optionally also inject value into prompt context
+            if (cred.allowPromptInjection) {
+              const valueStr = value.type === "username_password"
+                ? `Username: ${value.username}, Password: ${value.password}`
+                : value.value;
+              effectivePrompt += `\n\n---\n\nCredential "${cred.name}": ${valueStr}`;
+              credentialAudit.push({ credentialId: cred.id, injectionMethod: "prompt" });
+            }
           }
 
           touchCredential(cred.id);
         }
 
-        // Always append a hints section so Claude Code knows which env vars exist
+        // Append env credential hints
         if (credentialHints.length > 0) {
           effectivePrompt +=
             `\n\n---\n\nAvailable Credentials (set as environment variables — use in shell commands):\n` +
             credentialHints.join("\n");
-          console.error(`[executor] injected ${applicableCreds.length} credentials into run ${runId}`);
+        }
+
+        // Append browser credential hints
+        if (browserCredentialHints.length > 0) {
+          effectivePrompt +=
+            `\n\n---\n\nBrowser credentials available (use browser MCP tools — values are pre-loaded securely):\n` +
+            browserCredentialHints.join("\n");
+        }
+
+        // Write browser credentials to temp file for MCP server
+        if (browserCredentials.length > 0) {
+          try {
+            const { writeBrowserCredentialsFile } = await import("../credentials/browser-credentials.js");
+            browserCredentialsFilePath = writeBrowserCredentialsFile(runId, browserCredentials);
+            console.error(`[executor] browser credentials file written for run ${runId}`);
+          } catch (err) {
+            console.error("[executor] browser credentials file write error (non-fatal):", err);
+          }
+        }
+
+        const totalCreds = credentialHints.length + browserCredentialHints.length;
+        if (totalCreds > 0) {
+          console.error(`[executor] injected ${totalCreds} credentials into run ${runId} (${browserCredentials.length} browser-only)`);
         }
       } catch (err) {
         console.error("[executor] credential resolution error (non-fatal):", err);
@@ -394,7 +452,7 @@ export class Executor {
       const { isVenvReady } = await import("../mcp-servers/browser-setup.js");
       if (isVenvReady()) {
         const { writeMcpConfigFile } = await import("../mcp-servers/mcp-config-builder.js");
-        mcpConfigPath = writeMcpConfigFile(runId) ?? undefined;
+        mcpConfigPath = writeMcpConfigFile(runId, browserCredentialsFilePath) ?? undefined;
         if (mcpConfigPath) {
           console.error(`[executor] MCP config written for run ${runId}`);
         }
@@ -403,10 +461,13 @@ export class Executor {
       console.error("[executor] MCP config generation error (non-fatal):", err);
     }
 
-    // Prepend browser MCP preference note when openhelm-browser is available
+    // Prepend browser MCP preference note + CAPTCHA handling when openhelm-browser is available
     if (mcpConfigPath) {
-      const { BROWSER_MCP_PREAMBLE } = await import("../mcp-servers/mcp-config-builder.js");
-      effectivePrompt = BROWSER_MCP_PREAMBLE + effectivePrompt;
+      const { BROWSER_MCP_PREAMBLE, BROWSER_CAPTCHA_PREAMBLE, BROWSER_CREDENTIALS_PREAMBLE } = await import("../mcp-servers/mcp-config-builder.js");
+      effectivePrompt = BROWSER_MCP_PREAMBLE + BROWSER_CAPTCHA_PREAMBLE + effectivePrompt;
+      if (browserCredentialsFilePath) {
+        effectivePrompt = BROWSER_CREDENTIALS_PREAMBLE + effectivePrompt;
+      }
     }
 
     // Track the Claude Code process PID so the focus guard can suppress child windows.
@@ -454,11 +515,22 @@ export class Executor {
       emit("focus_guard.removePid", { pid: claudePid });
     }
 
+    // Stop CAPTCHA intervention watcher and clean up any remaining files
+    interventionWatcher.stop();
+
     // Clean up per-run MCP config file
     if (mcpConfigPath) {
       try {
         const { removeMcpConfigFile } = await import("../mcp-servers/mcp-config-builder.js");
         removeMcpConfigFile(mcpConfigPath);
+      } catch { /* ignore */ }
+    }
+
+    // Clean up browser credentials file (defensive — MCP server should have already deleted it)
+    if (browserCredentialsFilePath) {
+      try {
+        const { removeBrowserCredentialsFile } = await import("../credentials/browser-credentials.js");
+        removeBrowserCredentialsFile(browserCredentialsFilePath);
       } catch { /* ignore */ }
     }
 

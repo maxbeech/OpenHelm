@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
@@ -97,6 +98,44 @@ fn build_node_path(bin_dir: &std::path::Path, resource_dir: &str) -> String {
 }
 
 struct SidecarChild(Mutex<Option<CommandChild>>);
+
+/// Environment variables needed to (re)spawn the sidecar.
+struct SidecarEnv {
+    path: String,
+    node_path: String,
+    data_dir: Option<String>,
+}
+
+/// Set to true when the app is exiting — prevents sidecar auto-restart.
+struct ShuttingDown(AtomicBool);
+
+/// Maximum number of automatic sidecar restarts before giving up.
+const MAX_SIDECAR_RESTARTS: u32 = 5;
+
+/// Spawn the agent sidecar and return the event receiver + child handle.
+fn spawn_sidecar(
+    handle: &tauri::AppHandle,
+    env: &SidecarEnv,
+) -> Result<
+    (
+        tokio::sync::mpsc::Receiver<tauri_plugin_shell::process::CommandEvent>,
+        CommandChild,
+    ),
+    String,
+> {
+    let shell = handle.shell();
+    let mut cmd = shell
+        .sidecar("agent")
+        .map_err(|e| e.to_string())?
+        .env("PATH", &env.path)
+        .env("NODE_PATH", &env.node_path);
+
+    if let Some(ref data_dir) = env.data_dir {
+        cmd = cmd.env("OPENHELM_DATA_DIR", data_dir);
+    }
+
+    cmd.spawn().map_err(|e| e.to_string())
+}
 
 #[tauri::command]
 fn write_to_sidecar(
@@ -204,6 +243,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(SidecarChild(Mutex::new(None)))
+        .manage(ShuttingDown(AtomicBool::new(false)))
         .invoke_handler(tauri::generate_handler![
             write_to_sidecar,
             relaunch_app,
@@ -300,94 +340,26 @@ pub fn run() {
                 }
             };
 
-            let shell = app.shell();
-            let mut cmd = shell
-                .sidecar("agent")
-                .expect("failed to create sidecar command")
-                .env("PATH", build_node_path(&bin_dir, &resource_dir))
-                .env("NODE_PATH", node_path_env);
+            // Store environment for sidecar (re)spawning
+            let sidecar_env = SidecarEnv {
+                path: build_node_path(&bin_dir, &resource_dir),
+                node_path: node_path_env,
+                data_dir: openhelm_data_dir,
+            };
 
-            if let Some(ref data_dir) = openhelm_data_dir {
-                cmd = cmd.env("OPENHELM_DATA_DIR", data_dir);
-            }
-
-            let (mut rx, child) = cmd
-                .spawn()
+            // Initial spawn
+            let (rx, child) = spawn_sidecar(app.handle(), &sidecar_env)
                 .expect("failed to spawn sidecar");
 
             // Store child handle so we can write to stdin
             let state = app.state::<SidecarChild>();
             *state.0.lock().unwrap() = Some(child);
 
-            // Forward sidecar stdout/stderr as Tauri events
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                use tauri_plugin_shell::process::CommandEvent;
+            app.manage(sidecar_env);
 
-                while let Some(event) = rx.recv().await {
-                    match event {
-                        CommandEvent::Stdout(line) => {
-                            let text = String::from_utf8_lossy(&line);
-                            // Intercept focus_guard protocol events before forwarding to frontend.
-                            // These are internal Rust↔agent messages and must not reach the JS layer.
-                            #[cfg(target_os = "macos")]
-                            if let Ok(parsed) =
-                                serde_json::from_str::<serde_json::Value>(&text)
-                            {
-                                match parsed
-                                    .get("event")
-                                    .and_then(|e| e.as_str())
-                                {
-                                    Some("focus_guard.addPid") => {
-                                        if let Some(pid) =
-                                            parsed["data"]["pid"].as_i64()
-                                        {
-                                            focus_guard::add_pid(pid as i32);
-                                        }
-                                        continue;
-                                    }
-                                    Some("focus_guard.removePid") => {
-                                        if let Some(pid) =
-                                            parsed["data"]["pid"].as_i64()
-                                        {
-                                            focus_guard::remove_pid(pid as i32);
-                                        }
-                                        continue;
-                                    }
-                                    Some("focus_guard.setEnabled") => {
-                                        if let Some(enabled) =
-                                            parsed["data"]["enabled"].as_bool()
-                                        {
-                                            focus_guard::set_enabled(enabled);
-                                        }
-                                        continue;
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            let _ = handle.emit("sidecar-stdout", text.to_string());
-                        }
-                        CommandEvent::Stderr(line) => {
-                            let text = String::from_utf8_lossy(&line);
-                            eprintln!("[agent] {}", text);
-                        }
-                        CommandEvent::Terminated(payload) => {
-                            eprintln!(
-                                "[agent] sidecar terminated with code: {:?}",
-                                payload.code
-                            );
-                            // Notify the frontend so it can show an error
-                            // instead of hanging on unanswered IPC requests.
-                            let code = payload.code.unwrap_or(-1);
-                            let _ = handle.emit(
-                                "sidecar-terminated",
-                                format!("{{\"code\":{}}}", code),
-                            );
-                        }
-                        _ => {}
-                    }
-                }
-            });
+            // Monitor sidecar stdout/stderr with auto-restart on unexpected termination
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(monitor_sidecar(handle, rx));
 
             Ok(())
         })
@@ -397,6 +369,10 @@ pub fn run() {
             // When the app exits (e.g. Cmd+Q), kill the sidecar so it doesn't
             // continue running as an orphan process in the background.
             if let tauri::RunEvent::Exit = event {
+                // Signal the monitor loop to stop restarting
+                app.state::<ShuttingDown>()
+                    .0
+                    .store(true, Ordering::Relaxed);
                 let state = app.state::<SidecarChild>();
                 if let Ok(mut guard) = state.0.lock() {
                     if let Some(child) = guard.take() {
@@ -405,4 +381,131 @@ pub fn run() {
                 };
             }
         });
+}
+
+/// Forward sidecar stdout/stderr events. Returns the exit code when the sidecar terminates.
+async fn forward_sidecar_events(
+    handle: &tauri::AppHandle,
+    mut rx: tokio::sync::mpsc::Receiver<tauri_plugin_shell::process::CommandEvent>,
+) -> i32 {
+    use tauri_plugin_shell::process::CommandEvent;
+
+    let mut exit_code: i32 = -1;
+
+    while let Some(event) = rx.recv().await {
+        match event {
+            CommandEvent::Stdout(line) => {
+                let text = String::from_utf8_lossy(&line);
+                // Intercept focus_guard protocol events before forwarding to frontend.
+                #[cfg(target_os = "macos")]
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text) {
+                    match parsed.get("event").and_then(|e| e.as_str()) {
+                        Some("focus_guard.addPid") => {
+                            if let Some(pid) = parsed["data"]["pid"].as_i64() {
+                                focus_guard::add_pid(pid as i32);
+                            }
+                            continue;
+                        }
+                        Some("focus_guard.removePid") => {
+                            if let Some(pid) = parsed["data"]["pid"].as_i64() {
+                                focus_guard::remove_pid(pid as i32);
+                            }
+                            continue;
+                        }
+                        Some("focus_guard.setEnabled") => {
+                            if let Some(enabled) = parsed["data"]["enabled"].as_bool() {
+                                focus_guard::set_enabled(enabled);
+                            }
+                            continue;
+                        }
+                        _ => {}
+                    }
+                }
+                let _ = handle.emit("sidecar-stdout", text.to_string());
+            }
+            CommandEvent::Stderr(line) => {
+                let text = String::from_utf8_lossy(&line);
+                eprintln!("[agent] {}", text);
+            }
+            CommandEvent::Terminated(payload) => {
+                exit_code = payload.code.unwrap_or(-1);
+                eprintln!("[agent] sidecar terminated with code: {}", exit_code);
+                let _ = handle.emit(
+                    "sidecar-terminated",
+                    format!("{{\"code\":{}}}", exit_code),
+                );
+            }
+            _ => {}
+        }
+    }
+
+    exit_code
+}
+
+/// Monitor the sidecar and auto-restart on unexpected termination.
+/// Gives up after MAX_SIDECAR_RESTARTS consecutive failures.
+async fn monitor_sidecar(
+    handle: tauri::AppHandle,
+    initial_rx: tokio::sync::mpsc::Receiver<tauri_plugin_shell::process::CommandEvent>,
+) {
+    let mut restart_count: u32 = 0;
+    let mut exit_code = forward_sidecar_events(&handle, initial_rx).await;
+
+    loop {
+        if handle.state::<ShuttingDown>().0.load(Ordering::Relaxed) {
+            break;
+        }
+
+        // Don't restart if agent exited cleanly (stdin closed → graceful shutdown)
+        if exit_code == 0 {
+            eprintln!("[agent] sidecar exited cleanly, not restarting");
+            break;
+        }
+
+        restart_count += 1;
+        if restart_count > MAX_SIDECAR_RESTARTS {
+            eprintln!(
+                "[agent] sidecar crashed {} times, giving up on auto-restart",
+                restart_count
+            );
+            break;
+        }
+
+        // Exponential backoff: 2s, 4s, 8s, 16s, 16s
+        let delay_secs = 2u64.pow(restart_count.min(4));
+        eprintln!(
+            "[agent] restarting sidecar in {}s (attempt {}/{})",
+            delay_secs, restart_count, MAX_SIDECAR_RESTARTS
+        );
+        tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+
+        if handle.state::<ShuttingDown>().0.load(Ordering::Relaxed) {
+            break;
+        }
+
+        // Clear the dead child handle
+        {
+            let state = handle.state::<SidecarChild>();
+            let _ = state.0.lock().map(|mut g| *g = None);
+        }
+
+        let spawn_result = {
+            let env = handle.state::<SidecarEnv>();
+            spawn_sidecar(&handle, &env)
+        };
+        match spawn_result {
+            Ok((rx, child)) => {
+                eprintln!("[agent] sidecar restarted (attempt {})", restart_count);
+                {
+                    let state = handle.state::<SidecarChild>();
+                    let _ = state.0.lock().map(|mut g| *g = Some(child));
+                }
+                exit_code = forward_sidecar_events(&handle, rx).await;
+            }
+            Err(err) => {
+                eprintln!("[agent] failed to restart sidecar: {}", err);
+                exit_code = -1;
+            }
+        }
+    }
 }
