@@ -161,4 +161,26 @@ describe("dashboard items CRUD", () => {
     resolveDashboardItem(item.id, "resolved");
     expect(countOpenDashboardItems(projectId)).toBe(before);
   });
+
+  it("creates a dashboard item with null runId (job-level event)", () => {
+    const item = createDashboardItem({
+      runId: null,
+      jobId,
+      projectId,
+      type: "autopilot_limit",
+      title: "System job paused",
+      message: "Token budget exceeded",
+    });
+
+    expect(item.id).toBeDefined();
+    expect(item.runId).toBeNull();
+    expect(item.jobId).toBe(jobId);
+    expect(item.projectId).toBe(projectId);
+    expect(item.type).toBe("autopilot_limit");
+    expect(item.status).toBe("open");
+
+    const found = getDashboardItem(item.id);
+    expect(found).not.toBeNull();
+    expect(found!.runId).toBeNull();
+  });
 });

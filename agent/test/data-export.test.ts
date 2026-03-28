@@ -177,3 +177,85 @@ describe("export queries", () => {
     expect(counts.settings).toBe(0);
   });
 });
+
+describe("importAllData validation", () => {
+  it("throws on invalid scheduleConfig (null)", () => {
+    clearAllData();
+    seedData();
+    const data = exportAll(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data.jobs[0] = { ...data.jobs[0], scheduleConfig: null as any };
+    expect(() => importAllData(data)).toThrow(/scheduleConfig/);
+  });
+
+  it("throws on invalid scheduleConfig (string)", () => {
+    clearAllData();
+    seedData();
+    const data = exportAll(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data.jobs[0] = { ...data.jobs[0], scheduleConfig: "bad" as any };
+    expect(() => importAllData(data)).toThrow(/scheduleConfig/);
+  });
+
+  it("throws on invalid memory tags (not an array)", () => {
+    clearAllData();
+    seedData();
+    const data = exportAll(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data.memories[0] = { ...data.memories[0], tags: "not-array" as any };
+    expect(() => importAllData(data)).toThrow(/tags/);
+  });
+
+  it("throws on invalid message toolCalls (non-object, non-null)", () => {
+    clearAllData();
+    const data = exportAll(true);
+    // Inject a synthetic message with invalid toolCalls (no need to persist to DB)
+    data.messages = [
+      {
+        id: "fake-id",
+        conversationId: "fake-conv",
+        role: "user",
+        content: "test",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        toolCalls: 42 as any,
+        toolResults: null,
+        pendingActions: null,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    expect(() => importAllData(data)).toThrow(/toolCalls/);
+  });
+
+  it("validation failure leaves existing data intact (no wipe)", () => {
+    clearAllData();
+    seedData();
+    const original = exportAll(true);
+
+    // Corrupt scheduleConfig so validation fires before any DB mutation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bad = { ...original, jobs: [{ ...original.jobs[0], scheduleConfig: null as any }] };
+    expect(() => importAllData(bad)).toThrow();
+
+    // Existing data must be untouched
+    const after = exportAll(true);
+    expect(after.projects.length).toBe(original.projects.length);
+    expect(after.jobs.length).toBe(original.jobs.length);
+  });
+
+  it("mid-transaction failure preserves existing data (transaction rolled back)", () => {
+    clearAllData();
+    seedData();
+    const original = exportAll(true);
+
+    // Build data that passes validation but fails on insert: remove jobs so
+    // run inserts will violate the jobs FK constraint.
+    const bad = { ...original, jobs: [] };
+    expect(() => importAllData(bad)).toThrow();
+
+    // Transaction should have rolled back; original data is intact
+    const after = exportAll(true);
+    expect(after.projects.length).toBe(original.projects.length);
+    expect(after.jobs.length).toBe(original.jobs.length);
+    expect(after.runs.length).toBe(original.runs.length);
+  });
+});

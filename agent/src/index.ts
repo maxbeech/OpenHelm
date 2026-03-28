@@ -13,12 +13,17 @@ import { getSetting } from "./db/queries/settings.js";
 import { initAgentSentry, captureAgentError } from "./sentry.js";
 import { initPowerManagement, shutdownPowerManagement } from "./power/index.js";
 import { startPeriodicVerifier, stopPeriodicVerifier } from "./license/periodic-verifier.js";
+import { cleanupOrphanedConfigs } from "./mcp-servers/mcp-config-builder.js";
+
+// Injected at build time by esbuild define — see agent/scripts/build.mjs
+declare const __OPENHELM_VERSION__: string;
+const AGENT_VERSION = typeof __OPENHELM_VERSION__ !== "undefined" ? __OPENHELM_VERSION__ : "unknown";
 
 // -- Bootstrap --
 
 const t0 = Date.now();
 const elapsed = () => `${Date.now() - t0}ms`;
-console.error("[agent] starting OpenHelm agent v0.1.0");
+console.error(`[agent] starting OpenHelm agent v${AGENT_VERSION}`);
 
 // 1. Initialize database
 try {
@@ -43,6 +48,13 @@ try {
   console.error("[agent] sentry init failed (non-fatal):", err);
 }
 
+// 1d. Clean up orphaned MCP config files from previous crashes
+try {
+  cleanupOrphanedConfigs();
+} catch {
+  // Non-fatal — directory may not exist yet
+}
+
 // 2. Register all IPC handlers
 registerAllHandlers();
 
@@ -50,7 +62,12 @@ registerAllHandlers();
 startDevServer();
 
 // 3. Crash recovery — must happen after DB init, before scheduler start
-executor.recoverFromCrash();
+try {
+  executor.recoverFromCrash();
+} catch (err) {
+  console.error("[agent] crash recovery failed (non-fatal):", err);
+  captureAgentError(err, { errorCode: "crashRecovery" });
+}
 
 // 4. Start IPC listener on stdin
 const rl = createInterface({ input: process.stdin });
@@ -83,7 +100,7 @@ rl.on("close", () => {
 });
 
 // 5. Signal readiness
-emit("agent.ready", { version: "0.1.0" });
+emit("agent.ready", { version: AGENT_VERSION });
 
 // 5b. Sync focus guard enabled state to the Tauri Rust layer.
 // Default is enabled; only emit when the user has explicitly disabled it.
@@ -134,7 +151,12 @@ try {
 // Process any re-enqueued runs from crash recovery
 executor.processNext();
 
-// 8. Fatal error handlers — log, report to Sentry, and notify frontend before exiting
+// 8. Fatal error handlers — log and report to Sentry.
+// uncaughtException: truly broken state → exit.
+// unhandledRejection: a forgotten .catch() → log + notify but keep running.
+// Killing the agent on every unhandled rejection is too aggressive for a
+// long-running background service; it makes a single async bug (e.g. in
+// summarisation or memory extraction) bring down the entire sidecar.
 process.on("uncaughtException", (err) => {
   console.error("[agent] uncaught exception:", err);
   captureAgentError(err, { errorCode: "uncaughtException" });
@@ -151,7 +173,7 @@ process.on("uncaughtException", (err) => {
 });
 
 process.on("unhandledRejection", (reason) => {
-  console.error("[agent] unhandled rejection:", reason);
+  console.error("[agent] unhandled rejection (non-fatal):", reason);
   captureAgentError(reason, { errorCode: "unhandledRejection" });
   try {
     emit("agent.error", {
@@ -162,5 +184,5 @@ process.on("unhandledRejection", (reason) => {
   } catch {
     // emit itself failed — nothing more we can do
   }
-  process.exit(1);
+  // Do NOT exit — the agent should survive async errors
 });

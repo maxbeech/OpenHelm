@@ -208,6 +208,40 @@ describe("runClaudeCode", () => {
     const output = stdoutCalls.map(([, text]: [string, string]) => text).join(" ");
     expect(output).not.toContain("--effort");
   });
+
+  it("passes --mcp-config flag when mcpConfigPath is set", async () => {
+    const onLogChunk = vi.fn();
+    const config = mockConfig({
+      binaryPath: "/bin/echo",
+      prompt: "test",
+      mcpConfigPath: "/tmp/mcp-config.json",
+      onLogChunk,
+    });
+
+    await runClaudeCode(config);
+    const stdoutCalls = onLogChunk.mock.calls.filter(
+      ([stream]: [string]) => stream === "stdout",
+    );
+    const output = stdoutCalls.map(([, text]: [string, string]) => text).join(" ");
+    expect(output).toContain("--mcp-config");
+    expect(output).toContain("/tmp/mcp-config.json");
+  });
+
+  it("does not pass --mcp-config flag when mcpConfigPath is undefined", async () => {
+    const onLogChunk = vi.fn();
+    const config = mockConfig({
+      binaryPath: "/bin/echo",
+      prompt: "test",
+      onLogChunk,
+    });
+
+    await runClaudeCode(config);
+    const stdoutCalls = onLogChunk.mock.calls.filter(
+      ([stream]: [string]) => stream === "stdout",
+    );
+    const output = stdoutCalls.map(([, text]: [string, string]) => text).join(" ");
+    expect(output).not.toContain("--mcp-config");
+  });
 });
 
 describe("runClaudeCode integration", () => {

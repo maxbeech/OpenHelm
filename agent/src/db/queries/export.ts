@@ -156,6 +156,37 @@ export function getExportStats(): ExportStatsResult {
 
 // ─── Clear & Import ───
 
+/** Validates JSON-encodable fields in import data, throwing descriptively on malformed input. */
+function validateImportData(data: ExportData): void {
+  for (let i = 0; i < data.jobs.length; i++) {
+    const j = data.jobs[i];
+    if (typeof j.scheduleConfig !== "object" || j.scheduleConfig === null) {
+      throw new Error(
+        `jobs[${i}] (id=${j.id}): scheduleConfig must be a non-null object, got ${typeof j.scheduleConfig}`
+      );
+    }
+  }
+  for (let i = 0; i < data.memories.length; i++) {
+    const m = data.memories[i];
+    if (!Array.isArray(m.tags)) {
+      throw new Error(
+        `memories[${i}] (id=${m.id}): tags must be an array, got ${typeof m.tags}`
+      );
+    }
+  }
+  for (let i = 0; i < data.messages.length; i++) {
+    const msg = data.messages[i];
+    for (const field of ["toolCalls", "toolResults", "pendingActions"] as const) {
+      const val = msg[field];
+      if (val !== null && val !== undefined && typeof val !== "object") {
+        throw new Error(
+          `messages[${i}] (id=${msg.id}): ${field} must be null or an object, got ${typeof val}`
+        );
+      }
+    }
+  }
+}
+
 /** Delete all rows in FK-safe reverse order */
 export function clearAllData(): void {
   const db = getDb();
@@ -175,8 +206,13 @@ export function clearAllData(): void {
   db.delete(settings).run();
 }
 
-/** Import all data in FK-safe order within a transaction */
+/**
+ * Validate, clear all tables, then import data — all within a single transaction.
+ * Throws before touching the database if any JSON field is malformed.
+ */
 export function importAllData(data: ExportData): RecordCounts {
+  validateImportData(data); // validate before any mutation
+
   const db = getDb();
   const counts: RecordCounts = {
     projects: 0, goals: 0, jobs: 0, runs: 0, runLogs: 0,
@@ -185,6 +221,22 @@ export function importAllData(data: ExportData): RecordCounts {
   };
 
   db.transaction((tx) => {
+    // Clear all tables first (atomic with inserts — prevents empty-DB on crash between clear and import)
+    tx.delete(runMemories).run();
+    tx.delete(runCredentials).run();
+    tx.delete(runLogs).run();
+    tx.delete(dashboardItems).run();
+    tx.delete(messages).run();
+    tx.delete(conversations).run();
+    tx.delete(memories).run();
+    tx.delete(runs).run();
+    tx.delete(jobs).run();
+    tx.delete(goals).run();
+    tx.delete(credentialScopeBindings).run();
+    tx.delete(credentials).run();
+    tx.delete(projects).run();
+    tx.delete(settings).run();
+
     // 1. Settings
     for (const s of data.settings) {
       tx.insert(settings).values(s).run();

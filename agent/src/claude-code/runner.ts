@@ -47,6 +47,8 @@ export interface RunnerConfig {
   resumeSessionId?: string;
   /** Additional environment variables to merge into the spawned process env */
   additionalEnv?: Record<string, string>;
+  /** Path to MCP config JSON file (passed via --mcp-config) */
+  mcpConfigPath?: string;
   /** Called immediately after the Claude Code process is spawned, with its PID */
   onPidAvailable?: (pid: number) => void;
 }
@@ -238,6 +240,11 @@ function buildArgs(config: RunnerConfig): string[] {
   // Resume a previous session
   if (config.resumeSessionId) {
     args.push("--resume", config.resumeSessionId);
+  }
+
+  // MCP server config (e.g. built-in browser automation)
+  if (config.mcpConfigPath) {
+    args.push("--mcp-config", config.mcpConfigPath);
   }
 
   // Prompt is written to stdin (not as a positional arg) to avoid

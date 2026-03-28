@@ -3,7 +3,6 @@ import { registerHandler } from "../handler.js";
 import {
   exportAll,
   getExportStats,
-  clearAllData,
   importAllData,
   type ExportData,
 } from "../../db/queries/export.js";
@@ -153,7 +152,6 @@ export function registerDataHandlers() {
     if (wasRunning) scheduler.stop();
 
     try {
-      clearAllData();
       const recordCounts = importAllData(data);
 
       // Check project paths

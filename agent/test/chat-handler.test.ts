@@ -12,12 +12,16 @@ import {
 
 const callLlmViaCliMock = vi.fn();
 const emitMock = vi.fn();
+const generateAndHandleSystemJobsMock = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../src/planner/llm-via-cli.js", () => ({
   callLlmViaCli: (...args: unknown[]) => callLlmViaCliMock(...args),
 }));
 vi.mock("../src/ipc/emitter.js", () => ({ emit: (...args: unknown[]) => emitMock(...args) }));
 vi.mock("../src/executor/index.js", () => ({ executor: { processNext: vi.fn() } }));
+vi.mock("../src/autopilot/index.js", () => ({
+  generateAndHandleSystemJobs: (...args: unknown[]) => generateAndHandleSystemJobsMock(...args),
+}));
 
 import {
   handleChatMessage,
@@ -218,6 +222,47 @@ describe("handleActionApproval", () => {
     const resolved = emitMock.mock.calls.find(([event]) => event === "chat.actionResolved");
     expect(resolved).toBeDefined();
     expect(resolved![1]).toMatchObject({ status: "approved" });
+  });
+
+  it("triggers autopilot with the real goal ID after create_goal approval", async () => {
+    const proj = createProject({ name: "Autopilot Trigger Test", directoryPath: "/tmp/autopilot-trigger" });
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `<tool_call>{"tool":"create_goal","args":{"name":"Autopilot Goal"}}</tool_call>`,
+    );
+
+    const msgs = await handleChatMessage(proj.id, "Create a goal");
+    const action = msgs[1].pendingActions![0];
+
+    generateAndHandleSystemJobsMock.mockClear();
+    await handleActionApproval(msgs[1].id, action.callId, proj.id);
+
+    expect(generateAndHandleSystemJobsMock).toHaveBeenCalledOnce();
+    const [calledGoalId, calledProjectId] = generateAndHandleSystemJobsMock.mock.calls[0];
+    // The goal ID must be a real DB ID (not undefined / "pending" / the placeholder sentinel)
+    expect(calledGoalId).toBeTruthy();
+    expect(calledGoalId).not.toBe("pending");
+    expect(calledProjectId).toBe(proj.id);
+    // Confirm the ID matches the actually-created goal
+    const goal = getGoal(calledGoalId);
+    expect(goal?.name).toBe("Autopilot Goal");
+  });
+
+  it("does not trigger autopilot when approving a non-create_goal action", async () => {
+    const proj = createProject({ name: "No Autopilot Test", directoryPath: "/tmp/no-autopilot" });
+    const { createGoal } = await import("../src/db/queries/goals.js");
+    const goal = createGoal({ projectId: proj.id, name: "Existing Goal" });
+
+    callLlmViaCliMock.mockResolvedValueOnce(
+      `<tool_call>{"tool":"create_job","args":{"name":"A Job","prompt":"run tests","goalId":"${goal.id}","scheduleType":"once"}}</tool_call>`,
+    );
+
+    const msgs = await handleChatMessage(proj.id, "Create a job");
+    const action = msgs[1].pendingActions![0];
+
+    generateAndHandleSystemJobsMock.mockClear();
+    await handleActionApproval(msgs[1].id, action.callId, proj.id);
+
+    expect(generateAndHandleSystemJobsMock).not.toHaveBeenCalled();
   });
 
   it("throws when message does not exist", async () => {
@@ -741,6 +786,26 @@ describe("handleChatMessage — streaming sanitizer (Issue 3 fix)", () => {
     expect(streamedText).not.toContain("create_goal");
     expect(streamedText).toContain("Before text.");
     expect(streamedText).toContain("After text.");
+  });
+
+  it("emits text after </tool_call> when the closing tag is split across chunks", async () => {
+    callLlmViaCliMock.mockImplementationOnce(async (config: Record<string, unknown>) => {
+      const onTextChunk = config.onTextChunk as (text: string) => void;
+      // Closing tag split: chunk 1 ends mid-way through </tool_call>
+      onTextChunk("Intro.\n<tool_call>data</tool_ca");
+      onTextChunk("ll>Conclusion.");
+      return "Intro.\nConclusion.";
+    });
+
+    await handleChatMessage(projectId, "Test split closing tag");
+
+    const streamEvents = emitMock.mock.calls.filter(([event]) => event === "chat.streaming");
+    const streamedText = streamEvents.map(([, data]) => data.text).join("");
+    expect(streamedText).not.toContain("<tool_call>");
+    expect(streamedText).not.toContain("</tool_call>");
+    expect(streamedText).not.toContain("data");
+    expect(streamedText).toContain("Intro.");
+    expect(streamedText).toContain("Conclusion.");
   });
 
   it("handles incomplete tool_call at end of stream without leaking", async () => {

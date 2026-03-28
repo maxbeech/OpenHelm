@@ -19,7 +19,7 @@ interface RunDetailPanelProps {
 }
 
 export function RunDetailPanel({ run, jobName, onClose }: RunDetailPanelProps) {
-  const { cancelRun, triggerRun } = useRunStore();
+  const { cancelRun, triggerRun, retryRun } = useRunStore();
   const { selectJob, selectRunPreserveView } = useAppStore();
   const { logs, loading: logsLoading } = useRunLogs(run.id);
   const [cancelling, setCancelling] = useState(false);
@@ -66,7 +66,7 @@ export function RunDetailPanel({ run, jobName, onClose }: RunDetailPanelProps) {
         <div className="flex items-center gap-1">
           {isTerminal && isFailed && (
             <button
-              onClick={() => triggerRun(run.jobId)}
+              onClick={() => retryRun(run.jobId, run.id)}
               className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-destructive hover:bg-accent hover:text-destructive"
               title="Retry failed run"
             >

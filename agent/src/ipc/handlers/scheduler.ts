@@ -48,7 +48,15 @@ export function registerSchedulerHandlers() {
     }
 
     // Immediate path: fire now
-    const run = createRun({ jobId: p.jobId, triggerSource: "manual" });
+    // If parentRunId is provided, create a corrective run so the executor
+    // can resume the parent's Claude Code session (if it has a sessionId).
+    const run = p.parentRunId
+      ? createRun({
+          jobId: p.jobId,
+          triggerSource: "corrective",
+          parentRunId: p.parentRunId,
+        })
+      : createRun({ jobId: p.jobId, triggerSource: "manual" });
 
     jobQueue.enqueue({
       runId: run.id,

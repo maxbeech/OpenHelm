@@ -16,7 +16,7 @@ interface RunDetailViewProps {
 }
 
 export function RunDetailView({ runId }: RunDetailViewProps) {
-  const { runs, cancelRun, triggerRun } = useRunStore();
+  const { runs, cancelRun, triggerRun, retryRun } = useRunStore();
   const { jobs } = useJobStore();
   const { clearSelectedRun, selectJob, selectRunPreserveView } = useAppStore();
   const { logs, loading: logsLoading } = useRunLogs(runId);
@@ -87,7 +87,7 @@ export function RunDetailView({ runId }: RunDetailViewProps) {
         <div className="flex items-center gap-1">
           {isTerminal && isFailed && (
             <button
-              onClick={() => triggerRun(run.jobId)}
+              onClick={() => retryRun(run.jobId, run.id)}
               className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-destructive hover:bg-accent hover:text-destructive"
               title="Retry failed run"
             >

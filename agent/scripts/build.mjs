@@ -68,6 +68,19 @@ function copySidecarBinaries() {
     try { execFileSync("codesign", ["--force", "--sign", "-", dest]); } catch { /* ok on non-macOS */ }
   }
   console.error("[agent] copied to src-tauri/binaries/");
+
+  // Copy browser MCP server alongside the sidecar so the agent can find it at
+  // runtime via join(__dirname, "..", "mcp-servers", "browser").
+  const browserMcpSrc = resolve(__dirname, "..", "mcp-servers", "browser");
+  const browserMcpDest = resolve(__dirname, "..", "..", "src-tauri", "mcp-servers", "browser");
+  if (existsSync(browserMcpSrc)) {
+    mkdirSync(browserMcpDest, { recursive: true });
+    cpSync(browserMcpSrc, browserMcpDest, {
+      recursive: true,
+      filter: (src) => !src.includes("/.venv/") && !src.includes("/__pycache__/") && !src.includes("/element_clones/"),
+    });
+    console.error("[agent] copied browser MCP server to src-tauri/mcp-servers/");
+  }
 }
 
 /**

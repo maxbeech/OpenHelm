@@ -26,7 +26,7 @@ export function DashboardView() {
   const { runs } = useRunStore();
   const { projects } = useProjectStore();
   const { selectRunPreserveView, activeProjectId } = useAppStore();
-  const { triggerRun } = useRunStore();
+  const { triggerRun, retryRun } = useRunStore();
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [dismissingAll, setDismissingAll] = useState(false);
   const [visibleRunCount, setVisibleRunCount] = useState(DEFAULT_VISIBLE_RUNS);
@@ -250,7 +250,7 @@ export function DashboardView() {
                 jobs={jobs}
                 projects={projects}
                 onSelect={() => selectRunPreserveView(run.id)}
-                onRetry={() => triggerRun(run.jobId)}
+                onRetry={() => retryRun(run.jobId, run.id)}
                 onNewRun={() => triggerRun(run.jobId)}
               />
             ))}

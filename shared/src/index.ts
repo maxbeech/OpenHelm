@@ -533,6 +533,8 @@ export interface TriggerRunParams {
   jobId: string;
   /** Optional ISO 8601 datetime; if future, creates a deferred run instead of firing immediately */
   fireAt?: string;
+  /** Optional parent run ID; when set, creates a corrective run that resumes the parent's session */
+  parentRunId?: string;
 }
 
 /** Params for cancelling a run */
@@ -682,7 +684,7 @@ export type DashboardItemStatus = "open" | "resolved" | "dismissed";
 
 export interface DashboardItem {
   id: string;
-  runId: string;
+  runId: string | null;
   jobId: string;
   projectId: string;
   type: DashboardItemType;
@@ -694,7 +696,7 @@ export interface DashboardItem {
 }
 
 export interface CreateDashboardItemParams {
-  runId: string;
+  runId: string | null;
   jobId: string;
   projectId: string;
   type: DashboardItemType;

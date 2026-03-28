@@ -78,6 +78,25 @@ describe("RunStore", () => {
     expect(remaining[0].id).toBe("r2");
   });
 
+  it("retryRun calls api.triggerRun with jobId and parentRunId", async () => {
+    const correctiveRun: Run = {
+      ...mockRun,
+      id: "r-corrective",
+      triggerSource: "corrective",
+      parentRunId: "r1",
+    };
+    vi.mocked(api.triggerRun).mockResolvedValueOnce(correctiveRun);
+
+    const result = await useRunStore.getState().retryRun("j1", "r1");
+
+    expect(api.triggerRun).toHaveBeenCalledWith({ jobId: "j1", parentRunId: "r1" });
+    expect(result.triggerSource).toBe("corrective");
+    expect(result.parentRunId).toBe("r1");
+
+    const stored = useRunStore.getState().runs.find((r) => r.id === "r-corrective");
+    expect(stored).toBeDefined();
+  });
+
   it("triggerDeferredRun calls api.triggerRun with jobId and fireAt", async () => {
     const fireAt = "2026-06-01T10:00:00Z";
     const deferredRun: Run = {

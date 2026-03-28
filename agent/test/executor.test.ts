@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type Mocked } from "vitest";
+import { isVenvReady } from "../src/mcp-servers/browser-setup.js";
+import { writeMcpConfigFile, BROWSER_MCP_PREAMBLE } from "../src/mcp-servers/mcp-config-builder.js";
 import { setupTestDb } from "./helpers.js";
 import { createProject } from "../src/db/queries/projects.js";
 import { createJob, getJob } from "../src/db/queries/jobs.js";
@@ -35,6 +37,21 @@ vi.mock("../src/ipc/emitter.js", () => ({
   emit: vi.fn(),
   send: vi.fn(),
 }));
+
+// Mock browser MCP modules — default to venv not ready so most tests are unaffected
+vi.mock("../src/mcp-servers/browser-setup.js", () => ({
+  isVenvReady: vi.fn(() => false),
+}));
+
+vi.mock("../src/mcp-servers/mcp-config-builder.js", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../src/mcp-servers/mcp-config-builder.js")>();
+  return {
+    ...orig,
+    writeMcpConfigFile: vi.fn(() => null),
+    removeMcpConfigFile: vi.fn(),
+    cleanupOrphanedConfigs: vi.fn(),
+  };
+});
 
 // Mock LLM-dependent modules (avoid real Claude Code CLI calls)
 vi.mock("../src/planner/failure-analyzer.js", () => ({
@@ -1041,5 +1058,115 @@ describe("Focus guard PID lifecycle", () => {
       (event as string).startsWith("focus_guard."),
     );
     expect(focusGuardCalls).toHaveLength(0);
+  });
+});
+
+describe("Executor stuck-run protection", () => {
+  it("marks run as failed and releases the slot when the runner throws unexpectedly", async () => {
+    // Runner that throws immediately — simulates an unexpected bug mid-execution
+    const throwingRunner = async (_config: RunnerConfig): Promise<ClaudeCodeRunResult> => {
+      throw new Error("Unexpected runner crash");
+    };
+
+    const job = createJob({
+      projectId,
+      name: "Throwing Runner Job",
+      prompt: "do something",
+      scheduleType: "interval",
+      scheduleConfig: { minutes: 10 },
+    });
+    const run = createRun({ jobId: job.id, triggerSource: "manual" });
+
+    queue.enqueue({
+      runId: run.id,
+      jobId: job.id,
+      priority: 0,
+      enqueuedAt: Date.now(),
+    });
+
+    const executor = new Executor(throwingRunner);
+    executor.processNext();
+
+    await new Promise((r) => setTimeout(r, 150));
+
+    // Run must not be left stuck in "running"
+    const updated = getRun(run.id);
+    expect(updated!.status).toBe("failed");
+
+    // Active-run slot must be released so the executor can continue
+    expect(executor.activeRunCount).toBe(0);
+
+    // A log entry must be written so the user can see what happened
+    const logs = listRunLogs({ runId: run.id });
+    expect(logs.some((l) => l.text.includes("internal executor error"))).toBe(true);
+  });
+});
+
+describe("Executor browser MCP preamble", () => {
+  const mockIsVenvReady = vi.mocked(isVenvReady);
+  const mockWriteMcpConfigFile = vi.mocked(writeMcpConfigFile);
+
+  beforeEach(() => {
+    mockIsVenvReady.mockReturnValue(false);
+    mockWriteMcpConfigFile.mockReturnValue(null);
+  });
+
+  it("prepends browser MCP preamble when venv is ready", async () => {
+    mockIsVenvReady.mockReturnValue(true);
+    mockWriteMcpConfigFile.mockReturnValue("/tmp/run-test.json");
+
+    let capturedPrompt = "";
+    const captureRunner = async (config: RunnerConfig) => {
+      capturedPrompt = config.prompt;
+      config.onLogChunk("stdout", "done");
+      return { exitCode: 0, timedOut: false, killed: false, sessionId: null };
+    };
+
+    const job = createJob({
+      projectId,
+      name: "Browser Preamble Job",
+      prompt: "navigate to example.com",
+      scheduleType: "once",
+      scheduleConfig: { fireAt: new Date().toISOString() },
+    });
+    const run = createRun({ jobId: job.id, triggerSource: "manual" });
+    queue.enqueue({ runId: run.id, jobId: job.id, priority: 0, enqueuedAt: Date.now() });
+
+    const executor = new Executor(captureRunner);
+    executor.processNext();
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(capturedPrompt).toContain(BROWSER_MCP_PREAMBLE);
+    expect(capturedPrompt).toContain("navigate to example.com");
+    expect(capturedPrompt.startsWith(BROWSER_MCP_PREAMBLE)).toBe(true);
+  });
+
+  it("does not prepend preamble when venv is not ready", async () => {
+    mockIsVenvReady.mockReturnValue(false);
+    mockWriteMcpConfigFile.mockReturnValue(null);
+
+    let capturedPrompt = "";
+    const captureRunner = async (config: RunnerConfig) => {
+      capturedPrompt = config.prompt;
+      config.onLogChunk("stdout", "done");
+      return { exitCode: 0, timedOut: false, killed: false, sessionId: null };
+    };
+
+    const job = createJob({
+      projectId,
+      name: "No Preamble Job",
+      prompt: "navigate to example.com",
+      scheduleType: "once",
+      scheduleConfig: { fireAt: new Date().toISOString() },
+    });
+    const run = createRun({ jobId: job.id, triggerSource: "manual" });
+    queue.enqueue({ runId: run.id, jobId: job.id, priority: 0, enqueuedAt: Date.now() });
+
+    const executor = new Executor(captureRunner);
+    executor.processNext();
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(capturedPrompt).not.toContain(BROWSER_MCP_PREAMBLE);
+    expect(capturedPrompt).toBe("navigate to example.com");
   });
 });

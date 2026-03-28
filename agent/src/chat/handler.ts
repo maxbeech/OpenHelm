@@ -119,7 +119,7 @@ export async function handleChatMessage(
     while (streamBuffer.length > 0) {
       if (insideToolCall) {
         const closeIdx = streamBuffer.indexOf("</tool_call>");
-        if (closeIdx === -1) { streamBuffer = ""; break; }
+        if (closeIdx === -1) { break; }
         streamBuffer = streamBuffer.slice(closeIdx + "</tool_call>".length);
         insideToolCall = false;
       } else {
@@ -286,6 +286,12 @@ export async function handleActionApproval(
       }
       return a;
     });
+
+    // Trigger autopilot here — createdGoalId is the real DB ID from the execution
+    // result, which was never available in triggerAutopilotForCreatedGoals.
+    generateAndHandleSystemJobs(createdGoalId, projectId).catch((err) =>
+      console.error("[chat] autopilot generation failed:", err),
+    );
   }
 
   const updatedMsg = updateMessagePendingActions(messageId, updated);
@@ -343,11 +349,6 @@ export async function handleApproveAll(
     current = await handleActionApproval(messageId, callId, projectId);
   }
 
-  // Trigger autopilot system job generation for any goals that were created.
-  // Use current.pendingActions (not the original `pending`) because FK-linking
-  // during approval rewrites job goalIds to point at the newly created goals.
-  triggerAutopilotForCreatedGoals(current.pendingActions ?? [], projectId);
-
   return current;
 }
 
@@ -375,29 +376,3 @@ export function handleRejectAll(messageId: string): ChatMessage {
   return updatedMsg;
 }
 
-/**
- * After approving all chat actions, trigger autopilot for any created goals.
- * Extracts goal IDs from approved create_job actions (which were FK-linked
- * to real goal IDs during approval) and triggers system job generation for
- * each unique goal that has at least one job.
- */
-function triggerAutopilotForCreatedGoals(
-  actions: PendingAction[],
-  projectId: string,
-): void {
-  const hasGoalCreations = actions.some((a) => a.tool === "create_goal" && a.status === "approved");
-  if (!hasGoalCreations) return;
-
-  // Collect unique goal IDs from approved job actions (FK-linked by handleActionApproval)
-  const goalIdsWithJobs = new Set(
-    actions
-      .filter((a) => a.tool === "create_job" && a.status === "approved" && a.args.goalId)
-      .map((a) => a.args.goalId as string),
-  );
-
-  for (const goalId of goalIdsWithJobs) {
-    generateAndHandleSystemJobs(goalId, projectId).catch((err) =>
-      console.error("[chat] autopilot generation failed:", err),
-    );
-  }
-}

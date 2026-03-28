@@ -12,6 +12,7 @@ interface RunState {
   fetchRuns: (projectId: string | null) => Promise<void>;
   fetchRunsByJob: (jobId: string) => Promise<Run[]>;
   triggerRun: (jobId: string) => Promise<Run>;
+  retryRun: (jobId: string, parentRunId: string) => Promise<Run>;
   triggerDeferredRun: (jobId: string, fireAt: string) => Promise<Run>;
   cancelRun: (runId: string) => Promise<void>;
   deleteRun: (runId: string) => Promise<void>;
@@ -49,6 +50,17 @@ export const useRunStore = create<RunState>((set) => ({
       return run;
     } catch (err) {
       set({ error: friendlyError(err, "Failed to trigger run") });
+      throw err;
+    }
+  },
+
+  retryRun: async (jobId, parentRunId) => {
+    try {
+      const run = await api.triggerRun({ jobId, parentRunId });
+      set((s) => ({ runs: [run, ...s.runs] }));
+      return run;
+    } catch (err) {
+      set({ error: friendlyError(err, "Failed to retry run") });
       throw err;
     }
   },
@@ -122,6 +134,7 @@ export const useRunActions = () =>
       fetchRuns: s.fetchRuns,
       fetchRunsByJob: s.fetchRunsByJob,
       triggerRun: s.triggerRun,
+      retryRun: s.retryRun,
       triggerDeferredRun: s.triggerDeferredRun,
       cancelRun: s.cancelRun,
       deleteRun: s.deleteRun,

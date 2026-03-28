@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Built-in browser MCP server: integrated stealth-browser-mcp as a bundled MCP server (`openhelm-browser`) with all 95 tools, automatically injected into Claude Code runs via `--mcp-config`
+- Per-tool-call timeouts for browser automation: 60s default, 120s for screenshots and heavy operations — prevents indefinite MCP tool hangs that previously caused 600s silence timeouts
+- Python venv auto-setup: on first use, detects Python 3.10–3.13 (3.14+ excluded due to pydantic-core/PyO3 compatibility), creates a virtual environment, and installs browser automation dependencies
+- IPC handlers (`browserMcp.status`, `browserMcp.setup`) for frontend browser MCP status checks and manual setup
+- Orphaned MCP config file cleanup at agent startup
+- Browser MCP preference note prepended to job prompts when `openhelm-browser` is available, encouraging Claude to prefer the built-in timeout-protected server over any globally-installed browser MCP unless the prompt explicitly requests a different one
+
 ## [0.2.2] - 2026-03-28
 
 ### Fixed

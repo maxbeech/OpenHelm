@@ -14,6 +14,7 @@ import { computeNextFireAt } from "./schedule.js";
 import { listDueJobs, updateJobNextFireAt, disableJob } from "../db/queries/jobs.js";
 import { createRun, listDeferredDueRuns, listRuns, updateRun, getSystemTokenUsageForGoal, getUserTokenUsageForGoal } from "../db/queries/runs.js";
 import { emit } from "../ipc/emitter.js";
+import { createDashboardItem } from "../db/queries/dashboard-items.js";
 import { isPowerManagementEnabled, scheduleWake } from "../power/index.js";
 
 const TICK_INTERVAL_MS = 60_000; // 1 minute
@@ -79,12 +80,15 @@ export class Scheduler {
               `[scheduler] system job ${job.id} budget exceeded (${systemUsage}/${userUsage * 0.2}) — disabling`,
             );
             disableJob(job.id);
-            emit("dashboard.created", {
-              type: "autopilot_limit",
+            const budgetItem = createDashboardItem({
+              runId: null,
               jobId: job.id,
+              projectId: job.projectId,
+              type: "autopilot_limit",
               title: `System job "${job.name}" paused — token budget exceeded`,
               message: `System jobs for this goal have used ${systemUsage} tokens, exceeding 20% of user job usage (${userUsage} tokens). The job has been disabled.`,
             });
+            emit("dashboard.created", budgetItem);
             continue;
           }
         }

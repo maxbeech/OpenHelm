@@ -88,6 +88,30 @@ export class Executor {
     this.executeRun(item).catch((err) => {
       console.error(`[executor] unexpected error in executeRun:`, err);
       captureAgentError(err, { runId: item.runId, jobId: item.jobId });
+      // Release the active-run slot and ensure the run is not left stuck in
+      // "running" state if an unexpected exception escaped executeRun.
+      this.activeRuns.delete(item.runId);
+      try {
+        const current = getRun(item.runId);
+        if (current?.status === "running") {
+          const finishedAt = new Date().toISOString();
+          updateRun({ id: item.runId, status: "failed", finishedAt });
+          createRunLog({
+            runId: item.runId,
+            stream: "stderr",
+            text: "Run failed due to an internal executor error.",
+          });
+          emit("run.statusChanged", {
+            runId: item.runId,
+            status: "failed",
+            previousStatus: "running",
+            finishedAt,
+            exitCode: null,
+          });
+        }
+      } catch (cleanupErr) {
+        console.error(`[executor] cleanup failed for run ${item.runId}:`, cleanupErr);
+      }
     });
   }
 
@@ -222,6 +246,11 @@ export class Executor {
     if (!preflight) return;
     const { job, project, claudePath, timeoutMs } = preflight;
 
+    // Register AbortController BEFORE marking the run as running, so there is
+    // never a window where the run is "running" in the DB but has no handle.
+    const controller = new AbortController();
+    this.activeRuns.set(runId, controller);
+
     // Mark running BEFORE spawning (critical ordering invariant)
     const startedAt = new Date().toISOString();
     updateRun({ id: runId, status: "running", startedAt });
@@ -236,10 +265,6 @@ export class Executor {
     if (isPowerManagementEnabled()) {
       onRunStarted();
     }
-
-    // Create abort controller for cancellation
-    const controller = new AbortController();
-    this.activeRuns.set(runId, controller);
 
     // Determine if this is a resumable corrective run
     const run = getRun(runId);
@@ -363,6 +388,27 @@ export class Executor {
     // Create redactor for log output
     const redact = createRedactor(allSecrets);
 
+    // ── MCP config (built-in browser server) ──
+    let mcpConfigPath: string | undefined;
+    try {
+      const { isVenvReady } = await import("../mcp-servers/browser-setup.js");
+      if (isVenvReady()) {
+        const { writeMcpConfigFile } = await import("../mcp-servers/mcp-config-builder.js");
+        mcpConfigPath = writeMcpConfigFile(runId) ?? undefined;
+        if (mcpConfigPath) {
+          console.error(`[executor] MCP config written for run ${runId}`);
+        }
+      }
+    } catch (err) {
+      console.error("[executor] MCP config generation error (non-fatal):", err);
+    }
+
+    // Prepend browser MCP preference note when openhelm-browser is available
+    if (mcpConfigPath) {
+      const { BROWSER_MCP_PREAMBLE } = await import("../mcp-servers/mcp-config-builder.js");
+      effectivePrompt = BROWSER_MCP_PREAMBLE + effectivePrompt;
+    }
+
     // Track the Claude Code process PID so the focus guard can suppress child windows.
     let claudePid: number | undefined;
 
@@ -381,6 +427,7 @@ export class Executor {
         permissionMode: (job.permissionMode as "default" | "acceptEdits" | "dontAsk" | "bypassPermissions") ?? undefined,
         resumeSessionId,
         additionalEnv: Object.keys(additionalEnv).length > 0 ? additionalEnv : undefined,
+        mcpConfigPath,
         onPidAvailable: (pid) => {
           claudePid = pid;
           // Notify the Tauri focus guard (intercepted in Rust before reaching the frontend)
@@ -405,6 +452,14 @@ export class Executor {
     // Release the focus guard for this process tree now that the run has finished.
     if (claudePid !== undefined) {
       emit("focus_guard.removePid", { pid: claudePid });
+    }
+
+    // Clean up per-run MCP config file
+    if (mcpConfigPath) {
+      try {
+        const { removeMcpConfigFile } = await import("../mcp-servers/mcp-config-builder.js");
+        removeMcpConfigFile(mcpConfigPath);
+      } catch { /* ignore */ }
     }
 
     // Save credential audit trail

@@ -156,7 +156,6 @@ export const messages = sqliteTable("messages", {
 export const dashboardItems = sqliteTable("inbox_items", {
   id: text("id").primaryKey(),
   runId: text("run_id")
-    .notNull()
     .references(() => runs.id, { onDelete: "cascade" }),
   jobId: text("job_id")
     .notNull()
