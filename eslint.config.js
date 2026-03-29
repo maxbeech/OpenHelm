@@ -11,6 +11,7 @@ export default [
       'node_modules/**',
       'agent/dist/**',
       'agent/node_modules/**',
+      'agent/mcp-servers/**',
       'shared/dist/**',
     ],
   },

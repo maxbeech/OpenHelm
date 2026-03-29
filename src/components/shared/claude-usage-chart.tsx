@@ -188,15 +188,19 @@ export function ClaudeUsageChart({ series, className }: Props) {
           )}
         </svg>
 
-        {/* Tooltip — positioned relative to container in CSS pixels */}
+        {/* Tooltip — positioned relative to container in CSS pixels.
+            Clamp so the tooltip box stays within the container:
+            max = (containerWidth - halfTooltipWidth) / containerWidth × 100% */}
         {tooltip && tooltipIdx >= 0 && (
           <div
             className="pointer-events-none absolute top-0 z-10 -translate-y-1 rounded-md border border-border bg-popover px-2.5 py-1.5 shadow-md text-[11px]"
             style={{
-              left: Math.min(
-                Math.max(tooltip.pct * 100, 0),
-                80,
-              ) + "%",
+              left: (() => {
+                const containerWidth = containerRef.current?.clientWidth ?? 500;
+                const TOOLTIP_HALF_WIDTH = 65; // ~half of minWidth 120px + padding
+                const maxPct = ((containerWidth - TOOLTIP_HALF_WIDTH) / containerWidth) * 100;
+                return Math.min(Math.max(tooltip.pct * 100, 0), maxPct) + "%";
+              })(),
               transform: "translateX(-50%) translateY(-110%)",
               minWidth: 120,
             }}

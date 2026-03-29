@@ -14,7 +14,6 @@ import {
   upsertUsageSnapshot,
   listUsageSnapshots,
   pruneUsageSnapshots,
-  getOpenhelmSessionIdsByDates,
 } from "../db/queries/usage.js";
 import { getSetting, setSetting } from "../db/queries/settings.js";
 import { emit } from "../ipc/emitter.js";
@@ -147,22 +146,11 @@ export class UsageService {
     const jsonlByDate = await readClaudeUsageByDate();
     const hasJsonl = jsonlByDate.size > 0;
 
-    // 2. Get OpenHelm session IDs per day for cross-referencing
-    const ohSessionsByDate = getOpenhelmSessionIdsByDates(dates);
-
-    // 3. Compute OpenHelm token sub-totals from JSONL session cross-reference
-    //    (more accurate than using runs table alone, as it captures exact tokens
-    //     as reported by Claude Code for our sessions)
-    //    Fallback: use JSONL daily total with a 0 openhelm figure when session
-    //    IDs don't match (i.e. old runs without sessionId)
+    // 2. Compute OpenHelm token sub-totals from the DB runs table.
+    //    The runs table is the source of truth for OpenHelm-initiated tokens.
     const ohTotalByDate = new Map<string, { input: number; output: number }>();
     for (const date of dates) {
-      const ohSessions = ohSessionsByDate.get(date) ?? new Set<string>();
-      const jsonl = jsonlByDate.get(date);
-      // We'll compute openHelm tokens from the DB runs table (more reliable)
-      // and use JSONL only for total. OpenHelm DB tokens already track per run.
-      ohTotalByDate.set(date, { input: 0, output: 0 }); // placeholder, filled below
-      void ohSessions; void jsonl;
+      ohTotalByDate.set(date, { input: 0, output: 0 });
     }
 
     // Get OpenHelm totals from runs table (source of truth for our runs)
@@ -196,8 +184,10 @@ export class UsageService {
     // 5. Check alert thresholds
     const dailyBudgetStr = getSetting("claude_daily_budget" as Parameters<typeof getSetting>[0]);
     const weeklyBudgetStr = getSetting("claude_weekly_budget" as Parameters<typeof getSetting>[0]);
-    const dailyBudget = dailyBudgetStr ? parseInt(dailyBudgetStr.value, 10) : null;
-    const weeklyBudget = weeklyBudgetStr ? parseInt(weeklyBudgetStr.value, 10) : null;
+    const dailyBudgetParsed = dailyBudgetStr ? parseInt(dailyBudgetStr.value, 10) : NaN;
+    const weeklyBudgetParsed = weeklyBudgetStr ? parseInt(weeklyBudgetStr.value, 10) : NaN;
+    const dailyBudget = isNaN(dailyBudgetParsed) ? null : dailyBudgetParsed;
+    const weeklyBudget = isNaN(weeklyBudgetParsed) ? null : weeklyBudgetParsed;
 
     if (dailyBudget || weeklyBudget) {
       const snapshots = listUsageSnapshots(35);
@@ -266,6 +256,8 @@ export class UsageService {
 
     const dailyBudgetStr = getSetting("claude_daily_budget" as Parameters<typeof getSetting>[0]);
     const weeklyBudgetStr = getSetting("claude_weekly_budget" as Parameters<typeof getSetting>[0]);
+    const dailyBudgetVal = dailyBudgetStr ? parseInt(dailyBudgetStr.value, 10) : NaN;
+    const weeklyBudgetVal = weeklyBudgetStr ? parseInt(weeklyBudgetStr.value, 10) : NaN;
 
     const lastDataSource = snapshots.length > 0 &&
       (snapshots[0].totalInputTokens > snapshots[0].openHelmInputTokens ||
@@ -279,8 +271,8 @@ export class UsageService {
       week: sumSnapshots(weekSnaps),
       weekPrev: sumSnapshots(prevWeekSnaps),
       series,
-      dailyBudget: dailyBudgetStr ? parseInt(dailyBudgetStr.value, 10) : null,
-      weeklyBudget: weeklyBudgetStr ? parseInt(weeklyBudgetStr.value, 10) : null,
+      dailyBudget: isNaN(dailyBudgetVal) ? null : dailyBudgetVal,
+      weeklyBudget: isNaN(weeklyBudgetVal) ? null : weeklyBudgetVal,
       dataSource: lastDataSource,
     };
   }

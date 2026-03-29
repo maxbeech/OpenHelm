@@ -58,6 +58,9 @@ function formatScheduleLabel(job: Job): string {
 }
 
 const dotColor: Record<RunStatus, string> = {
+  // "deferred" = run is waiting for a scheduled future time (scheduler promotes
+  // it to "queued" when its scheduledFor time arrives). Shown in blue to
+  // distinguish it from an actively queued run.
   deferred: "bg-blue-400",
   succeeded: "bg-emerald-500",
   failed: "bg-red-500",

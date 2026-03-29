@@ -38,9 +38,11 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     selectedGoalId,
     selectedJobId,
     collapsedGoalIds,
+    collapsedProjectIds,
     selectGoal,
     selectJob,
     toggleGoalCollapsed,
+    toggleProjectCollapsed,
     goalSortMode,
     jobSortMode,
     setGoalSortMode,
@@ -59,6 +61,9 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
 
   const [addingGoal, setAddingGoal] = useState(false);
   const [newGoalInput, setNewGoalInput] = useState("");
+  // Ref guard prevents the onKeyDown(Enter) + onBlur double-fire from
+  // submitting the goal creation form twice in the same event cycle.
+  const goalCreatingRef = useRef(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [tokenStats, setTokenStats] = useState<JobTokenStat[]>([]);
@@ -247,15 +252,19 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
   // ─── Goal creation ────────────────────────────────────────────────────────
 
   const handleCreateGoal = async () => {
+    if (goalCreatingRef.current) return;
     const name = newGoalInput.trim();
     setNewGoalInput("");
     setAddingGoal(false);
     if (!name || !projectId) return;
+    goalCreatingRef.current = true;
     try {
       const goal = await createGoal({ projectId, name });
       selectGoal(goal.id);
     } catch {
       // goal-store sets error state
+    } finally {
+      goalCreatingRef.current = false;
     }
   };
 
@@ -408,15 +417,16 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
                       standaloneJobs={projectStandalone}
                       jobsByGoal={jobsByGoal}
                       recentRunsByJob={recentRunsByJob}
-                      sortMode={goalSortMode}
                       contentView={contentView}
                       selectedGoalId={selectedGoalId}
                       selectedJobId={selectedJobId}
                       collapsedGoalIds={collapsedGoalIds}
+                      isCollapsed={collapsedProjectIds.includes(project.id)}
                       isDragMode={goalDragMode}
                       onSelectGoal={selectGoal}
                       onSelectJob={selectJob}
                       onToggleGoalCollapsed={toggleGoalCollapsed}
+                      onToggleCollapsed={() => toggleProjectCollapsed(project.id)}
                       onNewJobForGoal={onNewJobForGoal}
                       jobDragMode={jobDragMode}
                     />

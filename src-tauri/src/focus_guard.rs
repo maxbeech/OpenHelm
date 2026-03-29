@@ -67,8 +67,12 @@ unsafe fn on_app_activated(notification: NonNull<NSNotification>) {
         return;
     }
 
+    // Clone and release the lock immediately. `is_descendant_of` calls
+    // `proc_pidinfo` syscalls which must not run while holding the mutex —
+    // doing so would block `add_pid`/`remove_pid` calls from the main thread
+    // and risk a deadlock during high process-tree churn.
     let guarded = match guarded_pids().lock() {
-        Ok(g) => g.clone(),
+        Ok(g) => g.clone(), // intentional: lock is released here
         Err(_) => return,
     };
 

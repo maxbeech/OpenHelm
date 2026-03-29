@@ -10,12 +10,12 @@ import { eq, and } from "drizzle-orm";
 import { getDb } from "../db/init.js";
 import { dashboardItems } from "../db/schema.js";
 import { createDashboardItem } from "../db/queries/dashboard-items.js";
-import { createJob } from "../db/queries/jobs.js";
-import { listJobs } from "../db/queries/jobs.js";
+import { createJob, listJobs } from "../db/queries/jobs.js";
 import { createRun } from "../db/queries/runs.js";
 import { getSetting, setSetting, deleteSetting } from "../db/queries/settings.js";
 import { checkClaudeCodeHealth } from "../claude-code/detector.js";
 import { emit } from "../ipc/emitter.js";
+import { scheduler } from "../scheduler/index.js";
 import type { Job } from "@openhelm/shared";
 import type { QueueItem } from "../scheduler/queue.js";
 
@@ -138,12 +138,13 @@ export function handleAuthFailure(
     emit("dashboard.created", item);
   }
 
-  // Pause scheduler to prevent cascading failures
+  // Stop the scheduler to prevent cascading failures from new ticks
   const alreadyPaused = getSetting("scheduler_paused")?.value === "true";
   if (!alreadyPaused) {
+    scheduler.stop();
     setSetting("scheduler_paused", "true");
     emit("scheduler.statusChanged", { paused: true, reason: "auth_required" });
-    console.error("[auth-monitor] scheduler paused due to auth failure");
+    console.error("[auth-monitor] scheduler stopped due to auth failure");
   }
 }
 
@@ -166,9 +167,10 @@ export async function attemptAuthResume(
 
   const interrupted = getInterruptedRuns();
   let resumed = 0;
+  const failed: InterruptedRun[] = [];
 
   // Create new manual runs for each interrupted job
-  for (const { jobId } of interrupted) {
+  for (const { jobId, runId } of interrupted) {
     try {
       const run = createRun({ jobId, triggerSource: "manual" });
       enqueueFn({
@@ -186,13 +188,21 @@ export async function attemptAuthResume(
       resumed++;
     } catch (err) {
       console.error(`[auth-monitor] failed to re-enqueue job ${jobId}:`, err);
+      failed.push({ runId, jobId });
     }
   }
 
-  clearInterruptedRuns();
+  // Only clear the entries that were successfully re-enqueued; persist any
+  // that failed so they can be retried on the next re-auth attempt.
+  if (failed.length > 0) {
+    setSetting("auth_interrupted_runs", JSON.stringify(failed));
+  } else {
+    clearInterruptedRuns();
+  }
 
-  // Resume scheduler
+  // Resume scheduler — restart the timer so new jobs fire normally
   deleteSetting("scheduler_paused");
+  scheduler.start();
   emit("scheduler.statusChanged", { paused: false });
 
   // Resolve all open auth_required dashboard items
@@ -208,6 +218,6 @@ export async function attemptAuthResume(
     )
     .run();
 
-  console.error(`[auth-monitor] auth resumed — ${resumed} jobs re-enqueued`);
+  console.error(`[auth-monitor] auth resumed — ${resumed} jobs re-enqueued, ${failed.length} failed`);
   return { success: true, resumed };
 }

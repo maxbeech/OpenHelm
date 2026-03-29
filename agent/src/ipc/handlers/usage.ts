@@ -11,9 +11,11 @@ export function registerUsageHandlers() {
   registerHandler("usage.getSettings", () => {
     const daily = getSetting("claude_daily_budget" as SettingKey);
     const weekly = getSetting("claude_weekly_budget" as SettingKey);
+    const dailyParsed = daily ? parseInt(daily.value, 10) : NaN;
+    const weeklyParsed = weekly ? parseInt(weekly.value, 10) : NaN;
     return {
-      dailyBudget: daily ? parseInt(daily.value, 10) : null,
-      weeklyBudget: weekly ? parseInt(weekly.value, 10) : null,
+      dailyBudget: isNaN(dailyParsed) ? null : dailyParsed,
+      weeklyBudget: isNaN(weeklyParsed) ? null : weeklyParsed,
     };
   });
 

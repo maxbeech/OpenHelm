@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
 /** Key-value settings store. Used for user preferences, API keys, etc. */
 export const settings = sqliteTable("settings", {
@@ -163,7 +163,7 @@ export const dashboardItems = sqliteTable("inbox_items", {
   projectId: text("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
-  type: text("type", { enum: ["permanent_failure", "human_in_loop", "autopilot_limit", "captcha_intervention"] }).notNull(),
+  type: text("type", { enum: ["permanent_failure", "human_in_loop", "autopilot_limit", "captcha_intervention", "auth_required", "mcp_unavailable"] }).notNull(),
   status: text("status", { enum: ["open", "resolved", "dismissed"] })
     .notNull()
     .default("open"),
@@ -266,7 +266,7 @@ export const credentialScopeBindings = sqliteTable(
     scopeType: text("scope_type", { enum: ["project", "goal", "job"] }).notNull(),
     scopeId: text("scope_id").notNull(),
   },
-  (t) => [{ primaryKey: [t.credentialId, t.scopeType, t.scopeId] }],
+  (t) => [primaryKey({ columns: [t.credentialId, t.scopeType, t.scopeId] })],
 );
 
 /** Audit trail: which credentials were injected into each run */
@@ -281,7 +281,7 @@ export const runCredentials = sqliteTable(
       .references(() => credentials.id, { onDelete: "cascade" }),
     injectionMethod: text("injection_method", { enum: ["env", "prompt", "browser"] }).notNull(),
   },
-  (t) => [{ primaryKey: [t.runId, t.credentialId, t.injectionMethod] }],
+  (t) => [primaryKey({ columns: [t.runId, t.credentialId, t.injectionMethod] })],
 );
 
 /** User/AI-created structured data tables (Notion-style databases) */

@@ -116,6 +116,7 @@ async function parseJsonlFile(filePath: string): Promise<AssistantEntry[]> {
 
   const raw: AssistantEntry[] = [];
 
+  try {
   for await (const line of rl) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -149,6 +150,12 @@ async function parseJsonlFile(filePath: string): Promise<AssistantEntry[]> {
       outputTokens: (usage.output_tokens ?? 0) as number,
       model: typeof msg.model === "string" ? msg.model : "",
     });
+  }
+
+  } finally {
+    // Explicitly close the readline interface to release the file descriptor
+    // promptly, even if the loop exits early via a thrown error.
+    rl.close();
   }
 
   // Deduplicate: skip streaming-start placeholders.

@@ -89,7 +89,7 @@ export function registerDashboardHandlers() {
       const run = createRun({
         jobId: item.jobId,
         triggerSource: "corrective",
-        parentRunId: item.runId,
+        parentRunId: item.runId ?? undefined,
         correctionNote: p.guidance,
       });
       jobQueue.enqueue({

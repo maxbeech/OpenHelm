@@ -10,6 +10,7 @@ import { getGoal } from "../../db/queries/goals.js";
 import {
   getAutopilotMode,
   generateAndHandleSystemJobs,
+  clearBackfillCooldown,
 } from "../../autopilot/index.js";
 import type {
   ListAutopilotProposalsParams,

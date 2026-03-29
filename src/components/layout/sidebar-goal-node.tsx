@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ChevronRight, GripVertical, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
@@ -55,12 +55,22 @@ export function SidebarGoalNode({
   };
   const [addingJob, setAddingJob] = useState(false);
   const [newJobInput, setNewJobInput] = useState("");
+  // Ref guard prevents the onKeyDown(Enter) + onBlur double-fire from
+  // calling onNewJobForGoal twice in the same event cycle.
+  const jobSubmittingRef = useRef(false);
 
   const handleSubmitJob = () => {
+    if (jobSubmittingRef.current) return;
     const name = newJobInput.trim();
     setNewJobInput("");
     setAddingJob(false);
-    if (name) onNewJobForGoal(goal.id, name);
+    if (!name) return;
+    jobSubmittingRef.current = true;
+    try {
+      onNewJobForGoal(goal.id, name);
+    } finally {
+      jobSubmittingRef.current = false;
+    }
   };
 
   return (

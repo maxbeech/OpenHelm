@@ -221,7 +221,9 @@ export type SettingKey =
   | "global_prompt"
   | "focus_guard_enabled"
   | "autopilot_mode"
-  | "sidebar_project_group_order";
+  | "sidebar_project_group_order"
+  | "auth_interrupted_runs"
+  | "autopilot_backfill_failures";
 
 export interface Setting {
   key: SettingKey;
@@ -763,7 +765,7 @@ export interface ListDashboardItemsParams {
   status?: DashboardItemStatus;
 }
 
-export type DashboardResolveAction = "dismiss" | "try_again" | "do_something_different";
+export type DashboardResolveAction = "dismiss" | "try_again" | "do_something_different" | "re_authenticated";
 
 export interface ResolveDashboardItemParams {
   id: string;

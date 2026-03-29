@@ -13,7 +13,7 @@ async function getEmbedder() {
   if (!embedder) {
     // Dynamic import — avoids a top-level static import that would prevent the
     // agent from starting when @xenova/transformers is not available.
-    // @ts-expect-error — @xenova/transformers has no bundled types
+    // @ts-ignore — @xenova/transformers has no bundled types
     const { pipeline } = await import("@xenova/transformers");
     console.error("[embeddings] loading all-MiniLM-L6-v2 model...");
     embedder = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");

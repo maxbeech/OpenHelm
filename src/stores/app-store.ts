@@ -31,6 +31,7 @@ interface AppState {
   selectedRunId: string | null;
   selectedDataTableId: string | null;
   collapsedGoalIds: string[];
+  collapsedProjectIds: string[];
 
   // Legacy
   page: Page;
@@ -59,6 +60,7 @@ interface AppState {
   clearSelectedRun: () => void;
   selectDataTable: (tableId: string) => void;
   toggleGoalCollapsed: (goalId: string) => void;
+  toggleProjectCollapsed: (projectId: string) => void;
   setContentView: (view: ContentView) => void;
 
   // Legacy (maps to new actions)
@@ -86,6 +88,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedRunId: null,
   selectedDataTableId: null,
   collapsedGoalIds: [],
+  collapsedProjectIds: [],
 
   page: "goals",
   filter: {},
@@ -137,6 +140,13 @@ export const useAppStore = create<AppState>((set) => ({
       collapsedGoalIds: s.collapsedGoalIds.includes(goalId)
         ? s.collapsedGoalIds.filter((id) => id !== goalId)
         : [...s.collapsedGoalIds, goalId],
+    })),
+
+  toggleProjectCollapsed: (projectId) =>
+    set((s) => ({
+      collapsedProjectIds: s.collapsedProjectIds.includes(projectId)
+        ? s.collapsedProjectIds.filter((id) => id !== projectId)
+        : [...s.collapsedProjectIds, projectId],
     })),
 
   setContentView: (view) => {

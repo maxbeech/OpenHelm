@@ -1,10 +1,10 @@
-import { useState } from "react";
+// No local collapse state — collapse is managed by the app store for persistence
 import { ChevronRight, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { SidebarGoalNode } from "./sidebar-goal-node";
-import type { Project, Goal, Job, Run, SortMode } from "@openhelm/shared";
+import type { Project, Goal, Job, Run } from "@openhelm/shared";
 import type { ContentView } from "@/stores/app-store";
 
 interface SidebarProjectGroupProps {
@@ -13,14 +13,15 @@ interface SidebarProjectGroupProps {
   standaloneJobs: Job[];
   jobsByGoal: Map<string | null, Job[]>;
   recentRunsByJob: Map<string, Run[]>;
-  sortMode: SortMode;
   contentView: ContentView;
   selectedGoalId: string | null;
   selectedJobId: string | null;
   collapsedGoalIds: string[];
+  isCollapsed: boolean;
   isDragMode: boolean;
   onSelectGoal: (id: string) => void;
   onSelectJob: (id: string) => void;
+  onToggleCollapsed: () => void;
   onToggleGoalCollapsed: (id: string) => void;
   onNewJobForGoal: (goalId: string, initialName: string) => void;
   // Drag handle for job nodes within goal
@@ -37,14 +38,15 @@ export function SidebarProjectGroup({
   selectedGoalId,
   selectedJobId,
   collapsedGoalIds,
+  isCollapsed,
   isDragMode,
   onSelectGoal,
   onSelectJob,
+  onToggleCollapsed,
   onToggleGoalCollapsed,
   onNewJobForGoal,
   jobDragMode,
 }: SidebarProjectGroupProps) {
-  const [collapsed, setCollapsed] = useState(false);
 
   const {
     attributes,
@@ -78,13 +80,13 @@ export function SidebarProjectGroup({
           </span>
         )}
         <button
-          onClick={() => setCollapsed((v) => !v)}
+          onClick={onToggleCollapsed}
           className="flex min-w-0 flex-1 items-center gap-1 text-left"
         >
           <ChevronRight
             className={cn(
               "size-3 shrink-0 text-muted-foreground transition-transform",
-              !collapsed && "rotate-90",
+              !isCollapsed && "rotate-90",
             )}
           />
           <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -94,7 +96,7 @@ export function SidebarProjectGroup({
       </div>
 
       {/* Project group content */}
-      {!collapsed && (
+      {!isCollapsed && (
         <div>
           {goals.map((goal) => (
             <SidebarGoalNode

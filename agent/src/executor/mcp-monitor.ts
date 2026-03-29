@@ -73,7 +73,7 @@ export function handleMcpFailure(
     title: `MCP server unavailable for "${jobName}"`,
     message:
       errorDetail.length > 300
-        ? errorDetail.slice(-300)
+        ? errorDetail.slice(0, 300) + "…"
         : errorDetail || "An MCP server failed to connect during this run.",
   });
 

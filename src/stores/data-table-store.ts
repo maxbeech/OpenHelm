@@ -16,6 +16,7 @@ interface DataTableState {
   error: string | null;
 
   // Current table detail
+  currentTableId: string | null;
   currentRows: DataTableRow[];
   rowsLoading: boolean;
 
@@ -50,6 +51,7 @@ export const useDataTableStore = create<DataTableState>((set, get) => ({
   tableCount: 0,
   loading: false,
   error: null,
+  currentTableId: null,
   currentRows: [],
   rowsLoading: false,
 
@@ -101,7 +103,7 @@ export const useDataTableStore = create<DataTableState>((set, get) => ({
   },
 
   fetchRows: async (tableId) => {
-    set({ rowsLoading: true });
+    set({ rowsLoading: true, currentTableId: tableId });
     try {
       const currentRows = await api.listDataTableRows({ tableId, limit: 200 });
       set({ currentRows, rowsLoading: false });
@@ -191,9 +193,9 @@ export const useDataTableStore = create<DataTableState>((set, get) => ({
   },
 
   refreshRowsForTable: (tableId) => {
-    // Only refresh if we're currently viewing this table
-    const rows = get().currentRows;
-    if (rows.length > 0 && rows[0]?.tableId === tableId) {
+    // Only refresh if we're currently viewing this table. Use currentTableId
+    // rather than checking currentRows[0] so an empty table still refreshes.
+    if (get().currentTableId === tableId) {
       get().fetchRows(tableId);
     }
   },

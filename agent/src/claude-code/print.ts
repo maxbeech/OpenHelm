@@ -290,8 +290,9 @@ function buildPrintArgs(config: PrintConfig): string[] {
     args.push("--tools", "");
   }
 
-  // Permission mode
-  if (config.permissionMode) {
+  // Permission mode — validated against known modes to prevent unintended CLI behaviour
+  const ALLOWED_PERMISSION_MODES = ["default", "acceptEdits", "bypassPermissions", "plan"] as const;
+  if (config.permissionMode && (ALLOWED_PERMISSION_MODES as readonly string[]).includes(config.permissionMode)) {
     args.push("--permission-mode", config.permissionMode);
   }
 
