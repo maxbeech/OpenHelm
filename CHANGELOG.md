@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-03-29
+
+### Added
+- Target tracking support: track and monitor Claude Code run targets with automatic coordination
+
+### Fixed
+- Browser automation efficiencies: reduced resource overhead and improved performance during browser-based Claude Code runs
+
 ## [0.4.1] - 2026-03-29
 
 ### Added
