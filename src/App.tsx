@@ -19,8 +19,9 @@ import { useMemoryStore } from "./stores/memory-store";
 import { useChatStore } from "./stores/chat-store";
 import { useUpdaterStore } from "./stores/updater-store";
 import { useCredentialStore } from "./stores/credential-store";
+import { useDataTableStore } from "./stores/data-table-store";
 import { useAgentEvent } from "./hooks/use-agent-event";
-import type { RunStatus, ChatMessage, DashboardItem, Memory, Credential } from "@openhelm/shared";
+import type { RunStatus, ChatMessage, DashboardItem, Memory, Credential, DataTable } from "@openhelm/shared";
 import {
   notifyDashboardItem,
   notifyRunCompleted,
@@ -36,6 +37,7 @@ import { SettingsScreen } from "./components/settings/settings-screen";
 import { DashboardView } from "./components/content/dashboard-view";
 import { MemoryView } from "./components/memory/memory-view";
 import { CredentialView } from "./components/credentials/credential-view";
+import { DataTableView } from "./components/data-tables/data-table-view";
 import { JobCreationSheet } from "./components/jobs/job-creation-sheet";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { NewProjectDialog } from "./components/shared/new-project-dialog";
@@ -118,6 +120,14 @@ export default function App() {
     updateCredentialInStore,
     removeCredentialFromStore,
   } = useCredentialStore();
+
+  const {
+    fetchCount: fetchDataTableCount,
+    addTableToStore,
+    updateTableInStore,
+    removeTableFromStore,
+    refreshRowsForTable,
+  } = useDataTableStore();
 
   const [showNewProject, setShowNewProject] = useState(false);
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
@@ -308,12 +318,16 @@ export default function App() {
   const handleChatError = useCallback(
     (data: { projectId?: string | null; error: string }) => {
       const currentProject = useAppStore.getState().activeProjectId;
-      if ((data.projectId ?? null) !== currentProject) return;
+      const matches = (data.projectId ?? null) === currentProject;
+      // Always clear sending/status so the UI never gets stuck in a
+      // permanent "sending" state — even if the user switched projects
+      // while the LLM was processing.
       useChatStore.setState({
-        error: friendlyError(new Error(data.error), "Chat failed"),
         sending: false,
         statusText: null,
         streamingText: "",
+        // Only show the error banner when still on the same thread
+        ...(matches ? { error: friendlyError(new Error(data.error), "Chat failed") } : {}),
       });
     },
     [],
@@ -404,6 +418,29 @@ export default function App() {
   useAgentEvent("credential.updated", handleCredentialUpdated);
   useAgentEvent("credential.deleted", handleCredentialDeleted);
 
+  // Data table event handlers
+  const handleDataTableCreated = useCallback(
+    (table: DataTable) => { addTableToStore(table); },
+    [addTableToStore],
+  );
+  const handleDataTableUpdated = useCallback(
+    (table: DataTable) => { updateTableInStore(table); },
+    [updateTableInStore],
+  );
+  const handleDataTableDeleted = useCallback(
+    (data: { id: string }) => { removeTableFromStore(data.id); },
+    [removeTableFromStore],
+  );
+  const handleDataTableRowsChanged = useCallback(
+    (data: { tableId: string }) => { refreshRowsForTable(data.tableId); },
+    [refreshRowsForTable],
+  );
+
+  useAgentEvent("dataTable.created", handleDataTableCreated);
+  useAgentEvent("dataTable.updated", handleDataTableUpdated);
+  useAgentEvent("dataTable.deleted", handleDataTableDeleted);
+  useAgentEvent("dataTable.rowsChanged", handleDataTableRowsChanged);
+
   // Start agent client
   useEffect(() => {
     const onReady = () => {
@@ -491,6 +528,7 @@ export default function App() {
   // Fetch data when project filter changes (null = All Projects)
   useEffect(() => {
     // Clear transient chat state from previous project so it doesn't leak
+    useChatStore.setState({ sending: false, error: null });
     useChatStore.getState().setStatusText(null);
     useChatStore.getState().clearStreamingText();
 
@@ -500,6 +538,7 @@ export default function App() {
     fetchMemories(activeProjectId);
     fetchMemoryCount(activeProjectId);
     fetchCredentialCount(activeProjectId);
+    fetchDataTableCount(activeProjectId);
     fetchDashboardItems(activeProjectId ?? undefined);
     fetchDashboardCount(activeProjectId ?? undefined);
     // Always fetch messages — null = "All Projects" thread
@@ -509,7 +548,7 @@ export default function App() {
         .setSetting({ key: "active_project", value: activeProjectId })
         .catch(() => {});
     }
-  }, [activeProjectId, fetchGoals, fetchJobs, fetchRuns, fetchMessages, fetchMemories, fetchMemoryCount, fetchCredentialCount, fetchDashboardItems, fetchDashboardCount]);
+  }, [activeProjectId, fetchGoals, fetchJobs, fetchRuns, fetchMessages, fetchMemories, fetchMemoryCount, fetchCredentialCount, fetchDataTableCount, fetchDashboardItems, fetchDashboardCount]);
 
   // Notification permission is now requested during onboarding (Permissions step)
   // and can be re-requested via Settings > Permissions. No startup prompt needed.
@@ -661,6 +700,7 @@ export default function App() {
           <JobDetailView jobId={selectedJobId} />
         )}
         {contentView === "memory" && <MemoryView />}
+        {(contentView === "data-tables" || contentView === "data-table-detail") && <DataTableView />}
         {contentView === "credentials" && <CredentialView />}
         {contentView === "settings" && <SettingsScreen />}
       </AppShell>

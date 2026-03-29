@@ -1032,3 +1032,138 @@ export interface CreateCheckoutSessionWithCurrencyParams {
   employeeCount: EmployeeCount;
   currency?: string; // preferred currency ISO code
 }
+
+// ─── Data Table Types ───
+
+export type DataTableColumnType =
+  | "text"
+  | "number"
+  | "date"
+  | "checkbox"
+  | "select"
+  | "multi_select"
+  | "url"
+  | "email";
+
+export interface SelectOption {
+  id: string;
+  label: string;
+  color?: string;
+}
+
+export interface DataTableColumn {
+  id: string;
+  name: string;
+  type: DataTableColumnType;
+  config: Record<string, unknown>;
+  width?: number;
+}
+
+export type DataTableCreatedBy = "user" | "ai";
+
+export interface DataTable {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  columns: DataTableColumn[];
+  rowCount: number;
+  createdBy: DataTableCreatedBy;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DataTableRow {
+  id: string;
+  tableId: string;
+  data: Record<string, unknown>;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DataTableChangeAction = "insert" | "update" | "delete" | "schema_change";
+export type DataTableChangeActor = "user" | "ai" | "system";
+
+export interface DataTableChange {
+  id: string;
+  tableId: string;
+  rowId: string | null;
+  action: DataTableChangeAction;
+  actor: DataTableChangeActor;
+  runId: string | null;
+  diff: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface CreateDataTableParams {
+  projectId: string;
+  name: string;
+  description?: string;
+  columns: DataTableColumn[];
+  createdBy?: DataTableCreatedBy;
+}
+
+export interface UpdateDataTableParams {
+  id: string;
+  name?: string;
+  description?: string;
+}
+
+export interface ListDataTablesParams {
+  projectId?: string;
+}
+
+export interface InsertDataTableRowsParams {
+  tableId: string;
+  rows: Record<string, unknown>[];
+  actor?: DataTableChangeActor;
+  runId?: string;
+}
+
+export interface UpdateDataTableRowParams {
+  id: string;
+  data: Record<string, unknown>;
+  actor?: DataTableChangeActor;
+  runId?: string;
+}
+
+export interface DeleteDataTableRowsParams {
+  rowIds: string[];
+  actor?: DataTableChangeActor;
+  runId?: string;
+}
+
+export interface ListDataTableRowsParams {
+  tableId: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AddDataTableColumnParams {
+  tableId: string;
+  column: DataTableColumn;
+  actor?: DataTableChangeActor;
+  runId?: string;
+}
+
+export interface RenameDataTableColumnParams {
+  tableId: string;
+  columnId: string;
+  newName: string;
+  actor?: DataTableChangeActor;
+  runId?: string;
+}
+
+export interface RemoveDataTableColumnParams {
+  tableId: string;
+  columnId: string;
+  actor?: DataTableChangeActor;
+  runId?: string;
+}
+
+export interface ListDataTableChangesParams {
+  tableId: string;
+  limit?: number;
+  offset?: number;
+}

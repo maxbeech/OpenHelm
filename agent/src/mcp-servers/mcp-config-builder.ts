@@ -6,9 +6,10 @@
  * cleaned up after the run completes.
  */
 
-import { writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
-import { join } from "path";
+import { writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync } from "fs";
+import { join, dirname } from "path";
 import { homedir } from "os";
+import { fileURLToPath } from "url";
 import { getBrowserMcpPaths, type BrowserMcpPaths } from "./browser-setup.js";
 
 /**
@@ -48,6 +49,16 @@ export const BROWSER_CAPTCHA_PREAMBLE =
   "   screenshot and check if the CAPTCHA is gone. Output 'Waiting for user to\n" +
   "   solve CAPTCHA on [url]...' each time. Give up after 5 minutes.\n\n";
 
+/**
+ * Prepended to job prompts when the data tables MCP is available.
+ */
+export const DATA_TABLES_MCP_PREAMBLE =
+  'OpenHelm: Data tables are available via "openhelm-data" MCP tools. ' +
+  "Use mcp__openhelm-data__list_tables to see available tables, " +
+  "mcp__openhelm-data__query_table to read data, and " +
+  "mcp__openhelm-data__insert_rows / update_rows / delete_rows to modify data. " +
+  "Always check existing tables before creating new ones.\n\n";
+
 export const BROWSER_CREDENTIALS_PREAMBLE =
   "Browser credentials are pre-loaded securely into the browser MCP server. " +
   "Use mcp__openhelm-browser__list_browser_credentials to see what is available, " +
@@ -71,14 +82,43 @@ export interface McpConfigFile {
 }
 
 /**
+ * Resolve the path to the data-tables MCP server bundle.
+ * In development: dist/mcp-data-tables.js (built by esbuild).
+ * In production: alongside the agent binary.
+ */
+function getDataTablesMcpPath(): string | null {
+  // __dirname in CJS bundle = directory of agent.js
+  // The MCP server is built alongside it as mcp-data-tables.js
+  const candidates = [
+    join(__dirname, "mcp-data-tables.js"),      // production (same dir as agent)
+    join(__dirname, "..", "dist", "mcp-data-tables.js"), // dev (from src/)
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+/**
+ * Get the SQLite database path used by the agent.
+ */
+function getDbPath(): string {
+  return join(
+    process.env.OPENHELM_DATA_DIR ?? join(homedir(), ".openhelm"),
+    "openhelm.db",
+  );
+}
+
+/**
  * Build the MCP config object for a run.
- * Returns null if no MCP servers are available (venv not set up).
+ * Returns null if no MCP servers are available.
  *
  * @param runId — OpenHelm run ID, passed as `--run-id` for intervention context.
  * @param credentialsFilePath — path to a temp JSON file containing browser-injectable credentials.
  *   Passed as `--credentials-file` arg to the browser MCP server.
+ * @param projectId — project ID, passed to the data tables MCP server.
  */
-export function buildMcpConfig(runId: string, credentialsFilePath?: string): McpConfigFile | null {
+export function buildMcpConfig(runId: string, credentialsFilePath?: string, projectId?: string): McpConfigFile | null {
   const servers: Record<string, McpServerEntry> = {};
 
   const browserPaths = getBrowserMcpPaths();
@@ -94,6 +134,19 @@ export function buildMcpConfig(runId: string, credentialsFilePath?: string): Mcp
     };
   }
 
+  // Data tables MCP server
+  const dataTablesMcpPath = getDataTablesMcpPath();
+  if (dataTablesMcpPath) {
+    const dtArgs = [dataTablesMcpPath, "--db-path", getDbPath(), "--run-id", runId];
+    if (projectId) {
+      dtArgs.push("--project-id", projectId);
+    }
+    servers["openhelm-data"] = {
+      command: process.execPath, // Node.js binary
+      args: dtArgs,
+    };
+  }
+
   if (Object.keys(servers).length === 0) return null;
   return { mcpServers: servers };
 }
@@ -103,9 +156,10 @@ export function buildMcpConfig(runId: string, credentialsFilePath?: string): Mcp
  * Returns null if no MCP servers are available.
  *
  * @param credentialsFilePath — forwarded to buildMcpConfig for browser credential injection.
+ * @param projectId — forwarded to buildMcpConfig for data tables MCP server.
  */
-export function writeMcpConfigFile(runId: string, credentialsFilePath?: string): string | null {
-  const config = buildMcpConfig(runId, credentialsFilePath);
+export function writeMcpConfigFile(runId: string, credentialsFilePath?: string, projectId?: string): string | null {
+  const config = buildMcpConfig(runId, credentialsFilePath, projectId);
   if (!config) return null;
 
   mkdirSync(MCP_CONFIG_DIR, { recursive: true });

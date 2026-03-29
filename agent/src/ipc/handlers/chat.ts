@@ -24,6 +24,15 @@ function normaliseProjectId(raw: unknown): string | null {
   return String(raw);
 }
 
+/**
+ * Tracks which project threads have an in-flight handleChatMessage call.
+ * Key is the normalised projectId (null serialised as "__all__").
+ */
+const activeChats = new Set<string>();
+function chatKey(projectId: string | null): string {
+  return projectId ?? "__all__";
+}
+
 export function registerChatHandlers() {
   // chat.send returns immediately — messages and errors arrive via events.
   // This prevents frontend IPC timeouts on long-running LLM tool loops.
@@ -38,6 +47,15 @@ export function registerChatHandlers() {
     const projectId = normaliseProjectId(p?.projectId);
     if (!p?.content?.trim()) throw new Error("content is required");
 
+    const key = chatKey(projectId);
+    if (activeChats.has(key)) {
+      // A message is already being processed for this thread — reject so the
+      // frontend can show "busy" instead of silently losing the message.
+      throw new Error("A message is already being processed. Please wait for the current response.");
+    }
+
+    activeChats.add(key);
+
     setImmediate(() => {
       handleChatMessage(projectId, p.content.trim(), p.context, p.model, p.modelEffort, p.permissionMode)
         .catch((err) => {
@@ -47,6 +65,9 @@ export function registerChatHandlers() {
             error: err instanceof Error ? err.message : String(err),
           });
           emit("chat.status", { status: "done", projectId });
+        })
+        .finally(() => {
+          activeChats.delete(key);
         });
     });
 

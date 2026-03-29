@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import logoSvg from "@/assets/logo.svg";
-import { Settings, ChevronDown, Plus, LayoutDashboard, Layers, Waypoints, KeyRound, Pencil, MessageSquare, Star, X } from "lucide-react";
+import { Settings, ChevronDown, Plus, LayoutDashboard, Layers, Waypoints, Database, KeyRound, Pencil, MessageSquare, Star, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { FeedbackDialog } from "@/components/shared/feedback-dialog";
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useMemoryStore } from "@/stores/memory-store";
 import { useCredentialStore } from "@/stores/credential-store";
+import { useDataTableStore } from "@/stores/data-table-store";
 import { SidebarTree } from "./sidebar-tree";
 
 interface SidebarProps {
@@ -33,6 +34,7 @@ export function Sidebar({ onNewProject, onEditProject, onNewJobForGoal }: Sideba
   const { openCount } = useDashboardStore();
   const { memoryCount } = useMemoryStore();
   const { credentialCount } = useCredentialStore();
+  const { tableCount } = useDataTableStore();
 
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [starDialogOpen, setStarDialogOpen] = useState(false);
@@ -149,6 +151,24 @@ export function Sidebar({ onNewProject, onEditProject, onNewJobForGoal }: Sideba
           {memoryCount > 0 && (
             <span className="text-[10px] font-medium text-muted-foreground">
               {memoryCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setContentView("data-tables")}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+            contentView === "data-tables" || contentView === "data-table-detail"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+          )}
+        >
+          <Database className="size-4" />
+          <span className="flex-1 text-left">Data</span>
+          {tableCount > 0 && (
+            <span className="text-[10px] font-medium text-muted-foreground">
+              {tableCount}
             </span>
           )}
         </button>

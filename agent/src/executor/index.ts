@@ -311,18 +311,17 @@ export class Executor {
         effectivePrompt += `\n\n---\n\nCorrection Note (from a previous run failure — may no longer apply):\n${job.correctionNote}\n\nAddress these issues if still relevant.`;
       }
 
+      // Build a richer retrieval query combining job metadata + prompt content.
+      // Used by both memory retrieval and data table retrieval below.
+      const retrievalQuery = [
+        `Job: ${job.name}`,
+        job.description ? `Description: ${job.description}` : null,
+        job.correctionNote ? `Correction: ${job.correctionNote}` : null,
+        effectivePrompt.slice(0, 300),
+      ].filter(Boolean).join("\n");
+
       // Inject relevant memories into prompt
       try {
-        // Build a richer retrieval query combining job metadata + prompt content.
-        // Using job name/description gives the embedding much better semantic signal
-        // than the raw prompt text alone (which may start with boilerplate).
-        const retrievalQuery = [
-          `Job: ${job.name}`,
-          job.description ? `Description: ${job.description}` : null,
-          job.correctionNote ? `Correction: ${job.correctionNote}` : null,
-          effectivePrompt.slice(0, 300),
-        ].filter(Boolean).join("\n");
-
         const scored = await retrieveMemories({
           projectId: job.projectId,
           goalId: job.goalId ?? undefined,
@@ -336,6 +335,22 @@ export class Executor {
         }
       } catch (err) {
         console.error("[executor] memory retrieval error (non-fatal):", err);
+      }
+
+      // Inject relevant data table schemas into prompt
+      try {
+        const { retrieveRelevantTables } = await import("../data-tables/retriever.js");
+        const { buildDataTableSection } = await import("../data-tables/prompt-builder.js");
+        const relevantTables = await retrieveRelevantTables({
+          projectId: job.projectId,
+          query: retrievalQuery,
+        });
+        if (relevantTables.length > 0) {
+          effectivePrompt += buildDataTableSection(relevantTables);
+          console.error(`[executor] injected ${relevantTables.length} table schemas into run ${runId}`);
+        }
+      } catch (err) {
+        console.error("[executor] data table retrieval error (non-fatal):", err);
       }
     }
 
@@ -465,27 +480,37 @@ export class Executor {
     // Create redactor for log output
     const redact = createRedactor(allSecrets);
 
-    // ── MCP config (built-in browser server) ──
+    // ── MCP config (browser + data tables servers) ──
     let mcpConfigPath: string | undefined;
+    let hasBrowserMcp = false;
     try {
       const { isVenvReady } = await import("../mcp-servers/browser-setup.js");
-      if (isVenvReady()) {
-        const { writeMcpConfigFile } = await import("../mcp-servers/mcp-config-builder.js");
-        mcpConfigPath = writeMcpConfigFile(runId, browserCredentialsFilePath) ?? undefined;
-        if (mcpConfigPath) {
-          console.error(`[executor] MCP config written for run ${runId}`);
-        }
+      hasBrowserMcp = isVenvReady();
+    } catch { /* browser setup not available — non-fatal */ }
+
+    try {
+      // Always write MCP config — data tables MCP is always available,
+      // browser MCP only when venv is ready. buildMcpConfig handles both.
+      const { writeMcpConfigFile } = await import("../mcp-servers/mcp-config-builder.js");
+      mcpConfigPath = writeMcpConfigFile(runId, hasBrowserMcp ? browserCredentialsFilePath : undefined, job.projectId) ?? undefined;
+      if (mcpConfigPath) {
+        console.error(`[executor] MCP config written for run ${runId}`);
       }
     } catch (err) {
       console.error("[executor] MCP config generation error (non-fatal):", err);
     }
 
-    // Prepend browser MCP preference note + CAPTCHA handling when openhelm-browser is available
+    // Prepend MCP preambles when servers are available
     if (mcpConfigPath) {
-      const { BROWSER_MCP_PREAMBLE, BROWSER_CAPTCHA_PREAMBLE, BROWSER_CREDENTIALS_PREAMBLE } = await import("../mcp-servers/mcp-config-builder.js");
-      effectivePrompt = BROWSER_MCP_PREAMBLE + BROWSER_CAPTCHA_PREAMBLE + effectivePrompt;
-      if (browserCredentialsFilePath) {
-        effectivePrompt = BROWSER_CREDENTIALS_PREAMBLE + effectivePrompt;
+      const { BROWSER_MCP_PREAMBLE, BROWSER_CAPTCHA_PREAMBLE, BROWSER_CREDENTIALS_PREAMBLE, DATA_TABLES_MCP_PREAMBLE } = await import("../mcp-servers/mcp-config-builder.js");
+      // Data tables preamble (always available when MCP config exists)
+      effectivePrompt = DATA_TABLES_MCP_PREAMBLE + effectivePrompt;
+      // Browser MCP preamble (only when browser venv is ready)
+      if (hasBrowserMcp) {
+        effectivePrompt = BROWSER_MCP_PREAMBLE + BROWSER_CAPTCHA_PREAMBLE + effectivePrompt;
+        if (browserCredentialsFilePath) {
+          effectivePrompt = BROWSER_CREDENTIALS_PREAMBLE + effectivePrompt;
+        }
       }
     }
 

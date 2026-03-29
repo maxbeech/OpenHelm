@@ -284,6 +284,63 @@ export const runCredentials = sqliteTable(
   (t) => [{ primaryKey: [t.runId, t.credentialId, t.injectionMethod] }],
 );
 
+/** User/AI-created structured data tables (Notion-style databases) */
+export const dataTables = sqliteTable("data_tables", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  /** JSON: DataTableColumn[] — schema definition with stable column IDs */
+  columns: text("columns").notNull().default("[]"),
+  /** JSON: 384-dim float array for semantic relevance matching */
+  embedding: text("embedding"),
+  /** Denormalized row count, updated on insert/delete */
+  rowCount: integer("row_count").notNull().default(0),
+  createdBy: text("created_by", { enum: ["user", "ai"] }).notNull().default("user"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+/** Rows within a data table — data stored as JSON keyed by column ID */
+export const dataTableRows = sqliteTable("data_table_rows", {
+  id: text("id").primaryKey(),
+  tableId: text("table_id")
+    .notNull()
+    .references(() => dataTables.id, { onDelete: "cascade" }),
+  /** JSON object: { "col_xxx": value, "col_yyy": value, ... } */
+  data: text("data").notNull().default("{}"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+/** Audit log of all data table mutations (for AI transparency + future undo) */
+export const dataTableChanges = sqliteTable("data_table_changes", {
+  id: text("id").primaryKey(),
+  tableId: text("table_id")
+    .notNull()
+    .references(() => dataTables.id, { onDelete: "cascade" }),
+  rowId: text("row_id"),
+  action: text("action", { enum: ["insert", "update", "delete", "schema_change"] }).notNull(),
+  actor: text("actor", { enum: ["user", "ai", "system"] }).notNull().default("user"),
+  runId: text("run_id").references(() => runs.id, { onDelete: "set null" }),
+  /** JSON: diff details (old/new values for updates, full row for inserts) */
+  diff: text("diff").notNull().default("{}"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 /** Real-time log chunks captured from Claude Code output */
 export const runLogs = sqliteTable("run_logs", {
   id: text("id").primaryKey(),

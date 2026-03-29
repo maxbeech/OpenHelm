@@ -115,12 +115,34 @@ function copyNativeModules() {
   console.error("[agent] native modules copied to src-tauri/bundled-node-modules/");
 }
 
+/** @type {import('esbuild').BuildOptions} */
+const mcpDataTablesOptions = {
+  entryPoints: ["src/mcp-servers/data-tables/index.ts"],
+  bundle: true,
+  platform: "node",
+  target: "node20",
+  format: "cjs",
+  outfile: "dist/mcp-data-tables.js",
+  external: ["better-sqlite3", "@xenova/transformers", "onnxruntime-node", "sharp"],
+  loader: { ".sql": "text" },
+  banner: { js: "#!/usr/bin/env node" },
+  sourcemap: true,
+  logLevel: "info",
+  define: {
+    "process.env.SENTRY_DSN": JSON.stringify(""),
+    "__OPENHELM_VERSION__": JSON.stringify(_pkg.version),
+  },
+};
+
 if (isWatch) {
   const ctx = await context(options);
+  const ctxMcp = await context(mcpDataTablesOptions);
   await ctx.watch();
+  await ctxMcp.watch();
   console.error("[agent] watching for changes...");
 } else {
   await build(options);
+  await build(mcpDataTablesOptions);
   copySidecarBinaries();
   copyNativeModules();
 

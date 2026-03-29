@@ -8,6 +8,8 @@ export type ContentView =
   | "job-detail"
   | "dashboard"
   | "memory"
+  | "data-tables"
+  | "data-table-detail"
   | "credentials"
   | "settings";
 
@@ -26,6 +28,7 @@ interface AppState {
   selectedGoalId: string | null;
   selectedJobId: string | null;
   selectedRunId: string | null;
+  selectedDataTableId: string | null;
   collapsedGoalIds: string[];
 
   // Legacy
@@ -48,6 +51,7 @@ interface AppState {
   // Select a run without changing the current content view (used from Dashboard)
   selectRunPreserveView: (runId: string) => void;
   clearSelectedRun: () => void;
+  selectDataTable: (tableId: string) => void;
   toggleGoalCollapsed: (goalId: string) => void;
   setContentView: (view: ContentView) => void;
 
@@ -69,6 +73,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedGoalId: null,
   selectedJobId: null,
   selectedRunId: null,
+  selectedDataTableId: null,
   collapsedGoalIds: [],
 
   page: "goals",
@@ -109,6 +114,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   clearSelectedRun: () => set({ selectedRunId: null }),
 
+  selectDataTable: (tableId) =>
+    set({ contentView: "data-table-detail", selectedDataTableId: tableId }),
+
   toggleGoalCollapsed: (goalId) =>
     set((s) => ({
       collapsedGoalIds: s.collapsedGoalIds.includes(goalId)
@@ -117,10 +125,10 @@ export const useAppStore = create<AppState>((set) => ({
     })),
 
   setContentView: (view) => {
-    const clearSelections = view === "home" || view === "settings" || view === "dashboard" || view === "memory";
+    const clearSelections = view === "home" || view === "settings" || view === "dashboard" || view === "memory" || view === "data-tables";
     set({
       contentView: view,
-      ...(clearSelections && { selectedGoalId: null, selectedJobId: null, selectedRunId: null }),
+      ...(clearSelections && { selectedGoalId: null, selectedJobId: null, selectedRunId: null, selectedDataTableId: null }),
     });
   },
 

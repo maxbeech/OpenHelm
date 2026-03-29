@@ -68,6 +68,7 @@ openhelm/
 │   ├── components/
 │   │   ├── ui/              # shadcn/ui primitives
 │   │   ├── layout/          # Sidebar, shell, navigation
+│   │   ├── data-tables/     # Data table CRUD UI (list, detail, grid, cells)
 │   │   ├── goals/
 │   │   ├── jobs/
 │   │   ├── runs/
@@ -81,6 +82,7 @@ openhelm/
 ├── agent/                   # Node.js background agent (sidecar)
 │   ├── src/
 │   │   ├── index.ts         # Entry point, IPC server init
+│   │   ├── data-tables/     # Embedding, retrieval, prompt injection for data tables
 │   │   ├── scheduler/       # Job queue and scheduling engine
 │   │   ├── executor/        # Claude Code process management
 │   │   ├── planner/         # Goal → job plan generation (via CLI)
@@ -122,6 +124,11 @@ Run          id, job_id, status(queued|running|succeeded|failed|permanent_failur
              started_at, finished_at, exit_code, summary, created_at
 RunLog       id, run_id, sequence, stream(stdout|stderr), text, timestamp
 Settings     key, value, updated_at
+DataTable    id, project_id, name, description, columns(JSON), embedding(JSON),
+             row_count, created_by(user|ai), created_at, updated_at
+DataTableRow id, table_id, data(JSON), sort_order, created_at, updated_at
+DataTableChange id, table_id, row_id, action(insert|update|delete|schema_change),
+             actor(user|ai|system), run_id, diff(JSON), created_at
 ```
 
 Database lives at `~/.openhelm/openhelm.db`. WAL mode enabled; foreign keys enforced.

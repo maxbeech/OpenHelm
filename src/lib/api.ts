@@ -13,6 +13,9 @@ import type {
   CredentialWithValue,
   AutopilotProposal,
   AutopilotMode,
+  DataTable,
+  DataTableRow,
+  DataTableChange,
   ListAutopilotProposalsParams,
   ApproveAutopilotProposalParams,
   CreateProjectParams,
@@ -36,6 +39,17 @@ import type {
   UpdateCredentialParams,
   ListCredentialsParams,
   ListCredentialsByScopeParams,
+  CreateDataTableParams,
+  UpdateDataTableParams,
+  ListDataTablesParams,
+  InsertDataTableRowsParams,
+  UpdateDataTableRowParams,
+  DeleteDataTableRowsParams,
+  ListDataTableRowsParams,
+  AddDataTableColumnParams,
+  RenameDataTableColumnParams,
+  RemoveDataTableColumnParams,
+  ListDataTableChangesParams,
   BulkReorderParams,
   ClaudeCodeDetectionResult,
   DetectClaudeCodeParams,
@@ -598,4 +612,70 @@ export function generateAutopilotForGoal(
   projectId: string,
 ): Promise<{ success: boolean }> {
   return agentClient.request<{ success: boolean }>("autopilot.generateForGoal", { goalId, projectId });
+}
+
+// ─── Data Tables ───
+
+export function listDataTables(params: ListDataTablesParams): Promise<DataTable[]> {
+  return agentClient.request<DataTable[]>("dataTables.list", params);
+}
+
+export function listAllDataTables(): Promise<DataTable[]> {
+  return agentClient.request<DataTable[]>("dataTables.listAll");
+}
+
+export function getDataTable(id: string): Promise<DataTable> {
+  return agentClient.request<DataTable>("dataTables.get", { id });
+}
+
+export function createDataTable(params: CreateDataTableParams): Promise<DataTable> {
+  return agentClient.request<DataTable>("dataTables.create", params);
+}
+
+export function updateDataTable(params: UpdateDataTableParams): Promise<DataTable> {
+  return agentClient.request<DataTable>("dataTables.update", params);
+}
+
+export function deleteDataTable(id: string): Promise<{ deleted: boolean }> {
+  return agentClient.request<{ deleted: boolean }>("dataTables.delete", { id });
+}
+
+export function listDataTableRows(params: ListDataTableRowsParams): Promise<DataTableRow[]> {
+  return agentClient.request<DataTableRow[]>("dataTables.listRows", params);
+}
+
+export function insertDataTableRows(params: InsertDataTableRowsParams): Promise<DataTableRow[]> {
+  return agentClient.request<DataTableRow[]>("dataTables.insertRows", params);
+}
+
+export function updateDataTableRow(params: UpdateDataTableRowParams): Promise<DataTableRow> {
+  return agentClient.request<DataTableRow>("dataTables.updateRow", params);
+}
+
+export function deleteDataTableRows(params: DeleteDataTableRowsParams): Promise<{ deleted: number }> {
+  return agentClient.request<{ deleted: number }>("dataTables.deleteRows", params);
+}
+
+export function addDataTableColumn(params: AddDataTableColumnParams): Promise<DataTable> {
+  return agentClient.request<DataTable>("dataTables.addColumn", params);
+}
+
+export function renameDataTableColumn(params: RenameDataTableColumnParams): Promise<DataTable> {
+  return agentClient.request<DataTable>("dataTables.renameColumn", params);
+}
+
+export function removeDataTableColumn(params: RemoveDataTableColumnParams): Promise<DataTable> {
+  return agentClient.request<DataTable>("dataTables.removeColumn", params);
+}
+
+export function countDataTables(projectId: string): Promise<{ count: number }> {
+  return agentClient.request<{ count: number }>("dataTables.count", { projectId });
+}
+
+export function countAllDataTables(): Promise<{ count: number }> {
+  return agentClient.request<{ count: number }>("dataTables.countAll");
+}
+
+export function listDataTableChanges(params: ListDataTableChangesParams): Promise<DataTableChange[]> {
+  return agentClient.request<DataTableChange[]>("dataTables.listChanges", params);
 }
