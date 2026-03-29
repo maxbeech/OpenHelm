@@ -249,8 +249,10 @@ function buildArgs(config: RunnerConfig): string[] {
   }
 
   // MCP server config (e.g. built-in browser automation)
+  // Use --strict-mcp-config so only the per-run servers are loaded,
+  // preventing duplicate tools from globally configured MCPs.
   if (config.mcpConfigPath) {
-    args.push("--mcp-config", config.mcpConfigPath);
+    args.push("--strict-mcp-config", "--mcp-config", config.mcpConfigPath);
   }
 
   // Prompt is written to stdin (not as a positional arg) to avoid

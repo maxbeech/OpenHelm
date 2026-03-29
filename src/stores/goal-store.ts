@@ -16,6 +16,7 @@ interface GoalState {
   archiveGoal: (id: string) => Promise<void>;
   unarchiveGoal: (id: string, projectId: string) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
+  reorderGoalsOptimistic: (orderedIds: string[]) => void;
 }
 
 export const useGoalStore = create<GoalState>((set) => ({
@@ -104,6 +105,16 @@ export const useGoalStore = create<GoalState>((set) => ({
       set({ error: friendlyError(err, "Failed to delete goal") });
       throw err;
     }
+  },
+
+  reorderGoalsOptimistic: (orderedIds) => {
+    set((s) => {
+      const byId = new Map(s.goals.map((g) => [g.id, g]));
+      const ordered: Goal[] = orderedIds.map((id) => byId.get(id)!).filter(Boolean);
+      const inSet = new Set(orderedIds);
+      const rest = s.goals.filter((g) => !inSet.has(g.id));
+      return { goals: [...ordered, ...rest] };
+    });
   },
 }));
 

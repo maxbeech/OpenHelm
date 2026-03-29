@@ -57,10 +57,10 @@ export function SidebarProjectGroup({
     isDragging,
   } = useSortable({ id: project.id, disabled: !isDragMode });
 
-  const style = {
+  const style = isDragMode ? {
     transform: CSS.Transform.toString(transform),
     transition,
-  };
+  } : {};
 
   return (
     <div
@@ -69,12 +69,12 @@ export function SidebarProjectGroup({
       className={cn("mb-2", isDragging && "opacity-50")}
     >
       {/* Project group header */}
-      <div className="flex items-center gap-1 px-3 py-1">
+      <div className="group flex items-center gap-1 px-3 py-1">
         {isDragMode && (
           <span
             {...attributes}
             {...listeners}
-            className="cursor-grab text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing"
+            className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100 active:cursor-grabbing"
           >
             <GripVertical className="size-3" />
           </span>

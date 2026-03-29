@@ -687,7 +687,7 @@ async def get_page_content(
 async def take_screenshot(
     instance_id: str,
     full_page: bool = False,
-    format: str = "png",
+    format: str = "jpeg",
     file_path: Optional[str] = None
 ) -> Union[str, Dict[str, Any]]:
     """
@@ -696,7 +696,7 @@ async def take_screenshot(
     Args:
         instance_id (str): Browser instance ID.
         full_page (bool): Capture full page (not just viewport).
-        format (str): Image format ('png' or 'jpeg').
+        format (str): Image format ('png' or 'jpeg'). Defaults to jpeg for token efficiency.
         file_path (Optional[str]): Optional file path to save screenshot to.
 
     Returns:
@@ -704,15 +704,18 @@ async def take_screenshot(
     """
     from PIL import Image
     import io
-    
+
     tab = await browser_manager.get_tab(instance_id)
     if not tab:
         raise Exception(f"Instance not found: {instance_id}")
-    
+
     # Hard timeout for the CDP screenshot call — prevents indefinite hangs on
     # complex pages (e.g. Notion with heavy dynamic rendering).
     SCREENSHOT_TIMEOUT_S = 60
-    MAX_IMAGE_WIDTH = 1920  # downscale wider images to stay under the 20MB API limit
+    MAX_IMAGE_WIDTH = 1280  # downscale wider images for token efficiency
+    # Threshold for saving to file vs returning inline base64.
+    # Inline is cheaper than save-to-file-then-Read for medium images.
+    FILE_SAVE_TOKEN_THRESHOLD = 50000
 
     if file_path:
         save_path = Path(file_path)
@@ -733,7 +736,7 @@ async def take_screenshot(
             raise Exception(f"Screenshot timed out after {SCREENSHOT_TIMEOUT_S}s — page may be too complex or still loading")
 
         with Image.open(tmp_path) as img:
-            # Downscale images wider than MAX_IMAGE_WIDTH to prevent 20MB API limit errors.
+            # Downscale images wider than MAX_IMAGE_WIDTH for token efficiency.
             if img.width > MAX_IMAGE_WIDTH:
                 scale = MAX_IMAGE_WIDTH / img.width
                 new_size = (MAX_IMAGE_WIDTH, int(img.height * scale))
@@ -751,7 +754,7 @@ async def take_screenshot(
             output_buffer = io.BytesIO()
 
             if save_format == 'jpeg':
-                img.save(output_buffer, format='JPEG', quality=85, optimize=True)
+                img.save(output_buffer, format='JPEG', quality=70, optimize=True)
             else:
                 img.save(output_buffer, format='PNG', optimize=True)
 
@@ -760,7 +763,7 @@ async def take_screenshot(
             base64_size = len(compressed_bytes) * 1.33
             estimated_tokens = int(base64_size / 4)
 
-            if estimated_tokens > 20000:
+            if estimated_tokens > FILE_SAVE_TOKEN_THRESHOLD:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 screenshot_filename = f"screenshot_{timestamp}_{instance_id[:8]}.{save_format}"
                 screenshot_path = response_handler.clone_dir / screenshot_filename

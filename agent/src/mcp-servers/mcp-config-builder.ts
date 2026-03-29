@@ -18,12 +18,7 @@ import { getBrowserMcpPaths, type BrowserMcpPaths } from "./browser-setup.js";
  * configured globally, unless the prompt explicitly requests a different one.
  */
 export const BROWSER_MCP_PREAMBLE =
-  'OpenHelm: A built-in browser MCP server is available as "openhelm-browser". ' +
-  "For any browser automation, prefer the mcp__openhelm-browser__* tools — " +
-  "they include per-operation timeout protection. Only use a different browser " +
-  "MCP if the task explicitly requests one. " +
-  "When your task is complete, close all browser instances using " +
-  "mcp__openhelm-browser__close_instance before finishing.\n\n";
+  "A browser MCP server is available. Close all browser instances when done.\n\n";
 
 /**
  * Prepended to job prompts to instruct Claude on CAPTCHA handling.
@@ -31,40 +26,17 @@ export const BROWSER_MCP_PREAMBLE =
  * user intervention request with polling loop.
  */
 export const BROWSER_CAPTCHA_PREAMBLE =
-  "CAPTCHA Handling: When browsing, be alert for robot checks. After navigating " +
-  "or if a page looks like a verification challenge:\n" +
-  "1. Call mcp__openhelm-browser__detect_captcha to confirm the type.\n" +
-  "2. If auto_solve_hint suggests it can be solved:\n" +
-  "   - Checkbox CAPTCHAs (reCAPTCHA v2, hCaptcha): click the checkbox element.\n" +
-  "   - Cloudflare Turnstile: wait 10-15 seconds (often auto-resolves).\n" +
-  "   - Image challenges: take a screenshot, analyze the images using your vision,\n" +
-  "     and click the correct ones. Retry up to 3 times if needed.\n" +
-  "   - Text CAPTCHAs: take a screenshot, read the distorted text, type it in.\n" +
-  "   - Verify success by taking another screenshot.\n" +
-  "3. If unsolvable, consider alternatives:\n" +
-  "   - Different URL or API endpoint without CAPTCHA protection.\n" +
-  "   - Alternative method to accomplish the same goal.\n" +
-  "4. If no alternatives exist, call mcp__openhelm-browser__request_user_help\n" +
-  "   explaining what needs to be done. Then poll every 30 seconds: take a\n" +
-  "   screenshot and check if the CAPTCHA is gone. Output 'Waiting for user to\n" +
-  "   solve CAPTCHA on [url]...' each time. Give up after 5 minutes.\n\n";
+  "If you hit a CAPTCHA, call detect_captcha and follow auto_solve_hint. " +
+  "If unsolvable, call request_user_help and poll screenshots every 30s for up to 5 minutes.\n\n";
 
 /**
  * Prepended to job prompts when the data tables MCP is available.
  */
 export const DATA_TABLES_MCP_PREAMBLE =
-  'OpenHelm: Data tables are available via "openhelm-data" MCP tools. ' +
-  "Use mcp__openhelm-data__list_tables to see available tables, " +
-  "mcp__openhelm-data__query_table to read data, and " +
-  "mcp__openhelm-data__insert_rows / update_rows / delete_rows to modify data. " +
-  "Always check existing tables before creating new ones.\n\n";
+  "Data tables are available via openhelm-data MCP tools. Check existing tables before creating new ones.\n\n";
 
 export const BROWSER_CREDENTIALS_PREAMBLE =
-  "Browser credentials are pre-loaded securely into the browser MCP server. " +
-  "Use mcp__openhelm-browser__list_browser_credentials to see what is available, " +
-  "then mcp__openhelm-browser__auto_login, mcp__openhelm-browser__inject_auth_cookie, " +
-  "or mcp__openhelm-browser__inject_auth_header to use them. " +
-  "Never ask the user for credential values — they are already loaded.\n\n";
+  "Browser credentials are pre-loaded. Call list_browser_credentials to see available credentials.\n\n";
 
 const MCP_CONFIG_DIR = join(
   process.env.OPENHELM_DATA_DIR ?? join(homedir(), ".openhelm"),
@@ -123,7 +95,17 @@ export function buildMcpConfig(runId: string, credentialsFilePath?: string, proj
 
   const browserPaths = getBrowserMcpPaths();
   if (browserPaths) {
-    const args = [browserPaths.serverModule, "--transport", "stdio", "--run-id", runId];
+    const args = [
+      browserPaths.serverModule,
+      "--transport", "stdio",
+      "--run-id", runId,
+      // Disable unused tool sections to reduce token overhead (~46 tools removed)
+      "--disable-progressive-cloning",
+      "--disable-file-extraction",
+      "--disable-element-extraction",
+      "--disable-dynamic-hooks",
+      "--disable-debugging",
+    ];
     if (credentialsFilePath) {
       args.push("--credentials-file", credentialsFilePath);
     }

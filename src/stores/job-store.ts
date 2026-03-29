@@ -17,6 +17,7 @@ interface JobState {
   unarchiveJob: (id: string) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
   updateJobInStore: (job: Job) => void;
+  reorderJobsOptimistic: (orderedIds: string[]) => void;
 }
 
 export const useJobStore = create<JobState>((set) => ({
@@ -111,6 +112,16 @@ export const useJobStore = create<JobState>((set) => ({
     set((s) => ({
       jobs: s.jobs.map((j) => (j.id === job.id ? job : j)),
     }));
+  },
+
+  reorderJobsOptimistic: (orderedIds) => {
+    set((s) => {
+      const byId = new Map(s.jobs.map((j) => [j.id, j]));
+      const ordered: Job[] = orderedIds.map((id) => byId.get(id)!).filter(Boolean);
+      const inSet = new Set(orderedIds);
+      const rest = s.jobs.filter((j) => !inSet.has(j.id));
+      return { jobs: [...ordered, ...rest] };
+    });
   },
 }));
 

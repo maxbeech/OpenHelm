@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { Folder, FolderOpen, Plus, Search, X } from "lucide-react";
 import {
   DndContext,
@@ -54,8 +55,8 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     projectGroupOrder,
     setProjectGroupOrder,
   } = useAppStore();
-  const { goals, createGoal } = useGoalStore();
-  const { jobs } = useJobStore();
+  const { goals, createGoal, reorderGoalsOptimistic } = useGoalStore();
+  const { jobs, reorderJobsOptimistic } = useJobStore();
   const { runs } = useRunStore();
   const { projects } = useProjectStore();
 
@@ -108,7 +109,8 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
   );
 
   const goalDragMode = goalSortMode === "custom" && !sidebarSearch;
-  const jobDragMode = jobSortMode === "custom" && !sidebarSearch;
+  // Job drag tied to goal sort mode — the single sort dropdown in the GOALS header controls both
+  const jobDragMode = goalSortMode === "custom" && !sidebarSearch;
 
   // ─── Search toggle ────────────────────────────────────────────────────────
 
@@ -208,6 +210,23 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     return standaloneJobs.filter((j) => j.name.toLowerCase().includes(q));
   }, [standaloneJobs, q]);
 
+  // Jobs within each goal — filtered by search query when active.
+  // If the goal name itself matches, show all its jobs; otherwise show only matching jobs.
+  const filteredJobsByGoal = useMemo(() => {
+    if (!q) return jobsByGoal;
+    const map = new Map<string | null, typeof jobs>();
+    for (const [goalId, goalJobs] of jobsByGoal) {
+      if (goalId !== null) {
+        const goal = activeGoals.find((g) => g.id === goalId);
+        const goalNameMatch = goal && (goal.name || goal.description).toLowerCase().includes(q);
+        map.set(goalId, goalNameMatch ? goalJobs : goalJobs.filter((j) => j.name.toLowerCase().includes(q)));
+      } else {
+        map.set(null, goalJobs.filter((j) => j.name.toLowerCase().includes(q)));
+      }
+    }
+    return map;
+  }, [jobsByGoal, q, activeGoals]);
+
   // ─── Project grouping ─────────────────────────────────────────────────────
 
   const isAllProjects = projectId === null;
@@ -277,8 +296,9 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     const newIndex = scopeGoals.findIndex((g) => g.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(scopeGoals, oldIndex, newIndex);
+    flushSync(() => reorderGoalsOptimistic(reordered.map((g) => g.id)));
     api.reorderGoals({ items: reordered.map((g, i) => ({ id: g.id, sortOrder: i })) }).catch(() => {});
-  }, []);
+  }, [reorderGoalsOptimistic]);
 
   const handleJobDragEnd = useCallback((event: DragEndEvent, scopeJobs: typeof standaloneJobs) => {
     const { active, over } = event;
@@ -287,8 +307,9 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
     const newIndex = scopeJobs.findIndex((j) => j.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(scopeJobs, oldIndex, newIndex);
+    flushSync(() => reorderJobsOptimistic(reordered.map((j) => j.id)));
     api.reorderJobs({ items: reordered.map((j, i) => ({ id: j.id, sortOrder: i })) }).catch(() => {});
-  }, []);
+  }, [reorderJobsOptimistic]);
 
   const handleProjectGroupDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -332,7 +353,7 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
         >
           <Search className="size-3.5" />
         </button>
-        {projectId && !searchOpen && (
+        {projectId && (
           <button
             onClick={() => {
               setAddingGoal(true);
@@ -415,7 +436,7 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
                       project={project}
                       goals={projectGoals}
                       standaloneJobs={projectStandalone}
-                      jobsByGoal={jobsByGoal}
+                      jobsByGoal={filteredJobsByGoal}
                       recentRunsByJob={recentRunsByJob}
                       contentView={contentView}
                       selectedGoalId={selectedGoalId}
@@ -467,7 +488,7 @@ export function SidebarTree({ projectId, onNewJobForGoal }: SidebarTreeProps) {
                 <SidebarGoalNode
                   key={goal.id}
                   goal={goal}
-                  goalJobs={jobsByGoal.get(goal.id) ?? []}
+                  goalJobs={filteredJobsByGoal.get(goal.id) ?? []}
                   recentRunsByJob={recentRunsByJob}
                   isCollapsed={collapsedGoalIds.includes(goal.id)}
                   isSelected={contentView === "goal-detail" && selectedGoalId === goal.id}

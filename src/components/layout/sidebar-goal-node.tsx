@@ -49,10 +49,12 @@ export function SidebarGoalNode({
     isDragging,
   } = useSortable({ id: goal.id, disabled: !isDragMode });
 
-  const style = {
+  // Only apply dnd-kit transform/transition when drag is active — prevents
+  // the sortable context from animating items during search filtering.
+  const style = isDragMode ? {
     transform: CSS.Transform.toString(transform),
     transition,
-  };
+  } : {};
   const [addingJob, setAddingJob] = useState(false);
   const [newJobInput, setNewJobInput] = useState("");
   // Ref guard prevents the onKeyDown(Enter) + onBlur double-fire from
@@ -80,13 +82,13 @@ export function SidebarGoalNode({
       className={cn("group mb-3", isDragging && "opacity-50")}
     >
       {/* Goal header row — sticky below the GOALS header (~30px) */}
-      <div className="sticky top-[30px] z-10 bg-sidebar px-3">
+      <div className="sticky top-[30px] z-10 bg-sidebar pl-1 pr-3">
         <div className="flex items-center">
           {isDragMode && (
             <span
               {...attributes}
               {...listeners}
-              className="mr-0.5 cursor-grab text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing"
+              className="mr-0.5 cursor-grab text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100 active:cursor-grabbing"
             >
               <GripVertical className="size-3.5" />
             </span>

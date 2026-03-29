@@ -109,22 +109,24 @@ export function SidebarJobNode({
     isDragging,
   } = useSortable({ id: job.id, disabled: !isDragMode });
 
-  const style = {
+  // Only apply dnd-kit transform/transition when drag is active — prevents
+  // the sortable context from animating items during search filtering.
+  const style = isDragMode ? {
     transform: CSS.Transform.toString(transform),
     transition,
-  };
+  } : {};
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("flex items-stretch", isDragging && "opacity-50")}
+      className={cn("group flex items-stretch", isDragging && "opacity-50")}
     >
       {isDragMode && (
         <span
           {...attributes}
           {...listeners}
-          className="flex cursor-grab items-center pl-2 text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing"
+          className="flex cursor-grab items-center pl-2 text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100 active:cursor-grabbing"
         >
           <GripVertical className="size-3.5" />
         </span>
@@ -133,7 +135,7 @@ export function SidebarJobNode({
         onClick={onSelect}
         className={cn(
           "mb-0.5 flex min-w-0 flex-1 flex-col gap-0.5 rounded-md py-1.5 pr-2 text-left transition-colors",
-          isDragMode ? "pl-1" : "pl-7",
+          isDragMode ? "pl-1" : "pl-9",
           isSelected
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",

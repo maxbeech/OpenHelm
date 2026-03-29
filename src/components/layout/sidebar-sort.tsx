@@ -152,7 +152,7 @@ export function SortDropdown({
   const activeLabel = CATEGORIES.find((c) => c.key === activeCategory)?.def.label ?? "";
 
   return (
-    <div ref={ref} className="relative" onBlur={handleBlur}>
+    <div ref={ref} className="relative inline-flex items-center" onBlur={handleBlur}>
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
