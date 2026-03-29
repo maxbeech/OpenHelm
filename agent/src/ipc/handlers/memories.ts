@@ -104,6 +104,14 @@ export function registerMemoryHandlers() {
     return { pruned };
   });
 
+  registerHandler("memories.consolidate", async (params) => {
+    const { consolidateProject } = await import("../../memory/pruner.js");
+    const { projectId } = params as { projectId: string };
+    if (!projectId) throw new Error("projectId is required");
+    const merged = consolidateProject(projectId);
+    return { merged };
+  });
+
   registerHandler("memories.count", (params) => {
     const { projectId } = params as { projectId?: string };
     if (!projectId) throw new Error("projectId is required");

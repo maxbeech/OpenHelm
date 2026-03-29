@@ -6,8 +6,8 @@
 import { callLlmViaCli } from "../planner/llm-via-cli.js";
 import { extractJson } from "../planner/extract-json.js";
 import { MEMORY_EXTRACTION_SCHEMA } from "../planner/schemas.js";
-import { createMemory, updateMemory, listMemories } from "../db/queries/memories.js";
-import { generateEmbedding } from "./embeddings.js";
+import { createMemory, updateMemory, listMemories, getActiveMemoriesWithEmbeddings } from "../db/queries/memories.js";
+import { generateEmbedding, cosineSimilarity } from "./embeddings.js";
 import { emit } from "../ipc/emitter.js";
 import type { Memory, MemoryType, MemorySourceType } from "@openhelm/shared";
 
@@ -16,7 +16,7 @@ interface ExtractedMemory {
   content: string;
   importance: number;
   tags: string[];
-  action: "create" | "update" | "merge";
+  action: "create" | "update" | "merge" | "ignore";
   mergeTargetId?: string | null;
 }
 
@@ -24,16 +24,23 @@ const EXTRACTION_SYSTEM_PROMPT = `You extract atomic memories from text for a pr
 
 Given content (run output, goal description, job prompt), extract memories that would be useful for future LLM operations on this project.
 
+Deduplication (CRITICAL — read this first):
+- You will be given a list of existing memories. Before creating ANY new memory, check if an existing memory already covers the same idea.
+- If an existing memory already captures the information — even in slightly different words — use action "ignore" instead of creating a duplicate.
+- Use "update" (with mergeTargetId!) ONLY when the existing memory has stale or incomplete information and the new content is a clear improvement. NEVER return "update" without providing a mergeTargetId.
+- Use "merge" (with mergeTargetId!) ONLY when two related ideas should be consolidated into one.
+- Use "create" ONLY for genuinely novel information not captured by any existing memory.
+- When in doubt between "create" and "ignore", choose "ignore". Fewer high-quality memories are better than many redundant ones.
+- Quality over quantity — 0-2 new memories per extraction is typical. An empty array is normal when existing memories already cover the content.
+
 Rules:
 - Each memory must be a single atomic idea (1-2 sentences max)
 - Prefer data-source pointers over copying large data
 - Use default tags when applicable: goal, data-source, preference, workflow, error-pattern, tool-usage, architecture, convention
 - Create custom tags sparingly
 - Importance scale: 8-10 critical facts, 5-7 useful context, 1-4 observations (on 0-10 scale)
-- For "update": replace stale content with fresh version (provide content of the updated memory)
-- For "merge": combine with an existing memory (provide mergeTargetId)
-- Return an empty memories array only if content is genuinely devoid of useful information
-- Prefer actionable insights over trivial observations
+- Return an empty memories array if the content lacks useful information OR if all useful information is already captured in existing memories
+- Prefer actionable insights over trivial observations — do NOT extract information that restates what existing memories already say
 
 For run outputs, look especially for:
 - Error patterns and their solutions (tag: error-pattern)
@@ -56,11 +63,29 @@ export interface ExtractionContext {
  * Returns the list of persisted Memory objects.
  */
 export async function extractMemories(ctx: ExtractionContext): Promise<Memory[]> {
-  // Get existing memories for deduplication
-  const existing = listMemories({ projectId: ctx.projectId, isArchived: false });
-  const existingSummary = existing.length > 0
-    ? `\n\nExisting memories (for dedup/merge):\n${existing.slice(0, 30).map((m) => `[${m.id}] (${m.type}) ${m.content}`).join("\n")}`
-    : "";
+  // Build semantically-relevant dedup context: show the LLM the most similar existing
+  // memories rather than just the most recent ones, so it can make better ignore/update
+  // decisions.
+  let existingSummary = "";
+  const allExisting = getActiveMemoriesWithEmbeddings(ctx.projectId);
+  if (allExisting.length > 0) {
+    let relevantExisting: typeof allExisting;
+    try {
+      const contentEmbedding = await generateEmbedding(ctx.content.slice(0, 500));
+      const scored = allExisting
+        .filter((m) => m.embedding !== null)
+        .map((m) => ({ mem: m, sim: cosineSimilarity(contentEmbedding, m.embedding!) }))
+        .sort((a, b) => b.sim - a.sim)
+        .slice(0, 30);
+      relevantExisting = scored.map((s) => s.mem);
+    } catch {
+      // Fallback to chronological if embedding fails
+      relevantExisting = allExisting.slice(0, 30);
+    }
+    existingSummary = `\n\nExisting memories (check these — use "ignore" if info is already captured):\n${
+      relevantExisting.map((m) => `[${m.id}] (${m.type}) ${m.content}`).join("\n")
+    }`;
+  }
 
   const userMessage = `Content to analyze:\n${ctx.content}${existingSummary}`;
 
@@ -132,10 +157,16 @@ async function processExtractedMemory(
   // Clamp importance to 0-10
   const importance = Math.max(0, Math.min(10, Math.round(ext.importance)));
 
+  // Explicit skip — LLM decided info is already captured
+  if (ext.action === "ignore") {
+    return null;
+  }
+
   if (ext.action === "update" && !ext.mergeTargetId) {
-    // The LLM returned action:"update" without a mergeTargetId — can't update without
-    // knowing which memory to target. Fall through to create a new memory instead.
-    console.error("[extractor] 'update' action missing mergeTargetId — falling through to create");
+    // The LLM returned action:"update" without a mergeTargetId — skip rather than
+    // creating a duplicate. The info will be re-extracted next run with better targeting.
+    console.error("[extractor] 'update' action missing mergeTargetId — skipping (not creating duplicate)");
+    return null;
   }
 
   if (ext.action === "update" && ext.mergeTargetId) {
@@ -165,12 +196,43 @@ async function processExtractedMemory(
       emit("memory.updated", mem);
       return mem;
     }
-    // Fall through to create if target not found
+    // Target not found — skip rather than creating a stray duplicate
+    console.error(`[extractor] merge target ${ext.mergeTargetId} not found — skipping`);
+    return null;
   }
 
-  // Create
+  // Create — but first do a programmatic near-duplicate check.
+  // This catches duplicates the LLM missed (e.g. when the dupe is outside the 30-memory
+  // context window, or subtle paraphrases).
   let embedding: number[] | undefined;
   try { embedding = await generateEmbedding(ext.content); } catch { /* skip */ }
+
+  const NEAR_DUPE_THRESHOLD = 0.85;
+  if (embedding) {
+    const allActive = getActiveMemoriesWithEmbeddings(ctx.projectId);
+    for (const candidate of allActive) {
+      if (!candidate.embedding) continue;
+      const sim = cosineSimilarity(embedding, candidate.embedding);
+      if (sim >= NEAR_DUPE_THRESHOLD) {
+        console.error(
+          `[extractor] near-duplicate detected (sim=${sim.toFixed(3)}) with memory ${candidate.id} — ` +
+          `"${candidate.content.slice(0, 80)}"`,
+        );
+        if (importance > candidate.importance) {
+          // New content is more important — update the existing memory
+          const updated = updateMemory(
+            { id: candidate.id, content: ext.content, importance, tags: [...new Set([...candidate.tags, ...ext.tags])] },
+            embedding,
+          );
+          emit("memory.updated", updated);
+          return updated;
+        }
+        // Existing memory is adequate — skip
+        return null;
+      }
+    }
+  }
+
   const mem = createMemory(
     {
       projectId: ctx.projectId,

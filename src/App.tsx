@@ -24,6 +24,7 @@ import type { RunStatus, ChatMessage, DashboardItem, Memory, Credential } from "
 import {
   notifyDashboardItem,
   notifyRunCompleted,
+  notifyAutopilotFailed,
 } from "./lib/notifications";
 import { OnboardingWizard } from "./components/onboarding/onboarding-wizard";
 import { AppShell } from "./components/layout/app-shell";
@@ -345,6 +346,15 @@ export default function App() {
 
   useAgentEvent("dashboard.created", handleDashboardCreated);
   useAgentEvent("dashboard.resolved", handleDashboardResolved);
+
+  // Autopilot failure handler
+  const handleAutopilotFailed = useCallback(
+    (data: { goalId: string; projectId: string; goalName: string; error: string }) => {
+      notifyAutopilotFailed(data.goalName, data.error);
+    },
+    [],
+  );
+  useAgentEvent("autopilot.generationFailed", handleAutopilotFailed);
 
   // Memory event handlers
   const handleMemoryCreated = useCallback(

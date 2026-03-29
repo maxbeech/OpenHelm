@@ -9,9 +9,12 @@
 import {
   listMemories,
   updateMemory,
+  archiveMemory,
   archiveMemories,
   countActiveMemories,
+  getActiveMemoriesWithEmbeddings,
 } from "../db/queries/memories.js";
+import { cosineSimilarity } from "./embeddings.js";
 import type { Memory } from "@openhelm/shared";
 
 const MAX_ACTIVE_MEMORIES = 200;
@@ -96,4 +99,60 @@ function enforceCap(projectId: string): number {
   const idsToArchive = scored.slice(0, excess).map((s) => s.id);
   archiveMemories(idsToArchive);
   return idsToArchive.length;
+}
+
+const CONSOLIDATE_SIM_THRESHOLD = 0.85;
+
+/**
+ * Merge near-duplicate memories by pairwise cosine similarity.
+ * Archives the lower-quality duplicate, keeps the higher-importance one.
+ * O(n^2) but negligible at 200 memories (~20k dot products of 384-dim ≈ 0.1ms).
+ * Returns the number of memories archived.
+ */
+export function consolidateProject(projectId: string): number {
+  const allActive = getActiveMemoriesWithEmbeddings(projectId);
+  if (allActive.length < 2) return 0;
+
+  let merged = 0;
+  const archived = new Set<string>();
+
+  for (let i = 0; i < allActive.length; i++) {
+    if (archived.has(allActive[i].id)) continue;
+    if (!allActive[i].embedding) continue;
+
+    for (let j = i + 1; j < allActive.length; j++) {
+      if (archived.has(allActive[j].id)) continue;
+      if (!allActive[j].embedding) continue;
+
+      const sim = cosineSimilarity(allActive[i].embedding!, allActive[j].embedding!);
+      if (sim >= CONSOLIDATE_SIM_THRESHOLD) {
+        // Keep the one with higher importance; use access count as tiebreaker
+        const keepFirst =
+          allActive[i].importance > allActive[j].importance ||
+          (allActive[i].importance === allActive[j].importance &&
+            allActive[i].accessCount >= allActive[j].accessCount);
+        const [keep, discard] = keepFirst
+          ? [allActive[i], allActive[j]]
+          : [allActive[j], allActive[i]];
+
+        // Merge tags onto the kept memory
+        const mergedTags = [...new Set([...keep.tags, ...discard.tags])];
+        updateMemory({
+          id: keep.id,
+          importance: Math.max(keep.importance, discard.importance),
+          tags: mergedTags,
+        });
+        archiveMemory(discard.id);
+        archived.add(discard.id);
+        merged++;
+
+        console.error(
+          `[consolidator] merged memory ${discard.id} into ${keep.id} (sim=${sim.toFixed(3)}) — ` +
+          `"${discard.content.slice(0, 60)}"`,
+        );
+      }
+    }
+  }
+
+  return merged;
 }

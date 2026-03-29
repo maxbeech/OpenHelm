@@ -82,7 +82,7 @@ export async function generateSystemJobs(
     return filtered;
   } catch (err) {
     console.error("[system-jobs] generation failed:", err);
-    return [];
+    throw err;
   }
 }
 

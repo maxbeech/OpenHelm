@@ -20,7 +20,7 @@ export interface ScoredMemory {
   score: number;
 }
 
-const SCORE_THRESHOLD = 0.3;
+const SCORE_THRESHOLD = 0.2;
 const DEFAULT_MAX_RESULTS = 10;
 
 /** Type weights vary by context — procedural is high for job runs */

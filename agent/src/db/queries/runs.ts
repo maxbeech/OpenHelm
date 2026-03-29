@@ -309,3 +309,23 @@ export function getUserTokenUsageForGoal(goalId: string): number {
     .get();
   return Number(row?.total ?? 0);
 }
+
+/**
+ * Count completed (terminal) runs for a project.
+ * Used to decide when to trigger automatic memory pruning (every Nth run).
+ */
+export function countProjectRuns(projectId: string): number {
+  const db = getDb();
+  const row = db
+    .select({ count: sql<number>`count(*)` })
+    .from(runs)
+    .innerJoin(jobs, eq(runs.jobId, jobs.id))
+    .where(
+      and(
+        eq(jobs.projectId, projectId),
+        inArray(runs.status, [...TERMINAL_STATUSES]),
+      ),
+    )
+    .get();
+  return Number(row?.count ?? 0);
+}

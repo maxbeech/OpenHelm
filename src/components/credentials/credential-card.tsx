@@ -73,19 +73,19 @@ export function CredentialCard({ credential, onEdit, onDelete }: CredentialCardP
           {scopeLabels[credential.scopeType]}
         </Badge>
         {credential.allowBrowserInjection ? (
-          <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-500/20">
+          <Badge variant="outline" className="text-[10px] text-green-400 border-green-500/20">
             <Monitor className="mr-1 size-2.5" />
-            Browser
+            Browser only
           </Badge>
         ) : credential.allowPromptInjection ? (
-          <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/20">
+          <Badge variant="outline" className="text-[10px] text-red-400 border-red-500/20">
             <ShieldAlert className="mr-1 size-2.5" />
-            Env + Prompt
+            Prompt
           </Badge>
         ) : (
-          <Badge variant="outline" className="text-[10px] text-green-400 border-green-500/20">
+          <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/20">
             <ShieldCheck className="mr-1 size-2.5" />
-            Env Only
+            Env var
           </Badge>
         )}
         {!credential.isEnabled && (

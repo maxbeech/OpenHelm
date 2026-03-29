@@ -32,12 +32,12 @@ export function CredentialTags({ scopeType, scopeId, refreshKey = 0 }: Props) {
         <Badge
           key={c.id}
           variant="secondary"
-          className={`gap-1 text-xs ${c.allowPromptInjection ? "border-amber-500/30 bg-amber-500/10" : ""}`}
+          className={`gap-1 text-xs ${c.allowPromptInjection ? "border-red-500/30 bg-red-500/10" : ""}`}
         >
           <KeyRound className="size-3 shrink-0 text-muted-foreground" />
           {c.name}
           {c.allowPromptInjection && (
-            <ShieldAlert className="size-3 shrink-0 text-amber-400" />
+            <ShieldAlert className="size-3 shrink-0 text-red-400" />
           )}
         </Badge>
       ))}

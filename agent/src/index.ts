@@ -13,6 +13,7 @@ import { getSetting } from "./db/queries/settings.js";
 import { initAgentSentry, captureAgentError } from "./sentry.js";
 import { initPowerManagement, shutdownPowerManagement } from "./power/index.js";
 import { startPeriodicVerifier, stopPeriodicVerifier } from "./license/periodic-verifier.js";
+import { backfillMissingAutopilotJobs } from "./autopilot/index.js";
 import { cleanupOrphanedConfigs } from "./mcp-servers/mcp-config-builder.js";
 import { cleanupOrphanedBrowserCredentials } from "./credentials/browser-credentials.js";
 import { cleanupOrphanedBrowserPids } from "./mcp-servers/browser-cleanup.js";
@@ -162,6 +163,11 @@ try {
 
 // Process any re-enqueued runs from crash recovery
 executor.processNext();
+
+// 7d. Backfill system jobs for goals that don't have any (non-blocking)
+backfillMissingAutopilotJobs().catch((err) =>
+  console.error("[agent] autopilot backfill failed (non-fatal):", err),
+);
 
 // 8. Prevent stdout pipe errors from crashing the agent.
 // When the Tauri read-end closes or the pipe buffer breaks, Node.js emits an

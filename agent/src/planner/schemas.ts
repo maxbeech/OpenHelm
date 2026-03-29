@@ -104,7 +104,7 @@ export const MEMORY_EXTRACTION_SCHEMA = {
           content: { type: "string" },
           importance: { type: "number" },
           tags: { type: "array", items: { type: "string" } },
-          action: { type: "string", enum: ["create", "update", "merge"] },
+          action: { type: "string", enum: ["create", "update", "merge", "ignore"] },
           mergeTargetId: { type: ["string", "null"] },
         },
         required: ["type", "content", "importance", "tags", "action"],

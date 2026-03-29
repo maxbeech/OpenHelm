@@ -36,6 +36,7 @@ import { extractMemoriesFromRun } from "../memory/run-extractor.js";
 import { retrieveMemories } from "../memory/retriever.js";
 import { buildMemorySection } from "../memory/prompt-builder.js";
 import { saveRunMemories } from "../db/queries/memories.js";
+import { countProjectRuns } from "../db/queries/runs.js";
 import { resolveCredentialsForJob, touchCredential, saveRunCredentials, type RunCredentialEntry } from "../db/queries/credentials.js";
 import { getKeychainItem } from "../keychain/index.js";
 import { createRedactor, extractSecretStrings } from "../credentials/redactor.js";
@@ -312,11 +313,21 @@ export class Executor {
 
       // Inject relevant memories into prompt
       try {
+        // Build a richer retrieval query combining job metadata + prompt content.
+        // Using job name/description gives the embedding much better semantic signal
+        // than the raw prompt text alone (which may start with boilerplate).
+        const retrievalQuery = [
+          `Job: ${job.name}`,
+          job.description ? `Description: ${job.description}` : null,
+          job.correctionNote ? `Correction: ${job.correctionNote}` : null,
+          effectivePrompt.slice(0, 300),
+        ].filter(Boolean).join("\n");
+
         const scored = await retrieveMemories({
           projectId: job.projectId,
           goalId: job.goalId ?? undefined,
           jobId: job.id,
-          query: effectivePrompt.slice(0, 500), // Use start of prompt as query
+          query: retrievalQuery,
         });
         if (scored.length > 0) {
           effectivePrompt += buildMemorySection(scored);
@@ -786,6 +797,29 @@ export class Executor {
     extractMemoriesFromRun(runId, job).catch((err) =>
       console.error(`[executor] memory extraction error:`, err),
     );
+
+    // Auto-prune memories every 10th completed run per project (decay + archive + consolidate)
+    try {
+      const completedCount = countProjectRuns(job.projectId);
+      if (completedCount > 0 && completedCount % 10 === 0) {
+        Promise.all([
+          import("../memory/pruner.js").then(({ pruneProject }) => {
+            const pruned = pruneProject(job.projectId);
+            if (pruned > 0) {
+              console.error(`[executor] auto-pruned ${pruned} memories for project ${job.projectId}`);
+            }
+          }),
+          import("../memory/pruner.js").then(({ consolidateProject }) => {
+            const merged = consolidateProject(job.projectId);
+            if (merged > 0) {
+              console.error(`[executor] auto-consolidated ${merged} duplicate memories for project ${job.projectId}`);
+            }
+          }),
+        ]).catch((err) => console.error("[executor] auto-prune error (non-fatal):", err));
+      }
+    } catch (err) {
+      console.error("[executor] auto-prune check error (non-fatal):", err);
+    }
 
     // Update job's nextFireAt (regardless of outcome)
     this.updateNextFireTime(job, finishedAt);

@@ -74,6 +74,22 @@ export async function notifyRunCompleted(
   }
 }
 
+export async function notifyAutopilotFailed(
+  goalName: string,
+  error: string,
+): Promise<void> {
+  const level = await getNotificationLevel();
+  if (level === "never") return;
+  try {
+    await sendNativeNotification(
+      "Autopilot Generation Failed",
+      `Could not generate system jobs for "${goalName}": ${error}`,
+    );
+  } catch (err) {
+    console.error("[notifications] notifyAutopilotFailed invoke failed:", err);
+  }
+}
+
 /**
  * Request macOS notification permission via our custom Rust command.
  * Delegates to UNUserNotificationCenter.requestAuthorization inside the app process

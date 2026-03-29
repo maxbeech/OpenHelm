@@ -115,15 +115,6 @@ export function CredentialEditDialog({ open, onOpenChange, credential, projectId
 
         <div className="flex-1 overflow-y-auto">
         <div className="space-y-4">
-          {/* Risk notice — always shown */}
-          <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
-            <p className="text-xs text-amber-200/70">
-              OpenHelm cannot fully control how Claude Code handles credentials at runtime.
-              Credentials may be read by shell commands. You use this feature at your own risk.
-            </p>
-          </div>
-
           {/* Name */}
           <div>
             <Label>Name</Label>
@@ -167,52 +158,68 @@ export function CredentialEditDialog({ open, onOpenChange, credential, projectId
           <div className="space-y-2">
             <Label>Injection Mode</Label>
             <RadioGroup value={injectionMode} onValueChange={(v) => setInjectionMode(v as "env" | "prompt" | "browser")}>
-              {/* Env only */}
-              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "env" ? "border-green-500/40 bg-green-500/5" : "border-border"}`}>
+
+              {/* Browser only — safest */}
+              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "browser" ? "border-green-500/40 bg-green-500/5" : "border-border"}`}>
+                <RadioGroupItem value="browser" className="mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <Globe className="size-3.5 text-green-400" />
+                    <span className="text-xs font-medium">Browser only</span>
+                    <span className="rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-medium text-green-300">Most secure</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Injected directly into the browser (login forms, cookies, auth headers). Claude Code{" "}
+                    <strong className="text-green-300/80">never sees the value</strong> — not accessible in the terminal
+                    or prompt. Values are encrypted in macOS Keychain.
+                  </p>
+                  {credential.type === "token" && injectionMode === "browser" && (
+                    <div className="mt-1.5 flex items-start gap-1.5 rounded border border-amber-500/30 bg-amber-500/5 p-2">
+                      <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-400" />
+                      <p className="text-[11px] text-amber-200/80">
+                        Whilst this is the securest mode, tokens and API keys typically need to be accessible in the
+                        terminal. Browser only won&apos;t work for most token/API key use cases.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* Env only — medium risk */}
+              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "env" ? "border-amber-500/40 bg-amber-500/5" : "border-border"}`}>
                 <RadioGroupItem value="env" className="mt-0.5" />
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5">
-                    <Shield className="size-3.5 text-green-400" />
+                    <Shield className="size-3.5 text-amber-400" />
                     <span className="text-xs font-medium">Environment variable</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Set as env var. Claude Code can read via shell commands. Value is{" "}
+                    Set as an environment variable — also accessible in the browser. Claude Code can read the value
+                    via shell commands. Value is{" "}
                     <strong className="text-green-300/80">not sent to Anthropic</strong>.
+                    OpenHelm cannot fully control how Claude Code handles credentials at runtime.
                   </p>
                 </div>
               </label>
 
-              {/* Env + Prompt */}
-              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "prompt" ? "border-amber-500/40 bg-amber-500/5" : "border-border"}`}>
+              {/* Prompt — high risk */}
+              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "prompt" ? "border-red-500/40 bg-red-500/5" : "border-border"}`}>
                 <RadioGroupItem value="prompt" className="mt-0.5" />
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5">
-                    <ShieldAlert className="size-3.5 text-amber-400" />
-                    <span className="text-xs font-medium">Environment variable + prompt</span>
+                    <ShieldAlert className="size-3.5 text-red-400" />
+                    <span className="text-xs font-medium">Prompt</span>
+                    <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-medium text-red-300">High risk</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Set as env var AND included in the prompt text.{" "}
-                    <strong className="text-red-300/80">Value is sent to Anthropic&apos;s servers.</strong>
+                    Credential is injected directly into the prompt text — also set as an env variable and accessible
+                    in the browser.{" "}
+                    <strong className="text-red-300/80">Value is explicitly sent to Anthropic&apos;s servers</strong>{" "}
+                    as part of every conversation. Only use this if the task absolutely requires the credential in prompt context.
                   </p>
                 </div>
               </label>
 
-              {/* Browser only */}
-              <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${injectionMode === "browser" ? "border-blue-500/40 bg-blue-500/5" : "border-border"}`}>
-                <RadioGroupItem value="browser" className="mt-0.5" />
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Globe className="size-3.5 text-blue-400" />
-                    <span className="text-xs font-medium">Browser only</span>
-                    <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">Most secure</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Injected directly into the browser. Claude Code{" "}
-                    <strong className="text-blue-300/80">never sees the value</strong>.
-                    Only works for browser-based tasks.
-                  </p>
-                </div>
-              </label>
             </RadioGroup>
           </div>
 

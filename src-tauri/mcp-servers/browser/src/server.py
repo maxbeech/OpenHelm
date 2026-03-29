@@ -709,46 +709,65 @@ async def take_screenshot(
     if not tab:
         raise Exception(f"Instance not found: {instance_id}")
     
+    # Hard timeout for the CDP screenshot call — prevents indefinite hangs on
+    # complex pages (e.g. Notion with heavy dynamic rendering).
+    SCREENSHOT_TIMEOUT_S = 60
+    MAX_IMAGE_WIDTH = 1920  # downscale wider images to stay under the 20MB API limit
+
     if file_path:
         save_path = Path(file_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        await tab.save_screenshot(save_path)
+        try:
+            await asyncio.wait_for(tab.save_screenshot(save_path), timeout=SCREENSHOT_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            raise Exception(f"Screenshot timed out after {SCREENSHOT_TIMEOUT_S}s — page may be too complex or still loading")
         return f"Screenshot saved. AI agents should use the Read tool to view this image: {str(save_path.absolute())}"
-    
+
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
         tmp_path = Path(tmp_file.name)
-    
+
     try:
-        await tab.save_screenshot(tmp_path)
-        
+        try:
+            await asyncio.wait_for(tab.save_screenshot(tmp_path), timeout=SCREENSHOT_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            raise Exception(f"Screenshot timed out after {SCREENSHOT_TIMEOUT_S}s — page may be too complex or still loading")
+
         with Image.open(tmp_path) as img:
-            if img.mode in ('RGBA', 'LA', 'P') and format.lower() == 'jpeg':
+            # Downscale images wider than MAX_IMAGE_WIDTH to prevent 20MB API limit errors.
+            if img.width > MAX_IMAGE_WIDTH:
+                scale = MAX_IMAGE_WIDTH / img.width
+                new_size = (MAX_IMAGE_WIDTH, int(img.height * scale))
+                img = img.resize(new_size, Image.LANCZOS)
+
+            # Convert to RGB for JPEG (handles RGBA/LA/P modes)
+            save_format = format.lower()
+            if save_format == 'jpeg' or img.mode in ('RGBA', 'LA', 'P'):
                 background = Image.new('RGB', img.size, (255, 255, 255))
                 if img.mode == 'P':
                     img = img.convert('RGBA')
                 background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
                 img = background
-            
+
             output_buffer = io.BytesIO()
-            
-            if format.lower() == 'jpeg':
+
+            if save_format == 'jpeg':
                 img.save(output_buffer, format='JPEG', quality=85, optimize=True)
             else:
                 img.save(output_buffer, format='PNG', optimize=True)
-            
+
             compressed_bytes = output_buffer.getvalue()
-            
+
             base64_size = len(compressed_bytes) * 1.33
             estimated_tokens = int(base64_size / 4)
-            
+
             if estimated_tokens > 20000:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                screenshot_filename = f"screenshot_{timestamp}_{instance_id[:8]}.{format.lower()}"
+                screenshot_filename = f"screenshot_{timestamp}_{instance_id[:8]}.{save_format}"
                 screenshot_path = response_handler.clone_dir / screenshot_filename
-                
+
                 with open(screenshot_path, 'wb') as f:
                     f.write(compressed_bytes)
-                
+
                 file_size_kb = len(compressed_bytes) / 1024
                 return {
                     "file_path": str(screenshot_path),
@@ -758,9 +777,9 @@ async def take_screenshot(
                     "reason": "Screenshot too large, automatically saved to file",
                     "message": f"Screenshot saved. AI agents should use the Read tool to view this image: {str(screenshot_path)}"
                 }
-            
+
             return base64.b64encode(compressed_bytes).decode('utf-8')
-            
+
     finally:
         if tmp_path.exists():
             os.unlink(tmp_path)

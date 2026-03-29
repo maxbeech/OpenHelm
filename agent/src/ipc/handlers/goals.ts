@@ -4,6 +4,7 @@ import * as goalQueries from "../../db/queries/goals.js";
 import * as jobQueries from "../../db/queries/jobs.js";
 import { pickIcon } from "../../planner/icon-picker.js";
 import { extractMemoriesFromGoal } from "../../memory/goal-extractor.js";
+import { generateAndHandleSystemJobs } from "../../autopilot/index.js";
 import type {
   CreateGoalParams,
   UpdateGoalParams,
@@ -29,6 +30,11 @@ export function registerGoalHandlers() {
     // Fire-and-forget: extract memories from goal description
     extractMemoriesFromGoal(p.projectId, goal.id, p.name, p.description).catch((err) =>
       console.error("[goals] memory extraction error:", err),
+    );
+
+    // Fire-and-forget: generate autopilot system jobs for the new goal
+    generateAndHandleSystemJobs(goal.id, p.projectId).catch((err) =>
+      console.error("[goals] autopilot generation error:", err),
     );
 
     return goal;
