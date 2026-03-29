@@ -1,22 +1,22 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.0] - 2026-03-29
 
 ### Added
 - Data Tables: Notion-style structured data tables that both users and AI can create, read, update, and delete
+- New "Data" tab in sidebar with table list view and Notion-style grid detail view
+- 8 column types: text, number, date, checkbox, select, multi-select, URL, email
+- Inline cell editing with type-appropriate editors
+- Data Tables MCP server (`openhelm-data`): automatically available in all Claude Code runs, enabling AI to list/query/create/insert/update/delete tables
+- Semantic relevance: table schemas are embedded via all-MiniLM-L6-v2 and injected into job prompts when relevant
+- Audit trail: all mutations logged with actor (user/ai/system) and run ID
+- Type coercion on AI writes: fuzzy-matches select labels, parses string numbers, normalizes dates
+- Rate limiting: 100 mutations per MCP tool call to prevent runaway AI loops
+- 3 new database tables: `data_tables`, `data_table_rows`, `data_table_changes`
 
 ### Fixed
 - Chat concurrency guard: prevent sending a second message while the first is still being processed, avoiding concurrent Claude Code CLI processes that could interfere with each other
 - Chat stuck-sending fix: clear the sending/status state when switching projects and when error events arrive for a different project thread, preventing the chat input from being permanently locked
-  - New "Data" tab in sidebar with table list view and Notion-style grid detail view
-  - 8 column types: text, number, date, checkbox, select, multi-select, URL, email
-  - Inline cell editing with type-appropriate editors
-  - Data Tables MCP server (`openhelm-data`): automatically available in all Claude Code runs, enabling AI to list/query/create/insert/update/delete tables
-  - Semantic relevance: table schemas are embedded via all-MiniLM-L6-v2 and injected into job prompts when relevant
-  - Audit trail: all mutations logged with actor (user/ai/system) and run ID
-  - Type coercion on AI writes: fuzzy-matches select labels, parses string numbers, normalizes dates
-  - Rate limiting: 100 mutations per MCP tool call to prevent runaway AI loops
-  - 3 new database tables: `data_tables`, `data_table_rows`, `data_table_changes`
 
 ## [0.3.1] - 2026-03-28
 
