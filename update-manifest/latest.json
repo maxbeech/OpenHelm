@@ -1,0 +1,15 @@
+{
+  "version": "2.2.1",
+  "notes": "See https://github.com/maxbeech/OpenHelm/releases/tag/v2.2.1 for details.",
+  "pub_date": "2026-07-13T10:55:20Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU3VJWnEzbFNaTjZDdnZ4eHdteitBaFJBdlRIUXhlQVNDSGhJVXRzSFNyWG1YTXZtTVFtTmtJZjV6T1JubXhmM09GUHJrS0RoMDJTK1ZZRlNXVG1VbUFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzOTQwMTA2CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negp4akZhdjVOZUFEZk8wcFBzOXJQZnpsUFhIWmlJMUQwVXkyN1JYWUNiV0pNOEVGWDMvZzVSNVJObk1MQ3JlcjViU1JHWExFV2NFU2ZzTFYxdGY2VU1DZz09Cg==",
+      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.2.1/OpenHelm_aarch64.app.tar.gz"
+    },
+    "darwin-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU201NTFNWE9JR3JnOEtBMzhZdFhodFNxYmdhdlVaZDZDOTZ6a3lDSWtxeEJyZGZWeURNN3FENHVLSkZDNi9DM0VOK1liMlI5KzF3Q21NbEc1VUtEdkFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzODUwOTk3CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negprWCs3WHdadjMzN242NXA2SUl4UmZ5ejRNS3pBeGtUelNRNjNXb0ZQQlRIRnkrbGJhN3F0VzFsZitGdUloVVdMVytqZ1Q4ZWl2czBQRzZ0OEhMdGtBZz09Cg==",
+      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.2.1/OpenHelm_x64.app.tar.gz"
+    }
+  }
+}
