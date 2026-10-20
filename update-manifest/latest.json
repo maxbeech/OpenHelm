@@ -1,15 +1,15 @@
 {
-  "version": "2.5.1",
-  "notes": "See https://github.com/maxbeech/OpenHelm/releases/tag/v2.5.1 for details.",
-  "pub_date": "2026-10-05T22:23:22Z",
+  "version": "2.5.4",
+  "notes": "See https://github.com/maxbeech/OpenHelm/releases/tag/v2.5.4 for details.",
+  "pub_date": "2026-10-20T20:17:12Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU29HWFNneVA0ZVhDbm1ZWThmclZORW5tazhPblJrRGJtR3d2ZXR2ellmUHI4WEt6aXhzQlZhVkhOUEtML1NJdFl1c1d1UC9YK0ZQOC81Y0hGVXRhaFFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjM3ODY3CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpRYm1UeENodWc3UTFOUTZHZldZdTZLZklVUXN5RFVCbEdlSTBMYTIyS2hHNURKbTZTMUVNdUpQam5PeXUwcWtjY3RaZFBqWnBOeHBUa3hyRTludDhDUT09Cg==",
-      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.5.1/OpenHelm_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU2ptMldlRlRSSTBFMVRFQUV6aFVsakZudjVSZ1UyYTNtWDJWMDVJYURDSnVqOTFYdWtTR0pIUE5JdXdTUEtLWGhzR0hST1FRSVB5YUllNDcvSGw5V3dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTI2MjYyCWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpyUllnTUhrZ3RwK2Y2ditFaTNJa09Xd1liRm1sVUFSTkJ0SkgzMjJRMTZwSFlzUWcvZ25XNlhsWHN2Y0huY1JpanEydlZyVWs4VjRkYzMwOE9wOXlEUT09Cg==",
+      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.5.4/OpenHelm_aarch64.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU2xIc05vQlRjdjNwS05teG5nTHhrZkwvMEdWSERwWmZ5U1RMOFozSFFuM1EvU0hRZGhxb3pkZTdCSEtRVnh3MmFEN0dGLzkxNWJwS0ZFQmt1VFlnelFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjM4NjQxCWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpyMnhlMWYyOFM0Rm9DT0NXVHFwS2RuVTNFQWxrN3l6b1hSZkZSazI5MjQ0d3BMcW1XTnphMXdWN2twUlpHRGJCdS9UKzVmcXNpWTFETHZTZDBXUzBDUT09Cg==",
-      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.5.1/OpenHelm_x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU21RYlFZOVVyRnpSVDdOS0wvV1FWTnNINnBvN3R6TDdDMWFoNU9UdE1udzY4NDhUTVlEVjUwTDBSUnIxOFk3SGtYN2pySnVFaGRFOXVQNEdIYk1PekFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTI3Mjg3CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5nego0YVBQby9sR1ZkMmVOTTF4Smh3azlCS0ZaZ3BEb2ZpOEFIOFJjU2hMYjMxaG96aFRlOWozbFVMNDRJS3lJbWpqdCtLN053RUVRb0hkZUFQRy9SbmhEZz09Cg==",
+      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.5.4/OpenHelm_x64.app.tar.gz"
     }
   }
 }
