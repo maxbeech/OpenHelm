@@ -1,15 +1,6 @@
 {
   "version": "2.5.10",
-  "notes": "See https://github.com/maxbeech/OpenHelm/releases/tag/v2.5.10 for details.",
+  "notes": "Automatic updates are temporarily unavailable while we repair macOS packaging.",
   "pub_date": "2026-11-07T04:54:15Z",
-  "platforms": {
-    "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU3JSK1BaQ01xVzVnVUFTVkVYaXZVVlhLL2ZENk51amMvelVtTkJYNTI4QytqZ1I0THJxWVoxZDZkNXE4ejJINmxtbVV2ZWZBcHpjSjVhWElOdXhKSlE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDI2NDYwCWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negpzRG9XVnJBdzh0UXphb0hjaTQ1TlE3RE1ZVi9ESFRmaVVlVnJyc2xGMXIxT3VFbm9oUW5GbGoyaTAzeFJGMUlCT3JrRHVIamt4Z3QySXJJUksySkhDZz09Cg==",
-      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.5.10/OpenHelm_aarch64.app.tar.gz"
-    },
-    "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmRDWStmcTRoU2lzVGRZMUhmc1VVOVpENVg2MHVJSzFObTltazVJbmF1QmJpTTg5dk5sVHNwODR3dGd0c1lhY2c5amY4eVRjTEl5WFZhbFRNSXZrLzVpNytWRXJZS0FRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDI1NDY1CWZpbGU6T3BlbkhlbG0uYXBwLnRhci5negozYWIxOFYwVDU0UGlucHh1cU9kcC9ycmNOejkzcEV1RWwweTl4dnhPWUI4YXZOTHNrblZFa1ZscVBoWUdIOGhYKzBWTjNYcVdQSHR1amJEM0s3QXlBUT09Cg==",
-      "url": "https://github.com/maxbeech/OpenHelm/releases/download/v2.5.10/OpenHelm_x64.app.tar.gz"
-    }
-  }
+  "platforms": {}
 }
